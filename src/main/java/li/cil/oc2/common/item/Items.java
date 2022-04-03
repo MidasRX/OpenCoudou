@@ -39,8 +39,9 @@ public final class Items {
     //public static final RegistryObject<Item> NETWORK_SWITCH = register(Blocks.NETWORK_SWITCH);
     public static final RegistryObject<Item> PROJECTOR = register(Blocks.PROJECTOR);
     public static final RegistryObject<Item> REDSTONE_INTERFACE = register(Blocks.REDSTONE_INTERFACE);
-    //public static final RegistryObject<Item> VXLAN_HUB = register(Blocks.VXLAN_HUB);
-    //public static final RegistryObject<Item> PCI_CARD_CAGE = register(Blocks.PCI_CARD_CAGE);
+    public static final RegistryObject<Item> VXLAN_HUB = register(Blocks.VXLAN_HUB);
+    public static final RegistryObject<Item> PCI_CARD_CAGE = register(Blocks.PCI_CARD_CAGE);
+    public static final RegistryObject<Item> INTERNET_GATEWAY = register(Blocks.INTERNET_GATEWAY);
 
     ///////////////////////////////////////////////////////////////////
 
