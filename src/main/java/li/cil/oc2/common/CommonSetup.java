@@ -3,6 +3,7 @@
 package li.cil.oc2.common;
 
 import li.cil.oc2.common.bus.device.rpc.RPCMethodParameterTypeAdapters;
+import li.cil.oc2.common.inet.InternetManagerImpl;
 import li.cil.oc2.common.integration.IMC;
 import li.cil.oc2.common.integration.Integrations;
 import li.cil.oc2.common.network.Network;
@@ -17,6 +18,7 @@ public final class CommonSetup {
         IMC.initialize();
         Network.initialize();
         Integrations.initialize();
+        InternetManagerImpl.initialize();
         RPCMethodParameterTypeAdapters.initialize();
         ServerScheduler.initialize();
         TunnelManager.initialize();
