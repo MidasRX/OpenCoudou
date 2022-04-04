@@ -27,6 +27,8 @@ public final class Config {
     @Path("energy.blocks") public static int monitorEnergyStorage = 2000;
     @Path("energy.blocks") public static int cardCageEnergyPerTick = 20;
     @Path("energy.blocks") public static int cardCageEnergyStorage = 2000;
+    @Path("energy.blocks") public static int gatewayEnergyPerPacket = 20;
+    @Path("energy.blocks") public static int gatewayEnergyStorage = 2000;
 
     @Path("energy.entities") public static int robotEnergyPerTick = 5;
     @Path("energy.entities") public static int robotEnergyStorage = 750000;
@@ -86,5 +88,7 @@ public final class Config {
 
     public static boolean monitorsUseEnergy() {
         return computerEnergyPerTick > 0 && computerEnergyStorage > 0;
+    public static boolean gatewayUseEnergy() {
+        return gatewayEnergyPerPacket > 0 && gatewayEnergyStorage > 0;
     }
 }
