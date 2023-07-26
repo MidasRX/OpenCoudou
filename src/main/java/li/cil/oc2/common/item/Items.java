@@ -4,6 +4,7 @@ package li.cil.oc2.common.item;
 
 import li.cil.oc2.api.API;
 import li.cil.oc2.common.Constants;
+import li.cil.oc2.common.Config;
 import li.cil.oc2.common.block.Blocks;
 import li.cil.oc2.common.bus.device.data.BlockDeviceDataRegistry;
 import li.cil.oc2.common.bus.device.data.FirmwareRegistry;
@@ -59,13 +60,13 @@ public final class Items {
         new MemoryItem(16 * Constants.MEGABYTE));
 
     public static final RegistryObject<HardDriveItem> HARD_DRIVE_SMALL = register("hard_drive_small", () ->
-        new HardDriveItem(2 * Constants.MEGABYTE, DyeColor.LIGHT_GRAY));
+        new HardDriveItem(Config.diskSizeFactor, DyeColor.LIGHT_GRAY));
     public static final RegistryObject<HardDriveItem> HARD_DRIVE_MEDIUM = register("hard_drive_medium", () ->
-        new HardDriveItem(4 * Constants.MEGABYTE, DyeColor.GREEN));
+        new HardDriveItem(2 * Config.diskSizeFactor, DyeColor.GREEN));
     public static final RegistryObject<HardDriveItem> HARD_DRIVE_LARGE = register("hard_drive_large", () ->
-        new HardDriveItem(4 * Constants.MEGABYTE, DyeColor.CYAN));
+        new HardDriveItem(4 * Config.diskSizeFactor, DyeColor.CYAN));
     public static final RegistryObject<HardDriveItem> HARD_DRIVE_EXTRA_LARGE = register("hard_drive_extra_large", () ->
-        new HardDriveItem(16 * Constants.MEGABYTE, DyeColor.YELLOW));
+        new HardDriveItem(16 * Config.diskSizeFactor, DyeColor.YELLOW));
     public static final RegistryObject<HardDriveWithExternalDataItem> HARD_DRIVE_CUSTOM = register
         ("hard_drive_custom", () ->
          new HardDriveWithExternalDataItem(FileSystems.getKeyByValue(FileSystems.getBlockByName("rootfs")), DyeColor.BROWN));
@@ -78,7 +79,6 @@ public final class Items {
         new CPUItem(100_000_000));
     public static final RegistryObject<CPUItem> CPU_TIER_4 = register("cpu_tier_4", () ->
         new CPUItem(200_000_000));
-
     public static final RegistryObject<FlashMemoryItem> FLASH_MEMORY = register("flash_memory", () ->
         new FlashMemoryItem(12 * Constants.MEGABYTE));
     public static final RegistryObject<FlashMemoryWithExternalDataItem> FLASH_MEMORY_CUSTOM = register("flash_memory_custom", () ->

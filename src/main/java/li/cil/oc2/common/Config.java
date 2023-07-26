@@ -13,6 +13,7 @@ import java.util.UUID;
 public final class Config {
     //TODO: Implement configuration of CPU MHzs
     @Path("vm") public static long maxAllocatedMemory = 512 * Constants.MEGABYTE;
+    @Path("vm") public static int diskSizeFactor = 2 * Constants.MEGABYTE;
 
     @Path("energy.blocks") public static double busCableEnergyPerTick = 0.1;
     @Path("energy.blocks") public static double busInterfaceEnergyPerTick = 0.5;
