@@ -88,6 +88,7 @@ public final class Config {
 
     public static boolean monitorsUseEnergy() {
         return computerEnergyPerTick > 0 && computerEnergyStorage > 0;
+    }
     public static boolean gatewayUseEnergy() {
         return gatewayEnergyPerPacket > 0 && gatewayEnergyStorage > 0;
     }

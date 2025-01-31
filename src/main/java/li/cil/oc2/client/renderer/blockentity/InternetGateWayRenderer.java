@@ -2,8 +2,8 @@ package li.cil.oc2.client.renderer.blockentity;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Matrix4f;
-import com.mojang.math.Vector3f;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import li.cil.oc2.client.renderer.ModRenderType;
 import li.cil.oc2.common.blockentity.InternetGateWayBlockEntity;

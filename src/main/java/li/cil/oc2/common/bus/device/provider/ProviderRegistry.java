@@ -37,8 +37,6 @@ public final class ProviderRegistry {
         ITEM_DEVICE_PROVIDERS.register("flash_memory", FlashMemoryItemDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("flash_memory_custom", FlashMemoryWithExternalDataItemDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("redstone_interface_card", RedstoneInterfaceCardItemDeviceProvider::new);
-        ITEM_DEVICE_PROVIDERS.register("network_interface_card", NetworkInterfaceCardItemDeviceProvider::new);
-        ITEM_DEVICE_PROVIDERS.register("network_tunnel_card", NetworkTunnelCardItemDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("file_import_export_card", FileImportExportCardItemDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("sound_card", SoundCardItemDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("cpu", CPUItemDeviceProvider::new);
@@ -46,6 +44,10 @@ public final class ProviderRegistry {
         ITEM_DEVICE_PROVIDERS.register("inventory_operations_module", InventoryOperationsModuleDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("block_operations_module", BlockOperationsModuleDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("network_tunnel_module", NetworkTunnelModuleItemDeviceProvider::new);
+
+        ITEM_DEVICE_PROVIDERS.register("network_interface_card", NetworkInterfaceCardItemDeviceProvider::new);
+        ITEM_DEVICE_PROVIDERS.register("network_tunnel_card", NetworkTunnelCardItemDeviceProvider::new);
+        ITEM_DEVICE_PROVIDERS.register("internet_card", InternetCardItemDeviceProvider::new);
 
         ITEM_DEVICE_PROVIDERS.register("item_stack/capability", ItemStackCapabilityDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("energy_storage", EnergyStorageItemDeviceProvider::new);
