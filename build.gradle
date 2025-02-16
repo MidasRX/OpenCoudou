@@ -92,7 +92,8 @@ dependencies {
         compileOnly "li.cil.sedna:sedna:2.0.8"
         compileOnly "li.cil.sedna:sedna-buildroot:0.0.8"
     }
-    implementation "curse.maven:sedna-511276:3885542"
+    implementation fileTree(dir: 'libs', include: '*.jar')
+//    implementation "curse.maven:sedna-511276:3885542"
     minecraftLibrary "org.apache.commons:commons-collections4:4.4"
 
     implementation fg.deobf("curse.maven:markdownmanual-502485:4873115")
@@ -194,7 +195,7 @@ minecraft {
 }
 
 mixin {
-    add sourceSets.main, "mixins.oc2.refmap.json"
+    add sourceSets.main, "mixins.oc2r.refmap.json"
     config "mixins.oc2r.json"
 
 //    quiet
