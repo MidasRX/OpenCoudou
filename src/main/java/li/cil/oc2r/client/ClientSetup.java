@@ -62,7 +62,7 @@ public final class ClientSetup {
 
     @SubscribeEvent
     public static void handleModelRegistryEvent(final RegisterGeometryLoaders event) {
-        event.register(Blocks.BUS_CABLE.getId().toString().replace("oc2:", ""), new BusCableModelLoader());
+        event.register(Blocks.BUS_CABLE.getId().toString().replace("oc2r:", ""), new BusCableModelLoader());
     }
 
     @SubscribeEvent
