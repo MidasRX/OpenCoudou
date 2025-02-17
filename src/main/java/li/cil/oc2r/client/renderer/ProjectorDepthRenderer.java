@@ -167,6 +167,7 @@ public final class ProjectorDepthRenderer {
      */
     @SubscribeEvent
     public static void renderProjectors(final RenderLevelStageEvent event) {
+        event.getPoseStack().pushPose();
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
             return;
         }
@@ -194,11 +195,12 @@ public final class ProjectorDepthRenderer {
             final int projectorCount = Math.min(VISIBLE_PROJECTORS.size(), ModShaders.MAX_PROJECTORS);
             renderProjectorDepths(minecraft, level, event.getPartialTick(), projectorCount);
             renderProjectorColors(minecraft, event.getPoseStack().last().pose(), event.getProjectionMatrix(), projectorCount);
+            event.getPoseStack().popPose();
         } finally {
             VISIBLE_PROJECTORS.clear();
             Arrays.fill(PROJECTOR_COLOR_TARGETS, null);
-
         }
+        event.getPoseStack().popPose();
     }
 
     /**
@@ -240,9 +242,8 @@ public final class ProjectorDepthRenderer {
                                               final float partialTicks, final int projectorCount) {
         final Vec3 mainCameraPosition = minecraft.gameRenderer.getMainCamera().getPosition();
         prepareDepthBufferRendering(minecraft, level, partialTicks);
-        final PoseStack viewModelStack = new PoseStack();
-        viewModelStack.pushPose();
         try {
+            final PoseStack viewModelStack = new PoseStack();
             for (int projectorIndex = 0; projectorIndex < projectorCount; projectorIndex++) {
                 final ProjectorBlockEntity projector = VISIBLE_PROJECTORS.get(projectorIndex);
                 final Direction facing = projector.getBlockState().getValue(ProjectorBlock.FACING);
@@ -268,7 +269,6 @@ public final class ProjectorDepthRenderer {
         } finally {
             finishDepthBufferRendering(minecraft);
         }
-        viewModelStack.popPose();
     }
 
     private static void prepareDepthBufferRendering(final Minecraft minecraft, final ClientLevel level, final float partialTicks) {
@@ -321,12 +321,14 @@ public final class ProjectorDepthRenderer {
         // Save model-view-projection matrix for mapping in compositing shader. We use the position relative to the
         // main camera here, so that the main camera can sit at the origin. This avoids loss of precision.
         PROJECTOR_CAMERA_MATRICES[projectorIndex] = new Matrix4f(DEPTH_CAMERA_PROJECTION_MATRIX);
+        viewModelStack.pushPose();
         viewModelStack.translate(
             mainCameraPosition.x() - projectorPos.x(),
             mainCameraPosition.y() - projectorPos.y(),
             mainCameraPosition.z() - projectorPos.z()
         );
         PROJECTOR_CAMERA_MATRICES[projectorIndex].mul(viewModelStack.last().pose());
+        viewModelStack.popPose();
     }
 
     private static void bindProjectorDepthRenderTarget(final int projectorIndex, final Minecraft minecraft) {
@@ -380,11 +382,9 @@ public final class ProjectorDepthRenderer {
             );
 
             renderIntoScreenRect();
-        } catch (Exception e) {
-            e.printStackTrace();
+        } finally {
+            finishColorBufferRendering();
         }
-
-        finishColorBufferRendering();
     }
 
     private static void prepareColorBufferRendering() {
