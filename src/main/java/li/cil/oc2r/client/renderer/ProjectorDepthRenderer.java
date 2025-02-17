@@ -321,14 +321,12 @@ public final class ProjectorDepthRenderer {
         // Save model-view-projection matrix for mapping in compositing shader. We use the position relative to the
         // main camera here, so that the main camera can sit at the origin. This avoids loss of precision.
         PROJECTOR_CAMERA_MATRICES[projectorIndex] = new Matrix4f(DEPTH_CAMERA_PROJECTION_MATRIX);
-        viewModelStack.pushPose();
         viewModelStack.translate(
             mainCameraPosition.x() - projectorPos.x(),
             mainCameraPosition.y() - projectorPos.y(),
             mainCameraPosition.z() - projectorPos.z()
         );
         PROJECTOR_CAMERA_MATRICES[projectorIndex].mul(viewModelStack.last().pose());
-        viewModelStack.popPose();
     }
 
     private static void bindProjectorDepthRenderTarget(final int projectorIndex, final Minecraft minecraft) {
@@ -413,18 +411,14 @@ public final class ProjectorDepthRenderer {
     }
 
     private static void prepareOrthographicRendering(final Minecraft minecraft) {
-        final PoseStack modelViewStack = RenderSystem.getModelViewStack();
-
-        modelViewStack.pushPose();
         final Matrix4f screenProjectionMatrix = (new Matrix4f()).setOrtho(0f, minecraft.getWindow().getWidth(), minecraft.getWindow().getHeight(), 0, 1000, 3000);
 
         RenderSystem.setProjectionMatrix(screenProjectionMatrix, VertexSorting.ORTHOGRAPHIC_Z);
 
-
+        final PoseStack modelViewStack = RenderSystem.getModelViewStack();
         modelViewStack.setIdentity();
         modelViewStack.translate(0, 0, -2000);
         RenderSystem.applyModelViewMatrix();
-        modelViewStack.popPose();
     }
 
     private static Matrix4f constructInverseMainCameraMatrix(final Matrix4f modelViewMatrix, final Matrix4f projectionMatrix) {
