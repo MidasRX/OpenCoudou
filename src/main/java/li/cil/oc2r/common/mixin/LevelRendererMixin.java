@@ -82,6 +82,7 @@ public abstract class LevelRendererMixin {
         final Matrix4f projectionMatrix,
         final CallbackInfo ci
     ) {
+        stack.pushPose();
         if (ProjectorDepthRenderer.isIsRenderingProjectorDepth()) {
             // If we're rendering depth, we can skip most of the rest here: we don't need destruction progress,
             // transparency, hit result, debug stuff, clouds.
@@ -112,6 +113,7 @@ public abstract class LevelRendererMixin {
             // fabulous shading breaks it.
             ProjectorDepthRenderer.captureMainCameraDepth();
         }
+        stack.popPose();
     }
 
     /**
