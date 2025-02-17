@@ -178,7 +178,6 @@ public final class ProjectorDepthRenderer {
             return;
         }
         try {
-            event.getPoseStack().pushPose();
             final Minecraft minecraft = Minecraft.getInstance();
             final ClientLevel level = minecraft.level;
             final LocalPlayer player = minecraft.player;
@@ -195,12 +194,10 @@ public final class ProjectorDepthRenderer {
             final int projectorCount = Math.min(VISIBLE_PROJECTORS.size(), ModShaders.MAX_PROJECTORS);
             renderProjectorDepths(minecraft, level, event.getPartialTick(), projectorCount);
             renderProjectorColors(minecraft, event.getPoseStack().last().pose(), event.getProjectionMatrix(), projectorCount);
-            event.getPoseStack().popPose();
+
         } finally {
-            event.getPoseStack().pushPose();
             VISIBLE_PROJECTORS.clear();
             Arrays.fill(PROJECTOR_COLOR_TARGETS, null);
-            event.getPoseStack().popPose();
         }
     }
 
