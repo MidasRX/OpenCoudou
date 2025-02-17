@@ -63,6 +63,8 @@ public abstract class LevelRendererMixin {
         if (ProjectorDepthRenderer.isIsRenderingProjectorDepth()) {
             cleanupDepthRendering();
         }
+
+        this.cullingFrustum = new Frustum();
     }
 
     private void cleanupDepthRendering() {

@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Frustum.class)
-public abstract class FrustumMixin {
+public class FrustumMixin {
     /**
      * Skip offsetting the frustum to fully contain camera cube, since we have a very
      * tight frustum when rendering projector depth; so tight that the cube may never
