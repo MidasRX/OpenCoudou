@@ -167,6 +167,7 @@ public final class ProjectorDepthRenderer {
      */
     @SubscribeEvent
     public static void renderProjectors(final RenderLevelStageEvent event) {
+        event.getPoseStack().pushPose();
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
             return;
         }
@@ -178,7 +179,6 @@ public final class ProjectorDepthRenderer {
             return;
         }
         try {
-            event.getPoseStack().pushPose();
             final Minecraft minecraft = Minecraft.getInstance();
             final ClientLevel level = minecraft.level;
             final LocalPlayer player = minecraft.player;
@@ -195,13 +195,12 @@ public final class ProjectorDepthRenderer {
             final int projectorCount = Math.min(VISIBLE_PROJECTORS.size(), ModShaders.MAX_PROJECTORS);
             renderProjectorDepths(minecraft, level, event.getPartialTick(), projectorCount);
             renderProjectorColors(minecraft, event.getPoseStack().last().pose(), event.getProjectionMatrix(), projectorCount);
-            event.getPoseStack().popPose();
         } finally {
-            event.getPoseStack().pushPose();
             VISIBLE_PROJECTORS.clear();
             Arrays.fill(PROJECTOR_COLOR_TARGETS, null);
-            event.getPoseStack().popPose();
+
         }
+        event.getPoseStack().popPose();
     }
 
     /**
@@ -243,8 +242,9 @@ public final class ProjectorDepthRenderer {
                                               final float partialTicks, final int projectorCount) {
         final Vec3 mainCameraPosition = minecraft.gameRenderer.getMainCamera().getPosition();
         prepareDepthBufferRendering(minecraft, level, partialTicks);
+        final PoseStack viewModelStack = new PoseStack();
+        viewModelStack.pushPose();
         try {
-            final PoseStack viewModelStack = new PoseStack();
             for (int projectorIndex = 0; projectorIndex < projectorCount; projectorIndex++) {
                 final ProjectorBlockEntity projector = VISIBLE_PROJECTORS.get(projectorIndex);
                 final Direction facing = projector.getBlockState().getValue(ProjectorBlock.FACING);
@@ -270,6 +270,7 @@ public final class ProjectorDepthRenderer {
         } finally {
             finishDepthBufferRendering(minecraft);
         }
+        viewModelStack.popPose();
     }
 
     private static void prepareDepthBufferRendering(final Minecraft minecraft, final ClientLevel level, final float partialTicks) {
@@ -383,9 +384,11 @@ public final class ProjectorDepthRenderer {
             );
 
             renderIntoScreenRect();
-        } finally {
-            finishColorBufferRendering();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
+        finishColorBufferRendering();
     }
 
     private static void prepareColorBufferRendering() {
@@ -412,14 +415,18 @@ public final class ProjectorDepthRenderer {
     }
 
     private static void prepareOrthographicRendering(final Minecraft minecraft) {
+        final PoseStack modelViewStack = RenderSystem.getModelViewStack();
+
+        modelViewStack.pushPose();
         final Matrix4f screenProjectionMatrix = (new Matrix4f()).setOrtho(0f, minecraft.getWindow().getWidth(), minecraft.getWindow().getHeight(), 0, 1000, 3000);
 
         RenderSystem.setProjectionMatrix(screenProjectionMatrix, VertexSorting.ORTHOGRAPHIC_Z);
 
-        final PoseStack modelViewStack = RenderSystem.getModelViewStack();
+
         modelViewStack.setIdentity();
         modelViewStack.translate(0, 0, -2000);
         RenderSystem.applyModelViewMatrix();
+        modelViewStack.popPose();
     }
 
     private static Matrix4f constructInverseMainCameraMatrix(final Matrix4f modelViewMatrix, final Matrix4f projectionMatrix) {
