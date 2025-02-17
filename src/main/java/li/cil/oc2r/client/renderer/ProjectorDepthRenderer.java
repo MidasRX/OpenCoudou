@@ -167,7 +167,6 @@ public final class ProjectorDepthRenderer {
      */
     @SubscribeEvent
     public static void renderProjectors(final RenderLevelStageEvent event) {
-        event.getPoseStack().pushPose();
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
             return;
         }
@@ -203,7 +202,6 @@ public final class ProjectorDepthRenderer {
             Arrays.fill(PROJECTOR_COLOR_TARGETS, null);
             event.getPoseStack().popPose();
         }
-        event.getPoseStack().popPose();
     }
 
     /**
