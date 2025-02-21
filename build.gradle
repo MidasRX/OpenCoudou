@@ -8,6 +8,8 @@ plugins {
 
 apply plugin: 'org.spongepowered.mixin'
 apply from: "minecraft.gradle"
+apply plugin: "java"
+jarJar.enable()
 
 allprojects {
     gradle.projectsEvaluated {
@@ -71,6 +73,10 @@ repositories {
             }
         }
     }
+    flatDir {
+        dirs("libs")
+    }
+
 }
 
 dependencies {
@@ -86,7 +92,8 @@ dependencies {
         compileOnly "li.cil.sedna:sedna:2.0.8"
         compileOnly "li.cil.sedna:sedna-buildroot:0.0.8"
     }
-    implementation "curse.maven:sedna-511276:3885542"
+    implementation fileTree(dir: 'libs', include: '*.jar')
+//    implementation "curse.maven:sedna-511276:3885542"
     minecraftLibrary "org.apache.commons:commons-collections4:4.4"
 
     implementation fg.deobf("curse.maven:markdownmanual-502485:4873115")
@@ -121,13 +128,16 @@ dependencies {
     testImplementation "org.mockito:mockito-inline:4.3.1"
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.2"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.2"
+    jarJar(group: 'libs', name: 'sedna', version: '[]') {
+        jarJar.pin(it, "")
+    }
 }
 
 System.setProperty("line.separator", "\n")
 
 task packageScripts(type: Zip) {
     archiveFileName = "scripts.zip"
-    destinationDirectory = file("$buildDir/resources/main/data/oc2r/file_systems")
+    destinationDirectory = file("$buildDir/resources/main/data/oc2/file_systems")
     from "src/main/scripts"
     filter { line -> line }
 }
@@ -141,6 +151,9 @@ task copyLicensesToResources(type: Copy) {
 processResources.dependsOn(packageScripts)
 processResources.dependsOn(copyLicensesToResources)
 
+tasks.named('jarJar'){
+}
+
 minecraft {
     mappings channel: "official", version: minecraft_version
 
@@ -152,7 +165,7 @@ minecraft {
             property "forge.logging.console.level", "debug"
 
             mods {
-                oc2r {
+                oc2 {
                     source sourceSets.main
                 }
             }
@@ -232,6 +245,7 @@ publishing {
             version = semver
             artifact jar
             artifact apiJar
+            jarJar.component(it)
         }
     }
     repositories {
@@ -273,4 +287,8 @@ idea {
 
 test {
     useJUnitPlatform()
+}
+
+compileJava {
+    options.encoding = "UTF-8"
 }

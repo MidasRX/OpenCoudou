@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[47,)"
-issueTrackerURL = "https://github.com/fnuecke/oc2r/issues"
+issueTrackerURL = "https://github.com/perkinslr/oc2r/issues"
 license = "MIT"
 
 [[mods]]

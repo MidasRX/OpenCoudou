@@ -26,6 +26,8 @@
   "block.oc2r.projector.desc": "Projects images onto surfaces in front of it.",
   "block.oc2r.keyboard": "Keyboard",
   "block.oc2r.keyboard.desc": "Allows keyboard input when using a projector.",
+  "block.oc2r.internet_gateway": "Internet Gateway",
+  "block.oc2r.internet_gateway.desc": "Gives access to the Internet.",
 
   "item.oc2r.wrench": "Scrench",
   "item.oc2r.wrench.desc": "Configures devices and dismantles them (while sneaking).",
@@ -72,6 +74,8 @@
   "item.oc2r.sound_card.desc": "Plays various sounds from its highly realistic sound bank.",
   "item.oc2r.network_tunnel_module": "Network Tunnel Module",
   "item.oc2r.network_tunnel_module.desc": "Sends and receives network packets to a linked device.",
+  "item.oc2r.internet_card": "Internet Card",
+  "item.oc2r.internet_card.desc": "Gives access to the Internet",
 
   "item.oc2r.transistor": "Transistor",
   "item.oc2r.transistor.desc": "Crafting material.",
@@ -149,6 +153,8 @@
   "tooltip.oc2r.confirm": "Confirm",
   "tooltip.oc2r.cancel": "Cancel",
   "tooltip.oc2r.network_tunnel_id": "Tunnel: %s",
+  "tooltip.oc2r.internet.disabled": "Note that Internet access is currently disabled. It can be enabled in the mod config, but expect this to be potentially unsafe. Make sure that you trust everyone you're playing with and/or limit addresses which can be connected to in the config.",
+  "tooltip.oc2r.internet.energy_per_packet": "Energy per packet sent: %s",
 
   "subtitles.oc2r.computer": "Computer fans running",
   "subtitles.oc2r.floppy": "Floppy access",

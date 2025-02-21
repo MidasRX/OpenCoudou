@@ -2,7 +2,7 @@
   "minVersion": "0.8.5",
   "compatibilityLevel": "JAVA_17",
   "required": true,
-  "package": "li.cil.oc2r.common.mixin",
+  "package": "li.cil.oc2.common.mixin",
   "refmap": "mixins.oc2r.refmap.json",
   "mixins": [
     "ServerChunkCacheMixin"
