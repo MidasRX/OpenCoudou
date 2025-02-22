@@ -230,7 +230,7 @@ task apiJar(type: Jar) {
     archiveClassifier.set("api")
     from sourceSets.main.allSource
     from sourceSets.main.output
-    include "li/cil/oc2r/api/**"
+    include "li/cil/oc2/api/**"
 }
 
 artifacts {
