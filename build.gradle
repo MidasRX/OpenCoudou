@@ -33,7 +33,7 @@ def getGitRef() {
 }
 
 version = "${semver}+${getGitRef()}"
-group = "li.cil.oc2r"
+group = "li.cil.oc2"
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
