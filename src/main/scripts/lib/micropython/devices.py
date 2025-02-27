@@ -89,6 +89,13 @@ class DeviceBus:
                 return Device(self, device["deviceId"])
         return None
 
+    def find_all(self, type_name):
+        found_devices = []
+        for device in self.list():
+            if "typeNames" in device and type_name in device["typeNames"]:
+                found_devices.append(Device(self, device["deviceId"]))
+        return found_devices
+
     def methods(self, device_id):
         self.flush()
         self._write_message({"type": "methods", "data": device_id})
