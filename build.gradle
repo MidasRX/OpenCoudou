@@ -137,7 +137,7 @@ System.setProperty("line.separator", "\n")
 
 task packageScripts(type: Zip) {
     archiveFileName = "scripts.zip"
-    destinationDirectory = file("$buildDir/resources/main/data/oc2/file_systems")
+    destinationDirectory = file("$buildDir/resources/main/data/oc2r/file_systems")
     from "src/main/scripts"
     filter { line -> line }
 }
