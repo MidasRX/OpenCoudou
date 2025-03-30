@@ -49,7 +49,6 @@ public final class ItemGroup {
             output.accept(Items.HARD_DRIVE_MEDIUM.get());
             output.accept(Items.HARD_DRIVE_LARGE.get());
             output.accept(Items.HARD_DRIVE_EXTRA_LARGE.get());
-            output.accept(Items.HARD_DRIVE_CUSTOM.get());
             output.accept(Items.CPU_TIER_1.get());
             output.accept(Items.CPU_TIER_2.get());
             output.accept(Items.CPU_TIER_3.get());
