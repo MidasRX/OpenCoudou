@@ -21,7 +21,6 @@ jobs:
         run: |
           git clone https://github.com/North-Western-Development/oc2r.git
           cd oc2r
-          mkdir libs
           wget https://github.com/North-Western-Development/sedna-mc/releases/download/1.18.2-forge%2F1.0.42/sedna-1.18.2-forge-1.0.42+3a41d88.jar -O libs/sedna.jar
           ./gradlew build
       
