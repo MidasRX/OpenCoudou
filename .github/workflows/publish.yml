@@ -7,6 +7,9 @@ on:
 
 jobs:
   build:
+    permissions:
+      contents: write
+      packages: write
     strategy:
       matrix:
         java: [ 17 ]
@@ -18,8 +21,7 @@ jobs:
         run: |
           git clone https://github.com/North-Western-Development/oc2r.git
           cd oc2r
-          mkdir libs
-          wget https://github.com/perkinslr/oc2r/releases/latest/download/sedna.jar -O libs/sedna.jar
+          wget https://github.com/North-Western-Development/sedna-mc/releases/download/1.18.2-forge%2F1.0.43/sedna-1.18.2-forge-1.0.43+0632079.jar -O libs/sedna.jar
           ./gradlew build
       
         
@@ -35,6 +37,6 @@ jobs:
           allowUpdates: false
           draft: false
           prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
           artifacts: "oc2r/build/libs/*.jar,sedna.jar"
           tag: ${{ env.semver }}
