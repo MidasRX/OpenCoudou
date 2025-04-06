@@ -236,7 +236,7 @@ public final class ComputerBlock extends HorizontalDirectionalBlock implements E
         ));
 
         itemsTag.put(DeviceTypes.HARD_DRIVE.getName().toString(), makeInventoryTag(
-            new ItemStack(Items.HARD_DRIVE_CUSTOM.get())
+            new ItemStack(Items.HARD_DRIVE_LARGE.get())
         ));
 
         itemsTag.put(DeviceTypes.CARD.getName().toString(), makeInventoryTag(
