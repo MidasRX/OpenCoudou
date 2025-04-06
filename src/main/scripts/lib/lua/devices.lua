@@ -228,6 +228,31 @@ function DeviceBus:find(deviceTypeName)
   return nil, "no device of type [" .. deviceTypeName .. "]"
 end
 
+function DeviceBus:findAll(deviceTypeName)
+  local devices, status = self:list()
+
+  local found = {}
+
+  if not devices then
+    return nil, status
+  end
+
+  for _, device in ipairs(devices) do
+    if device.typeNames then
+      for _, typeName in ipairs(device.typeNames) do
+        if typeName == deviceTypeName then
+          found[#found+1] = Device:new(self, device)
+        end
+      end
+    end
+  end
+
+  if #found == 0 then return nil, "no device of type [" .. deviceTypeName .. "]" end
+
+  return found
+end
+
+
 function DeviceBus:methods(deviceId)
   self:flush()
   writeMessage(self, { type = "methods", data = deviceId })
