@@ -32,10 +32,10 @@ jobs:
         id: create_version_release
         uses: ncipollo/release-action@v1
         with:
-          name: ${{ env.semver }}
+          name: ${{ github.event.release.tag_name }}
           allowUpdates: false
           draft: false
           prerelease: false
           token: ${{ github.token }}
           artifacts: "oc2r/build/libs/*.jar"
-          tag: ${{ env.semver }}
+          tag: ${{ github.event.release.tag_name }}
