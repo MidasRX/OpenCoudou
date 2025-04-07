@@ -24,10 +24,6 @@ jobs:
           wget https://github.com/North-Western-Development/sedna-mc/releases/download/1.18.2-forge%2F1.0.44/sedna-1.18.2-forge-1.0.44+a24621e.jar -O libs/sedna.jar
           ./gradlew -Psemver='${{ github.event.release.tag_name }}' build
 
-      - name: Update Manifest
-        run: |
-          cat oc2r/gradle.properties | grep semver >> $GITHUB_ENV
-
       - name: Create Version Release
         id: create_version_release
         uses: ncipollo/release-action@v1
