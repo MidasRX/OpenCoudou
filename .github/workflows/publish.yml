@@ -37,5 +37,5 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ github.token }}
-          artifacts: "oc2r/build/libs/*.jar,sedna.jar"
+          artifacts: "oc2r/build/libs/*.jar"
           tag: ${{ env.semver }}
