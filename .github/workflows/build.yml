@@ -16,8 +16,7 @@ jobs:
     steps:
       - name: build
         run: |
-          git clone https://github.com/North-Western-Development/oc2r.git
+          git clone https://github.com/North-Western-Development/oc2r.git -b 1.20.1
           cd oc2r
           wget https://github.com/North-Western-Development/sedna-mc/releases/download/1.18.2-forge%2F1.0.44/sedna-1.18.2-forge-1.0.44+a24621e.jar -O libs/sedna.jar
-          git checkout 1.20.1
           ./gradlew build
