@@ -272,7 +272,6 @@ curseforge {
         addGameVersion "Java 17"
         relations {
             requiredDependency "markdownmanual"
-            requiredDependency "sedna"
         }
     }
 }
