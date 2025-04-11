@@ -28,7 +28,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          asset_paths: '["./build/libs/*.jar"]'
+          asset_paths: '["./build/libs/*-all.jar"]'
 
       - name: Set release type to 'release'
         run: |
