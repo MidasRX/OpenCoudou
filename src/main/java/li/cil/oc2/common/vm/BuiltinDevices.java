@@ -51,14 +51,9 @@ public final class BuiltinDevices {
         uart = initialize(context, new UART16550A(), UART_INTERRUPT, UART16550A::getInterrupt);
         vfs = initialize(context, new VirtIOFileSystemDevice(context.getMemoryMap(), "builtin", FileSystems.getLayeredFileSystem()), VFS_INTERRUPT, VirtIOFileSystemDevice::getInterrupt);
         InputStream ris = Buildroot.getRootFilesystem();
+        InputStream bis = Buildroot.getBootFilesystem();
         try {
-            var bfsd = FileSystems.getBlockByName("bootfs");
-            if (bfsd != null) {
-                bfs = initialize(context, new VirtIOBlockDevice(context.getMemoryMap(), bfsd.getBlockDevice()), BFS_INTERRUPT, VirtIOBlockDevice::getInterrupt);
-            }
-            else {
-                bfs = null;
-            }
+            bfs = initialize(context, new VirtIOBlockDevice(context.getMemoryMap(), ByteBufferBlockDevice.createFromStream(bis, true)), BFS_INTERRUPT, VirtIOBlockDevice::getInterrupt);
             rfs = initialize(context, new VirtIOBlockDevice(context.getMemoryMap(), ByteBufferBlockDevice.createFromStream(ris, true)), RFS_INTERRUPT, VirtIOBlockDevice::getInterrupt);
         }
         catch(final IOException e) {
