@@ -39,9 +39,9 @@ jobs:
           echo "CURSEFORGE_RELEASE_TYPE=alpha" >> $GITHUB_ENV
         if: github.event.release.prerelease == true
 
-      - name: Publish to Curseforge
-        run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' curseforge
-        env:
-          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
-          CURSEFORGE_RELEASE_TYPE: ${{ env.CURSEFORGE_RELEASE_TYPE }}
-          CHANGELOG: ${{ github.event.release.body }}
+      # - name: Publish to Curseforge
+      #   run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' curseforge
+      #   env:
+      #     CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+      #     CURSEFORGE_RELEASE_TYPE: ${{ env.CURSEFORGE_RELEASE_TYPE }}
+      #     CHANGELOG: ${{ github.event.release.body }}
