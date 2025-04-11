@@ -22,5 +22,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sedna.jar
+          name: oc2r.jar
           path: build/libs/*.jar
