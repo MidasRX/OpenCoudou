@@ -124,11 +124,11 @@ public final class MachineTerminalWidget {
         int sy = (int)((y - MachineTerminalWidget.TERMINAL_Y) / MachineTerminalWidget.TERMINAL_HEIGHT * Terminal.HEIGHT);
         boolean overTerminal = isMouseOverTerminal(mx, my);
         if (overTerminal && shouldCaptureInput()) {
-            terminal.putInput((byte) 0x1b);
-            terminal.putInput((byte) '[');
-            terminal.putInput((byte) button);
-            terminal.putInput((byte) sx);
-            terminal.putInput((byte) sy);
+            // terminal.putInput((byte) 0x1b);
+            // terminal.putInput((byte) '[');
+            // terminal.putInput((byte) button);
+            // terminal.putInput((byte) sx);
+            // terminal.putInput((byte) sy);
             return true;
         }
         return false;
@@ -141,11 +141,11 @@ public final class MachineTerminalWidget {
         int sy = (int)((y - MachineTerminalWidget.TERMINAL_Y) / MachineTerminalWidget.TERMINAL_HEIGHT * Terminal.HEIGHT);
         boolean overTerminal = isMouseOverTerminal(mx, my);
         if (overTerminal && shouldCaptureInput()) {
-            terminal.putInput((byte) 0x1b);
-            terminal.putInput((byte) '[');
-            terminal.putInput((byte) 3);
-            terminal.putInput((byte) sx);
-            terminal.putInput((byte) sy);
+            // terminal.putInput((byte) 0x1b);
+            // terminal.putInput((byte) '[');
+            // terminal.putInput((byte) 3);
+            // terminal.putInput((byte) sx);
+            // terminal.putInput((byte) sy);
             return true;
         }
         return false;
