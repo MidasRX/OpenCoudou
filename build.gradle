@@ -270,6 +270,7 @@ curseforge {
         addGameVersion "Forge"
         addGameVersion minecraft_version
         addGameVersion "Java 17"
+        mainArtifact jarJar
         relations {
             requiredDependency "markdownmanual"
         }
