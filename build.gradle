@@ -59,8 +59,8 @@ repositories {
     if (hasGithubPackageCredentials) {
         final def GithubPackages = [
             ["fnuecke/ceres", "li.cil.ceres"],
-            ["fnuecke/sedna", "li.cil.sedna"],
-            ["fnuecke/buildroot", "li.cil.sedna"]
+            ["North-Western-Development/sedna", "li.cil.sedna"],
+            ["North-Western-Development/minux", "li.cil.sedna"]
         ]
         GithubPackages.each { final repo, final group ->
             maven {
@@ -89,8 +89,8 @@ dependencies {
     // pick them up via the library mod due to the embed configuration).
     if (hasGithubPackageCredentials) {
         compileOnly "li.cil.ceres:ceres:0.0.4"
-        compileOnly "li.cil.sedna:sedna:2.0.8"
-        compileOnly "li.cil.sedna:sedna-buildroot:0.0.8"
+        compileOnly "li.cil.sedna:sedna:2.0.13"
+        compileOnly "li.cil.sedna:sedna-buildroot:0.0.40"
     }
     implementation fileTree(dir: 'libs', include: '*.jar')
 //    implementation "curse.maven:sedna-511276:3885542"

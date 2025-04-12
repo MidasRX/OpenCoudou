@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[47,)"
-issueTrackerURL = "https://github.com/perkinslr/oc2r/issues"
+issueTrackerURL = "https://github.com/North-Western-Development/oc2r/issues"
 license = "MIT"
 
 [[mods]]
@@ -17,7 +17,7 @@ This mod uses the Terminus Font under the Open Font License. The full license ca
 [[dependencies.oc2r]]
 modId = "forge"
 mandatory = true
-versionRange = "[40.1.68,)"
+versionRange = "[47.3.0,)"
 ordering = "NONE"
 side = "BOTH"
 [[dependencies.oc2r]]
@@ -29,7 +29,7 @@ side = "BOTH"
 [[dependencies.oc2r]]
 modId = "sedna"
 mandatory = true
-versionRange = "[1.0.14,)"
+versionRange = "[1.0.42,)"
 ordering = "NONE"
 side = "BOTH"
 [[dependencies.oc2r]]
