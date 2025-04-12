@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: build
         run: |
-          wget https://github.com/North-Western-Development/sedna-mc/releases/download/1.18.2-forge%2F1.0.47/sedna-1.18.2-forge-1.0.47+94948f8.jar -O libs/sedna.jar
+          wget https://github.com/North-Western-Development/sedna-mc/releases/download/1.20.1-forge%2F1.0.48/sedna-1.20.1-forge-1.0.48+290d7cf.jar -O libs/sedna.jar
           ./gradlew -Psemver='${{ github.event.release.tag_name }}' build
 
       - name: Add Artifacts to Github Release
