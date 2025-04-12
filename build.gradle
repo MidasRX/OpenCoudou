@@ -270,7 +270,7 @@ curseforge {
         addGameVersion "Forge"
         addGameVersion minecraft_version
         addGameVersion "Java 17"
-        mainArtifact jarJar
+        mainArtifact "build/libs/oc2r-${minecraft_version}-${minecraft_sdk}-${version}-all.jar"
         relations {
             requiredDependency "markdownmanual"
         }
