@@ -3,7 +3,9 @@
 package li.cil.oc2.common.block;
 
 import li.cil.oc2.common.blockentity.BlockEntities;
+import li.cil.oc2.common.blockentity.ComputerBlockEntity;
 import li.cil.oc2.common.blockentity.DiskDriveBlockEntity;
+import li.cil.oc2.common.item.Items;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -39,6 +41,19 @@ public final class DiskDriveBlock extends HorizontalDirectionalBlock implements 
     @Override
     public BlockState getStateForPlacement(final BlockPlaceContext context) {
         return super.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    public void playerWillDestroy(final Level level, final BlockPos pos, final BlockState state, final Player player) {
+        final BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (!level.isClientSide() && blockEntity instanceof final DiskDriveBlockEntity diskDrive) {
+            if (!diskDrive.getDiskItemStack().isEmpty()) {
+                final ItemStack stack = diskDrive.getDiskItemStack();
+                popResource(level, pos, stack);
+            }
+        }
+
+        super.playerWillDestroy(level, pos, state, player);
     }
 
     @SuppressWarnings("deprecation")

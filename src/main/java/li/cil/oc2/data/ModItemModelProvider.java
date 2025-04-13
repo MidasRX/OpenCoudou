@@ -33,6 +33,7 @@ public final class ModItemModelProvider extends ItemModelProvider {
         simple(Items.CPU_TIER_2);
         simple(Items.CPU_TIER_3);
         simple(Items.CPU_TIER_4);
+        simple(Items.CPU_TIER_INF);
         simple(Items.SILICON);
         simple(Items.SILICON_BLEND);
         simple(Items.SILICON_WAFER);

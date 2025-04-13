@@ -4,20 +4,24 @@ package li.cil.oc2.client.gui;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
+import li.cil.oc2.common.vm.terminal.MouseMode;
+import li.cil.oc2.common.vm.terminal.PrivateMode;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import org.joml.Matrix4f;
 import li.cil.oc2.client.gui.terminal.TerminalInput;
 import li.cil.oc2.common.container.AbstractMachineTerminalContainer;
-import li.cil.oc2.common.vm.Terminal;
+import li.cil.oc2.common.vm.terminal.Terminal;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import org.joml.Vector2i;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
+import java.io.Console;
 import java.nio.ByteBuffer;
 
 @OnlyIn(Dist.CLIENT)
@@ -40,6 +44,7 @@ public final class MachineTerminalWidget {
     private int leftPos, topPos;
     private boolean isMouseOverTerminal;
     private Terminal.RendererView rendererView;
+    private boolean isOver;
 
     ///////////////////////////////////////////////////////////////////
 
@@ -117,38 +122,80 @@ public final class MachineTerminalWidget {
         }
     }
 
-    public boolean mouseClicked( double x, double y, int button) {
-        int mx = (int) x;
-        int my = (int) y;
-        int sx = (int)((x - MachineTerminalWidget.TERMINAL_X) / MachineTerminalWidget.TERMINAL_WIDTH * Terminal.WIDTH);
-        int sy = (int)((y - MachineTerminalWidget.TERMINAL_Y) / MachineTerminalWidget.TERMINAL_HEIGHT * Terminal.HEIGHT);
-        boolean overTerminal = isMouseOverTerminal(mx, my);
+    public boolean mouseScrolled(double dir) {
+        if (terminal.currentPrivateModeState.isAltBufferEnabled()) return false;
+        if (dir < 0) {
+            terminal.incrementLastLineToDisplay(true);
+        } else {
+            terminal.decrementLastLineToDisplay();
+        }
+        return true;
+    }
+
+    public void mouseMoved(double x, double y) {
+        if (isMouseOverTerminal((int)x, (int)y)) {
+            if (!isOver && terminal.currentPrivateModeState.FOCUS_IN_FOCUS_OUT) {
+                isOver = true;
+                terminal.putInput("\033[I");
+            }
+        } else {
+            if(isOver && terminal.currentPrivateModeState.FOCUS_IN_FOCUS_OUT) {
+                terminal.putInput("\033[O");
+            }
+        }
+    }
+
+    public boolean mouseClicked(double x, double y, int button) {
+        MouseMode currentMouseMode = terminal.currentPrivateModeState.getMouseMode();
+        if (!currentMouseMode.isMouseEnabled()) return false;
+        Vector2i position = getMousePosition(x, y);
+        boolean overTerminal = isMouseOverTerminal((int)x, (int)y);
         if (overTerminal && shouldCaptureInput()) {
-            // terminal.putInput((byte) 0x1b);
-            // terminal.putInput((byte) '[');
-            // terminal.putInput((byte) button);
-            // terminal.putInput((byte) sx);
-            // terminal.putInput((byte) sy);
-            return true;
+            if (currentMouseMode.PrimaryMode == PrivateMode.X11MM && !currentMouseMode.isSecondaryModeEnabled(PrivateMode.SGR_MOUSE)) {
+                terminal.putInput('\033');
+                terminal.putInput('[');
+                terminal.putInput('M');
+                terminal.putInput((byte) (button + 32));
+                terminal.putInput((byte) (position.x + 32));
+                terminal.putInput((byte) (position.y + 32));
+                return true;
+            } else if (currentMouseMode.PrimaryMode == PrivateMode.X11MM) {
+                terminal.putInput("\033[<" + button + ";" + position.x + ";" + position.y + "M");
+                return true;
+            }
         }
         return false;
     }
 
     public boolean mouseReleased(double x, double y, int button) {
-        int mx = (int) x;
-        int my = (int) y;
-        int sx = (int)((x - MachineTerminalWidget.TERMINAL_X) / MachineTerminalWidget.TERMINAL_WIDTH * Terminal.WIDTH);
-        int sy = (int)((y - MachineTerminalWidget.TERMINAL_Y) / MachineTerminalWidget.TERMINAL_HEIGHT * Terminal.HEIGHT);
-        boolean overTerminal = isMouseOverTerminal(mx, my);
+        MouseMode currentMouseMode = terminal.currentPrivateModeState.getMouseMode();
+        if (!currentMouseMode.isMouseEnabled()) return false;
+        Vector2i position = getMousePosition(x, y);
+        boolean overTerminal = isMouseOverTerminal((int)x, (int)y);
         if (overTerminal && shouldCaptureInput()) {
-            // terminal.putInput((byte) 0x1b);
-            // terminal.putInput((byte) '[');
-            // terminal.putInput((byte) 3);
-            // terminal.putInput((byte) sx);
-            // terminal.putInput((byte) sy);
-            return true;
+            if (currentMouseMode.PrimaryMode == PrivateMode.X11MM && !currentMouseMode.isSecondaryModeEnabled(PrivateMode.SGR_MOUSE)) {
+                terminal.putInput('\033');
+                terminal.putInput('[');
+                terminal.putInput('M');
+                terminal.putInput((byte) 35);
+                terminal.putInput((byte) (position.x + 32));
+                terminal.putInput((byte) (position.y + 32));
+                return true;
+            } else if (currentMouseMode.PrimaryMode == PrivateMode.X11MM) {
+                terminal.putInput("\033[<" + button + ";" + position.x + ";" + position.y + "m");
+                return true;
+            }
         }
         return false;
+    }
+
+    private Vector2i getMousePosition(double x, double y) {
+        int tx = TERMINAL_WIDTH / Terminal.WIDTH;
+        int ty = TERMINAL_HEIGHT / Terminal.HEIGHT;
+        int sx = (int)(((x - leftPos) - MachineTerminalWidget.TERMINAL_X) / tx) + 1;
+        int sy = (int)(((y - topPos) - MachineTerminalWidget.TERMINAL_Y) / ty) + 1;
+
+        return new Vector2i(sx, sy);
     }
 
     public boolean charTyped(final char ch, final int modifier) {
@@ -165,11 +212,26 @@ public final class MachineTerminalWidget {
 
         if ((modifiers & GLFW.GLFW_MOD_CONTROL) != 0 && keyCode == GLFW.GLFW_KEY_V) {
             final String value = getClient().keyboardHandler.getClipboard();
+            boolean bracketed = terminal.currentPrivateModeState.SET_BRACKETED_PASTE;
+            if(bracketed) terminal.putInput("\033[200~");
             for (final char ch : value.toCharArray()) {
                 terminal.putInput((byte) ch);
             }
+            if(bracketed) terminal.putInput("\033[201~");
         } else {
-            final byte[] sequence = TerminalInput.getSequence(keyCode, modifiers);
+            byte[] sequence;
+            if (terminal.currentPrivateModeState.DECCKM && (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT)) {
+                sequence = TerminalInput.getDECCKMSequence(keyCode, modifiers);
+                System.out.print("DECCKM sequence: ");
+                for (byte b : sequence) {
+                    System.out.print(String.format("0x%02X ", b & 0xFF));
+                }
+
+                System.out.println();
+            }
+            else {
+                sequence = TerminalInput.getSequence(keyCode, modifiers);
+            }
             if (sequence != null) {
                 for (final byte b : sequence) {
                     terminal.putInput(b);

@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 
 public final class TerminalInput {
     private static final Int2ObjectArrayMap<Int2ObjectArrayMap<byte[]>> KEYCODE_SEQUENCES = new Int2ObjectArrayMap<>();
+    private static final Int2ObjectArrayMap<Int2ObjectArrayMap<byte[]>> DECCKM_KEYCODE_SEQUENCES = new Int2ObjectArrayMap<>();
 
     static {
         addSequence(GLFW.GLFW_KEY_ENTER, '\r');
@@ -71,6 +72,11 @@ public final class TerminalInput {
         addSequence(GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SHIFT, GLFW.GLFW_KEY_BACKSLASH, (byte) '\034');
         addSequence(GLFW.GLFW_MOD_CONTROL, GLFW.GLFW_KEY_RIGHT_BRACKET, (byte) '\035');
         addSequence(GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SHIFT, GLFW.GLFW_KEY_RIGHT_BRACKET, (byte) '\035');
+
+        addDECCKMSequence(GLFW.GLFW_KEY_UP, "\033OA");
+        addDECCKMSequence(GLFW.GLFW_KEY_DOWN, "\033OB");
+        addDECCKMSequence(GLFW.GLFW_KEY_RIGHT, "\033OC");
+        addDECCKMSequence(GLFW.GLFW_KEY_LEFT, "\033OD");
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -83,6 +89,22 @@ public final class TerminalInput {
     @Nullable
     public static byte[] getSequence(final int keyCode, final int modifiers) {
         final Int2ObjectArrayMap<byte[]> map = KEYCODE_SEQUENCES.get(modifiers);
+        if (map == null) {
+            return null;
+        }
+        return map.get(keyCode);
+    }
+
+    ///////////////////////////////////////////////////////////////////
+
+    @Nullable
+    public static byte[] getDECCKMSequence(final int keyCode) {
+        return getDECCKMSequence(keyCode, 0);
+    }
+
+    @Nullable
+    public static byte[] getDECCKMSequence(final int keyCode, final int modifiers) {
+        final Int2ObjectArrayMap<byte[]> map = DECCKM_KEYCODE_SEQUENCES.get(modifiers);
         if (map == null) {
             return null;
         }
@@ -114,6 +136,35 @@ public final class TerminalInput {
 
     private static void addSequence(final int modifiers, final int keyCode, final byte... sequence) {
         KEYCODE_SEQUENCES
+            .computeIfAbsent(modifiers, i -> new Int2ObjectArrayMap<>())
+            .put(keyCode, sequence);
+    }
+
+    ///////////////////////////////////////////////////////////////////
+
+    private static void addDECCKMSequence(final int keyCode, final char ch) {
+        addDECCKMSequence(keyCode, (byte) ch);
+    }
+
+    private static void addDECCKMSequence(final int keyCode, final byte... sequence) {
+        addDECCKMSequence(0, keyCode, sequence);
+    }
+
+    private static void addDECCKMSequence(final int keyCode, final String sequence) {
+        addDECCKMSequence(0, keyCode, sequence);
+    }
+
+    private static void addDECCKMSequence(final int modifiers, final int keyCode, final String sequence) {
+        final byte[] bytes = new byte[sequence.length()];
+        final char[] chars = sequence.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            bytes[i] = (byte) chars[i];
+        }
+        addDECCKMSequence(modifiers, keyCode, bytes);
+    }
+
+    private static void addDECCKMSequence(final int modifiers, final int keyCode, final byte... sequence) {
+        DECCKM_KEYCODE_SEQUENCES
             .computeIfAbsent(modifiers, i -> new Int2ObjectArrayMap<>())
             .put(keyCode, sequence);
     }

@@ -9,7 +9,7 @@ import li.cil.oc2.common.bus.device.vm.block.MonitorDevice;
 import li.cil.oc2.common.container.AbstractMonitorContainer;
 import li.cil.oc2.common.network.Network;
 import li.cil.oc2.common.network.message.MonitorInputMessage;
-import li.cil.oc2.common.vm.Terminal;
+import li.cil.oc2.common.vm.terminal.Terminal;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -55,7 +55,7 @@ public final class MonitorDisplayWidget {
         Sprites.MONITOR_SCREEN.draw(graphics, leftPos, topPos);
 
         if (shouldCaptureInput()) {
-            Sprites.TERMINAL_FOCUSED.draw(graphics, leftPos, topPos);
+            Sprites.MONITOR_FOCUSED.draw(graphics, leftPos, topPos);
         }
     }
 

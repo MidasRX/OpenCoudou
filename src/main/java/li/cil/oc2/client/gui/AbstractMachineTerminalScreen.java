@@ -31,6 +31,7 @@ public abstract class AbstractMachineTerminalScreen<T extends AbstractMachineTer
     private static final int ENERGY_TOP = CONTROLS_TOP + Sprites.SIDEBAR_3.height + 4;
 
     private static boolean isInputCaptureEnabled;
+    private boolean mouseClicked;
 
     private final MachineTerminalWidget terminalWidget;
 
@@ -81,6 +82,7 @@ public abstract class AbstractMachineTerminalScreen<T extends AbstractMachineTer
 
     @Override
     public boolean mouseClicked(final double x, final double y, final int button) {
+        mouseClicked = true;
         if (!terminalWidget.mouseClicked(x,y,button)) {
             return super.mouseClicked(x, y, button);
         }
@@ -88,7 +90,19 @@ public abstract class AbstractMachineTerminalScreen<T extends AbstractMachineTer
     }
 
     @Override
+    public void mouseMoved(double x, double y) {
+        terminalWidget.mouseMoved(x, y);
+    }
+
+    @Override
+    public boolean mouseScrolled(double p_94686_, double p_94687_, double p_94688_)
+    {
+        return terminalWidget.mouseScrolled(p_94688_);
+    }
+
+    @Override
     public boolean mouseReleased(final double x, final double y, final int button) {
+        if (!mouseClicked) return super.mouseReleased(x, y, button);
         if (!terminalWidget.mouseReleased(x,y,button)) {
             return super.mouseReleased(x, y, button);
         }

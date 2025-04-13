@@ -3,6 +3,7 @@
 package li.cil.oc2.common.vm;
 
 import it.unimi.dsi.fastutil.bytes.ByteArrayFIFOQueue;
+import li.cil.oc2.common.vm.terminal.Terminal;
 import li.cil.sedna.device.serial.UART16550A;
 
 import java.nio.ByteBuffer;

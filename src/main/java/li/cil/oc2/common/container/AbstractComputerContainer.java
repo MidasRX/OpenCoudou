@@ -10,7 +10,7 @@ import li.cil.oc2.common.network.message.ComputerPowerMessage;
 import li.cil.oc2.common.network.message.ComputerTerminalInputMessage;
 import li.cil.oc2.common.network.message.OpenComputerInventoryMessage;
 import li.cil.oc2.common.network.message.OpenComputerTerminalMessage;
-import li.cil.oc2.common.vm.Terminal;
+import li.cil.oc2.common.vm.terminal.Terminal;
 import li.cil.oc2.common.vm.VirtualMachine;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerLevelAccess;

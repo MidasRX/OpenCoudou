@@ -15,6 +15,7 @@ public final class Sprites {
     public static final Sprite NETWORK_INTERFACE_CARD_SCREEN = new Sprite(NETWORK_INTERFACE_CARD_SCREEN_TEXTURE);
     public static final Sprite NETWORK_TUNNEL_SCREEN = new Sprite(NETWORK_TUNNEL_SCREEN_TEXTURE);
 
+    public static final Sprite MONITOR_FOCUSED = new Sprite(MONITOR_FOCUSED_TEXTURE);
     public static final Sprite TERMINAL_FOCUSED = new Sprite(TERMINAL_FOCUSED_TEXTURE);
     public static final Sprite SLOT_SELECTION = new Sprite(SLOT_SELECTION_TEXTURE, 18, 18, 0, 0);
     public static final Sprite INFO_ICON = new Sprite(INFO_ICON_TEXTURE);

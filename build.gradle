@@ -97,7 +97,7 @@ dependencies {
     minecraftLibrary "org.apache.commons:commons-collections4:4.4"
 
     implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
-//    implementation fg.deobf("curse.maven:markdownmanual-502485:4873115")
+    implementation fg.deobf("curse.maven:markdownmanual-502485:4873115")
 
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:15.3.0.4")
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:15.3.0.4")

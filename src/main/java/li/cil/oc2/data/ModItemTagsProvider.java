@@ -93,6 +93,7 @@ public final class ModItemTagsProvider extends ItemTagsProvider {
             Items.CPU_TIER_2.get(),
             Items.CPU_TIER_3.get(),
             Items.CPU_TIER_4.get(),
+            Items.CPU_TIER_INF.get(),
             Items.KEYBOARD.get(),
             Items.MEMORY_SMALL.get(),
             Items.MEMORY_MEDIUM.get(),
@@ -108,7 +109,8 @@ public final class ModItemTagsProvider extends ItemTagsProvider {
             Items.CPU_TIER_1.get(),
             Items.CPU_TIER_2.get(),
             Items.CPU_TIER_3.get(),
-            Items.CPU_TIER_4.get()
+            Items.CPU_TIER_4.get(),
+            Items.CPU_TIER_INF.get()
         );
     }
 }
