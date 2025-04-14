@@ -281,7 +281,7 @@ modrinth {
     token = System.getenv("MODRINTH_TOKEN")
     projectId = "F1gm4RsH"
     versionType = System.getenv('RELEASE_TYPE') ?: "alpha"
-    uploadFile = jarJar
+    uploadFile = "build/libs/oc2r-${minecraft_version}-${minecraft_sdk}-${version}-all.jar"
     gameVersions = ["1.20.1"]
     loaders = ["forge"]
     dependencies {
