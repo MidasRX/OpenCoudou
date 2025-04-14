@@ -24,6 +24,8 @@ import javax.annotation.Nullable;
 
 @OnlyIn(Dist.CLIENT)
 public final class MonitorDisplayWidget {
+    public boolean isInputCaptureEnabled;
+
     private static final int TERMINAL_WIDTH = Terminal.WIDTH * Terminal.CHAR_WIDTH / 2;
     private static final int TERMINAL_HEIGHT = Terminal.HEIGHT * Terminal.CHAR_HEIGHT / 2;
 
@@ -142,7 +144,7 @@ public final class MonitorDisplayWidget {
     }
 
     private boolean shouldCaptureInput() {
-        return isMouseOverTerminal && AbstractMachineTerminalScreen.isInputCaptureEnabled();
+        return isMouseOverTerminal && isInputCaptureEnabled;
     }
 
     private boolean isMouseOverTerminal(final int mouseX, final int mouseY) {

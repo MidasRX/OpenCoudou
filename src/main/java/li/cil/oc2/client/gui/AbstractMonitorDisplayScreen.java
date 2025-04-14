@@ -28,8 +28,6 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
     private static final int CONTROLS_TOP = 8;
     private static final int ENERGY_TOP = CONTROLS_TOP + Sprites.MONITOR_SIDEBAR_1.height + 4;
 
-    private static boolean isInputCaptureEnabled;
-
     private final MonitorDisplayWidget terminalWidget;
 
     ///////////////////////////////////////////////////////////////////
@@ -131,12 +129,12 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
             @Override
             public void onPress() {
                 super.onPress();
-                isInputCaptureEnabled = !isInputCaptureEnabled;
+                terminalWidget.isInputCaptureEnabled = !terminalWidget.isInputCaptureEnabled;
             }
 
             @Override
             public boolean isToggled() {
-                return isInputCaptureEnabled;
+                return terminalWidget.isInputCaptureEnabled;
             }
         }).withTooltip(
             Component.translatable(Constants.TERMINAL_CAPTURE_INPUT_CAPTION),

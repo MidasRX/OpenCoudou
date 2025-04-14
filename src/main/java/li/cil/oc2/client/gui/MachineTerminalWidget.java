@@ -26,6 +26,8 @@ import java.nio.charset.StandardCharsets;
 
 @OnlyIn(Dist.CLIENT)
 public final class MachineTerminalWidget {
+    public boolean isInputCaptureEnabled;
+
     private static final int TERMINAL_WIDTH = Terminal.WIDTH * Terminal.CHAR_WIDTH / 2;
     private static final int TERMINAL_HEIGHT = Terminal.HEIGHT * Terminal.CHAR_HEIGHT / 2;
 
@@ -99,20 +101,6 @@ public final class MachineTerminalWidget {
         var batch = MultiBufferSource.immediate(Tesselator.getInstance().getBuilder());
         font.drawInBatch(text, x, y, color, true, graphics.pose().last().pose(), batch, Font.DisplayMode.NORMAL, 0, 15728880);
         batch.endBatch();
-    }
-
-    private static Matrix4f orthographic(float pMinX, float pMaxX, float pMinY, float pMaxY, float pMinZ, float pMaxZ) {
-        Matrix4f matrix4f = new Matrix4f();
-        float f = pMaxX - pMinX;
-        float f1 = pMinY - pMaxY;
-        float f2 = pMaxZ - pMinZ;
-        matrix4f.set(
-            2.0F / f, 0, 0, -(pMaxX + pMinX) / f,
-            0, 2.0F / f1, 0, -(pMinY + pMaxY) / f1,
-            0, 0, -2.0F / f2, -(pMaxZ + pMinZ) / f2,
-            0, 0, 0, 1.0F
-        );
-        return matrix4f;
     }
 
     public void tick() {
@@ -278,18 +266,9 @@ public final class MachineTerminalWidget {
             if(bracketed) terminal.putInput("\033[201~");
         } else {
             byte[] sequence;
-            if (terminal.currentPrivateModeState.DECCKM && (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT)) {
+            if (terminal.currentPrivateModeState.DECCKM && (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT))
                 sequence = TerminalInput.getDECCKMSequence(keyCode, modifiers);
-                System.out.print("DECCKM sequence: ");
-                for (byte b : sequence) {
-                    System.out.print(String.format("0x%02X ", b & 0xFF));
-                }
-
-                System.out.println();
-            }
-            else {
-                sequence = TerminalInput.getSequence(keyCode, modifiers);
-            }
+            else sequence = TerminalInput.getSequence(keyCode, modifiers);
             if (sequence != null) {
                 for (final byte b : sequence) {
                     terminal.putInput(b);
@@ -303,12 +282,9 @@ public final class MachineTerminalWidget {
     public void init() {
         this.leftPos = (parent.width - WIDTH) / 2;
         this.topPos = (parent.height - HEIGHT) / 2;
-
-        //getClient().keyboardHandler.setSendRepeatsToGui(true);
     }
 
     public void onClose() {
-        //getClient().keyboardHandler.setSendRepeatsToGui(false);
         if (rendererView != null) {
             terminal.releaseRenderer(rendererView);
             rendererView = null;
@@ -322,7 +298,7 @@ public final class MachineTerminalWidget {
     }
 
     private boolean shouldCaptureInput() {
-        return isMouseOverTerminal && AbstractMachineTerminalScreen.isInputCaptureEnabled() &&
+        return isMouseOverTerminal && isInputCaptureEnabled &&
             container.getVirtualMachine().isRunning();
     }
 

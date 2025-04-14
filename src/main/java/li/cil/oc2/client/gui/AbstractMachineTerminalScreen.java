@@ -30,7 +30,7 @@ public abstract class AbstractMachineTerminalScreen<T extends AbstractMachineTer
     private static final int CONTROLS_TOP = 8;
     private static final int ENERGY_TOP = CONTROLS_TOP + Sprites.SIDEBAR_3.height + 4;
 
-    private static boolean isInputCaptureEnabled;
+
     private boolean mouseClicked;
 
     private final MachineTerminalWidget terminalWidget;
@@ -45,10 +45,6 @@ public abstract class AbstractMachineTerminalScreen<T extends AbstractMachineTer
     }
 
     ///////////////////////////////////////////////////////////////////
-
-    public static boolean isInputCaptureEnabled() {
-        return isInputCaptureEnabled;
-    }
 
     public List<Rect2i> getExtraAreas() {
         final List<Rect2i> list = new ArrayList<>();
@@ -174,12 +170,12 @@ public abstract class AbstractMachineTerminalScreen<T extends AbstractMachineTer
             @Override
             public void onPress() {
                 super.onPress();
-                isInputCaptureEnabled = !isInputCaptureEnabled;
+                terminalWidget.isInputCaptureEnabled = !terminalWidget.isInputCaptureEnabled;
             }
 
             @Override
             public boolean isToggled() {
-                return isInputCaptureEnabled;
+                return terminalWidget.isInputCaptureEnabled;
             }
         }).withTooltip(
             Component.translatable(Constants.TERMINAL_CAPTURE_INPUT_CAPTION),
