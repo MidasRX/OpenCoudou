@@ -18,10 +18,7 @@ public class SM {
     public static void executeDECSET(Terminal terminal, int[] args, int argCount) {
         for (int i = 0; i < argCount; i++) {
             switch (args[i]) {
-                case 1 -> {
-                    System.out.println("Enabled DECCKM");
-                    terminal.currentPrivateModeState.DECCKM = true;
-                }
+                case 1 -> terminal.currentPrivateModeState.DECCKM = true;
                 case 2 -> terminal.currentPrivateModeState.DECANM = true;
                 case 3 -> terminal.currentPrivateModeState.DECCOLM = true;
                 case 4 -> terminal.currentPrivateModeState.DECSCLM = true;
@@ -64,9 +61,6 @@ public class SM {
                 case 45 -> terminal.currentPrivateModeState.XTREVWRAP = true;
                 case 46 -> terminal.currentPrivateModeState.XTLOGGING = true;
                 case 47 -> {
-                    if (true) {
-                        break;
-                    }
                     terminal.clearAlt();
                     terminal.setCursorPos(0, 0);
                     terminal.currentPrivateModeState.ALT_BUFFER = true;
@@ -102,14 +96,34 @@ public class SM {
                     terminal.currentPrivateModeState.ALL_MOTION_MOUSE_TRACKING = true;
                 }
                 case 1004 -> terminal.currentPrivateModeState.FOCUS_IN_FOCUS_OUT = true;
-                case 1005 -> terminal.currentPrivateModeState.UTF8_MOUSE = true;
-                case 1006 -> terminal.currentPrivateModeState.SGR_MOUSE = true;
+                case 1005 -> {
+                    terminal.currentPrivateModeState.SGR_MOUSE = false;
+                    terminal.currentPrivateModeState.URXVT_MOUSE = false;
+                    terminal.currentPrivateModeState.SGR_MOUSE_PIXEL = false;
+                    terminal.currentPrivateModeState.UTF8_MOUSE = true;
+                }
+                case 1006 -> {
+                    terminal.currentPrivateModeState.UTF8_MOUSE = false;
+                    terminal.currentPrivateModeState.URXVT_MOUSE = false;
+                    terminal.currentPrivateModeState.SGR_MOUSE_PIXEL = false;
+                    terminal.currentPrivateModeState.SGR_MOUSE = true;
+                }
                 case 1007 -> terminal.currentPrivateModeState.ALTERNATE_SCROLL_MODE = true;
                 case 1010 -> terminal.currentPrivateModeState.SCROLL_BOTTOM_ON_OUTPUT = true;
                 case 1011 -> terminal.currentPrivateModeState.SCROLL_BOTTOM_ON_KEY_PRESS = true;
                 case 1014 -> terminal.currentPrivateModeState.FAST_SCROLL = true;
-                case 1015 -> terminal.currentPrivateModeState.URXVT_MOUSE = true;
-                case 1016 -> terminal.currentPrivateModeState.SGR_MOUSE_PIXEL = true;
+                case 1015 -> {
+                    terminal.currentPrivateModeState.UTF8_MOUSE = false;
+                    terminal.currentPrivateModeState.SGR_MOUSE = false;
+                    terminal.currentPrivateModeState.SGR_MOUSE_PIXEL = false;
+                    terminal.currentPrivateModeState.URXVT_MOUSE = true;
+                }
+                case 1016 -> {
+                    terminal.currentPrivateModeState.UTF8_MOUSE = false;
+                    terminal.currentPrivateModeState.SGR_MOUSE = false;
+                    terminal.currentPrivateModeState.URXVT_MOUSE = false;
+                    terminal.currentPrivateModeState.SGR_MOUSE_PIXEL = true;
+                }
                 case 1034 -> terminal.currentPrivateModeState.META_KEY = true;
                 case 1035 -> terminal.currentPrivateModeState.SPECIAL_MODIFIERS = true;
                 case 1036 -> terminal.currentPrivateModeState.META_SENDS_ESCAPE = true;
@@ -123,9 +137,6 @@ public class SM {
                 case 1045 -> terminal.currentPrivateModeState.EXT_REV_WRAP = true;
                 case 1046 -> terminal.currentPrivateModeState.ALLOW_ALT_BUFFER = true;
                 case 1047 -> {
-                    if (true) {
-                        break;
-                    }
                     terminal.clearAlt();
                     terminal.setCursorPos(0, 0);
                     terminal.currentPrivateModeState.SWITCH_ALT_BUFFER = true;
@@ -137,15 +148,11 @@ public class SM {
                     terminal.renderers.forEach(model -> model.getDirtyMask().accumulateAndGet(finalDirtyLinesMask, (left, right) -> left | right));
                 }
                 case 1048 -> {
-                    System.out.println("SAVE");
                     terminal.savedX = terminal.x;
                     terminal.savedY = terminal.y;
                     terminal.currentPrivateModeState.SAVE_CURSOR = true;
                 }
                 case 1049 -> {
-                    if (true) {
-                        break;
-                    }
                     terminal.savedX = terminal.x;
                     terminal.savedY = terminal.y;
                     terminal.clearAlt();

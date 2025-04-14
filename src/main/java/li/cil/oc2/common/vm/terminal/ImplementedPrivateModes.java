@@ -42,16 +42,16 @@ public class ImplementedPrivateModes {
         modeStatus.put(96, false); // DECNCSM;
         modeStatus.put(1000, true); // X11MM;
         modeStatus.put(1001, false); // HILITE_MOUSE;
-        modeStatus.put(1002, false); // CELL_MOTION_MOUSE;
+        modeStatus.put(1002, true); // CELL_MOTION_MOUSE; -- PARTIAL SUPPORT: Treated as X11MM currently, no motion events are sent. This actually seems to match Window Terminal's level of implementation.
         modeStatus.put(1003, false); // ALL_MOTION_MOUSE_TRACKING;
         modeStatus.put(1004, true); // FOCUS_IN_FOCUS_OUT;
-        modeStatus.put(1005, false); // UTF8_MOUSE;
+        modeStatus.put(1005, true); // UTF8_MOUSE;
         modeStatus.put(1006, true); // SGR_MOUSE;
         modeStatus.put(1007, false); // ALTERNATE_SCROLL_MODE;
         modeStatus.put(1010, false); // SCROLL_BOTTOM_ON_OUTPUT;
         modeStatus.put(1011, false); // SCROLL_BOTTOM_ON_KEY_PRESS;
         modeStatus.put(1014, false); // FAST_SCROLL;
-        modeStatus.put(1015, false); // URXVT_MOUSE;
+        modeStatus.put(1015, true); // URXVT_MOUSE;
         modeStatus.put(1016, false); // SGR_MOUSE_PIXEL;
         modeStatus.put(1034, false); // META_KEY;
         modeStatus.put(1035, false); // SPECIAL_MODIFIERS;
@@ -80,6 +80,7 @@ public class ImplementedPrivateModes {
         modeStatus.put(2004, true); // SET_BRACKETED_PASTE;
         modeStatus.put(2005, false); // ENABLE_READLINE_CHAR_QUOTE;
         modeStatus.put(2006, false); // ENABLE_READLINE_NEWLINE_PASTE;
+        modeStatus.put(2026, true); // APPLICATION_SYNC;
     }
 
     public void modeUsed(int mode, boolean state) {

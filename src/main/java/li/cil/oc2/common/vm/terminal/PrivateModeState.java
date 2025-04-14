@@ -79,6 +79,7 @@ public class PrivateModeState {
     public boolean SET_BRACKETED_PASTE = false;
     public boolean ENABLE_READLINE_CHAR_QUOTE = false;
     public boolean ENABLE_READLINE_NEWLINE_PASTE = false;
+    public boolean APPLICATION_SYNC = false;
 
     public boolean getMode(int mode) {
         return switch (mode) {
@@ -154,6 +155,7 @@ public class PrivateModeState {
             case 2004 -> SET_BRACKETED_PASTE;
             case 2005 -> ENABLE_READLINE_CHAR_QUOTE;
             case 2006 -> ENABLE_READLINE_NEWLINE_PASTE;
+            case 2026 -> APPLICATION_SYNC;
             default -> throw new IndexOutOfBoundsException();
         };
     }

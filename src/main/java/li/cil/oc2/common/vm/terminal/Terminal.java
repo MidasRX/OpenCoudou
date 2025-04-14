@@ -425,23 +425,17 @@ public class Terminal {
         }
     }
 
-    public static boolean isPrintableCharacter(final int ch) {
-        return ch == 0 ||
-            (ch > ' ' && ch <= '~') ||
-            ch >= 177;
-    }
-
     public void putOutput(final byte value) {
         final char ch = (char) value;
         if (!continuationByte && (ch & (1 << 7)) != 0) {
             continuationByte = true;
+            bytesToRead = 0;
+            bytesRead = 0;
             unicode = 0;
             if ((ch & (1 << 6)) != 0) {
                 bytesToRead++;
             } else {
                 continuationByte = false;
-                bytesToRead = 0;
-                bytesRead = 0;
                 System.out.println("ERR: Invalid first byte received");
                 return;
             }
@@ -862,12 +856,6 @@ public class Terminal {
     // Renderer
     @OnlyIn(Dist.CLIENT)
     public static final class Renderer implements RendererModel, RendererView {
-        public static final ResourceLocation LOCATION_FONT_TEXTURE = new ResourceLocation(API.MOD_ID, "textures/font/terminus.png");
-        public static final int TEXTURE_RESOLUTION = 256;
-        public static final float ONE_OVER_TEXTURE_RESOLUTION = 1.0f / (float) TEXTURE_RESOLUTION;
-        public static final int TEXTURE_COLUMNS = 16;
-        public static final int TEXTURE_BOLD_SHIFT = TEXTURE_COLUMNS; // Bold chars are in right half of texture.
-
         public static final int[] COLORS = {
             0x555555, // Black
             0xEE3322, // Red
@@ -942,15 +930,16 @@ public class Terminal {
 
         @Override
         public void render(final PoseStack stack, final Matrix4f projectionMatrix) {
+            if (terminal.currentPrivateModeState.APPLICATION_SYNC) return;
             validateLineCache();
             renderBuffer(stack, projectionMatrix);
 
-            boolean blink = switch (terminal.cursorMode) {
-                case 2, 4, 6 -> false;
-                default -> true;
+            boolean steady = switch (terminal.cursorMode) {
+                case 2, 4, 6 -> true;
+                default -> false;
             };
 
-            if (!blink || (System.currentTimeMillis() + terminal.hashCode()) % 1000 > 500) {
+            if (steady || (System.currentTimeMillis() + terminal.hashCode()) % 1000 > 500) {
                 renderCursor(stack);
             }
         }
@@ -1062,9 +1051,7 @@ public class Terminal {
                 final int[] palette = (style & STYLE_DIM_MASK) != 0 ? DIM_COLORS : COLORS;
                 int background = switch (color.Mode) {
                     case SIXTEEN_COLOR -> palette[!invertBackground ? color.G : color.R];
-                    case TWO_FIFTY_SIX_COLOR -> {
-                        yield COLORS_256[!invertBackground ? color.G : color.R];
-                    }
+                    case TWO_FIFTY_SIX_COLOR -> COLORS_256[!invertBackground ? color.G : color.R];
                     case TRUE_COLOR -> color.ToInt();
                 };
 
@@ -1143,13 +1130,10 @@ public class Terminal {
             }
 
             if ((style & STYLE_UNDERLINE_MASK) != 0) {
-                final float ulu = (TEXTURE_RESOLUTION - 1) / (float) TEXTURE_RESOLUTION;
-                final float ulv = 1 / (float) TEXTURE_RESOLUTION;
-
-                buffer.vertex(matrix, offset, CHAR_HEIGHT - 3, 0).color(r, g, b, 1).uv(ulu, ulv).endVertex();
-                buffer.vertex(matrix, offset + CHAR_WIDTH, CHAR_HEIGHT - 3, 0).color(r, g, b, 1).uv(ulu, ulv).endVertex();
-                buffer.vertex(matrix, offset + CHAR_WIDTH, CHAR_HEIGHT - 2, 0).color(r, g, b, 1).uv(ulu, ulv).endVertex();
-                buffer.vertex(matrix, offset, CHAR_HEIGHT - 2, 0).color(r, g, b, 1).uv(ulu, ulv).endVertex();
+                buffer.vertex(matrix, offset, CHAR_HEIGHT - 3, 0).color(r, g, b, 1).uv(0, 0).endVertex();
+                buffer.vertex(matrix, offset + CHAR_WIDTH, CHAR_HEIGHT - 3, 0).color(r, g, b, 1).uv(0, 0).endVertex();
+                buffer.vertex(matrix, offset + CHAR_WIDTH, CHAR_HEIGHT - 2, 0).color(r, g, b, 1).uv(0, 0).endVertex();
+                buffer.vertex(matrix, offset, CHAR_HEIGHT - 2, 0).color(r, g, b, 1).uv(0, 0).endVertex();
             }
         }
 

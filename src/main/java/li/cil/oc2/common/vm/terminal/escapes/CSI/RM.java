@@ -124,6 +124,7 @@ public class RM {
                 case 2004 -> terminal.currentPrivateModeState.SET_BRACKETED_PASTE = false;
                 case 2005 -> terminal.currentPrivateModeState.ENABLE_READLINE_CHAR_QUOTE = false;
                 case 2006 -> terminal.currentPrivateModeState.ENABLE_READLINE_NEWLINE_PASTE = false;
+                case 2026 -> terminal.currentPrivateModeState.APPLICATION_SYNC = false;
             }
 
             ImplementedPrivateModes.instance.modeUsed(args[i], false);
