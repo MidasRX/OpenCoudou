@@ -98,7 +98,8 @@ dependencies {
     minecraftLibrary "org.apache.commons:commons-collections4:4.4"
 
     implementation fg.deobf("curse.maven:architectury-api-419699:5137938")
-//    implementation fg.deobf("curse.maven:markdownmanual-502485:4873115")
+
+    implementation fg.deobf("curse.maven:markdownmanual-502485:4873115")
 
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:15.3.0.4")
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:15.3.0.4")
@@ -111,17 +112,17 @@ dependencies {
     runtimeOnly fg.deobf("mrtjp:ProjectRed:${minecraft_version}-${pr_version}:core")
     runtimeOnly fg.deobf("mrtjp:ProjectRed:${minecraft_version}-${pr_version}:transmission")
 
-    if (debug_embeddium)
+    if (debug_embeddium.toBoolean())
     {
         runtimeOnly fg.deobf("curse.maven:embeddium-908741:5521846")
     }
 
-    if (debug_embeddium_plus_plus)
+    if (debug_embeddium_plus_plus.toBoolean())
     {
         runtimeOnly fg.deobf("curse.maven:embeddiumplus-931925:5436746")
     }
 
-    if (debug_oculus)
+    if (debug_oculus.toBoolean())
     {
         runtimeOnly fg.deobf("curse.maven:oculus-581495:5299671")
     }
