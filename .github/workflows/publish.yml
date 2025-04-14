@@ -32,16 +32,23 @@ jobs:
 
       - name: Set release type to 'release'
         run: |
-          echo "CURSEFORGE_RELEASE_TYPE=release" >> $GITHUB_ENV
+          echo "RELEASE_TYPE=release" >> $GITHUB_ENV
         if: github.event.release.prerelease == false
       - name: Set release type to 'alpha'
         run: |
-          echo "CURSEFORGE_RELEASE_TYPE=alpha" >> $GITHUB_ENV
+          echo "RELEASE_TYPE=alpha" >> $GITHUB_ENV
         if: github.event.release.prerelease == true
 
       - name: Publish to Curseforge
         run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' curseforge
         env:
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
-          CURSEFORGE_RELEASE_TYPE: ${{ env.CURSEFORGE_RELEASE_TYPE }}
+          RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
+          CHANGELOG: ${{ github.event.release.body }}
+
+      - name: Publish to Modrinth
+        run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' modrinth
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
           CHANGELOG: ${{ github.event.release.body }}

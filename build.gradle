@@ -264,7 +264,7 @@ curseforge {
     apiKey = System.getenv("CURSEFORGE_API_KEY") ?: ""
     project {
         id = curse_project_id
-        releaseType = System.getenv('CURSEFORGE_RELEASE_TYPE') ?: "alpha"
+        releaseType = System.getenv('RELEASE_TYPE') ?: "alpha"
         changelogType = 'markdown'
         changelog = System.getenv("CHANGELOG") ?: "Changelog not available."
         addGameVersion "Forge"
@@ -274,6 +274,18 @@ curseforge {
         relations {
             requiredDependency "markdownmanual"
         }
+    }
+}
+
+modrinth {
+    token = System.getenv("MODRINTH_TOKEN")
+    projectId = "F1gm4RsH"
+    versionType = System.getenv('RELEASE_TYPE') ?: "alpha"
+    uploadFile = jarJar
+    gameVersions = ["1.20.1"]
+    loaders = ["forge"]
+    dependencies {
+        optional.version "markdownmanual"
     }
 }
 
