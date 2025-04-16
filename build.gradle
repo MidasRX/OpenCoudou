@@ -263,6 +263,7 @@ modrinth {
     uploadFile = "build/libs/oc2r-${minecraft_version}-${minecraft_sdk}-${version}-all.jar"
     gameVersions = ["1.20.1"]
     loaders = ["forge"]
+    changelog = System.getenv("CHANGELOG") ?: "Changelog not available."
     dependencies {
         required.project "markdownmanual"
     }
