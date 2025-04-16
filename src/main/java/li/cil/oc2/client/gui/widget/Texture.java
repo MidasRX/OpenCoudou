@@ -10,7 +10,7 @@ public final class Texture {
     public final int width, height;
 
     public Texture(final String location, final int width, final int height) {
-        this(new ResourceLocation(API.MOD_ID, location), width, height);
+        this(ResourceLocation.fromNamespaceAndPath(API.MOD_ID, location), width, height);
     }
 
     public Texture(final ResourceLocation location, final int width, final int height) {

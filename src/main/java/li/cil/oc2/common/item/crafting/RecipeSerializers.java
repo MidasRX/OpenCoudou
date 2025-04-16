@@ -18,7 +18,7 @@ public final class RecipeSerializers {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        RECIPE_SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        RECIPE_SERIALIZERS.register(context.getModEventBus());
     }
 }

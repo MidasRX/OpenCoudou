@@ -34,7 +34,7 @@ public final class Blocks {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        BLOCKS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        BLOCKS.register(context.getModEventBus());
     }
 }

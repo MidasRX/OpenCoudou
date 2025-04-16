@@ -1,7 +1,7 @@
 package li.cil.oc2.common.vm.terminal.escapes;
 
-import li.cil.oc2.common.vm.terminal.ModeState;
-import li.cil.oc2.common.vm.terminal.PrivateModeState;
+import li.cil.oc2.common.vm.terminal.modes.ModeState;
+import li.cil.oc2.common.vm.terminal.modes.PrivateModeState;
 import li.cil.oc2.common.vm.terminal.Terminal;
 
 import java.util.Arrays;

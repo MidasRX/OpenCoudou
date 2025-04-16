@@ -4,8 +4,8 @@ package li.cil.oc2.client.gui;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
-import li.cil.oc2.common.vm.terminal.MouseMode;
-import li.cil.oc2.common.vm.terminal.PrivateMode;
+import li.cil.oc2.common.vm.terminal.modes.MouseMode;
+import li.cil.oc2.common.vm.terminal.modes.PrivateMode;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import org.joml.Matrix4f;
@@ -66,7 +66,7 @@ public final class MachineTerminalWidget {
         }
     }
 
-    public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, @Nullable final Component error) {
+    public void render(final GuiGraphics graphics, @Nullable final Component error) {
         if (container.getVirtualMachine().isRunning()) {
             final PoseStack terminalStack = new PoseStack();
             terminalStack.translate(leftPos + TERMINAL_X, topPos + TERMINAL_Y, 0);
@@ -90,16 +90,15 @@ public final class MachineTerminalWidget {
                     graphics,
                     error,
                     leftPos + TERMINAL_X + textOffsetX,
-                    topPos + TERMINAL_Y + textOffsetY,
-                    0xEE3322
+                    topPos + TERMINAL_Y + textOffsetY
                 );
             }
         }
     }
 
-    private void drawShadow(Font font, GuiGraphics graphics, Component text, float x, float y, int color) {
+    private void drawShadow(Font font, GuiGraphics graphics, Component text, float x, float y) {
         var batch = MultiBufferSource.immediate(Tesselator.getInstance().getBuilder());
-        font.drawInBatch(text, x, y, color, true, graphics.pose().last().pose(), batch, Font.DisplayMode.NORMAL, 0, 15728880);
+        font.drawInBatch(text, x, y, 15610658, true, graphics.pose().last().pose(), batch, Font.DisplayMode.NORMAL, 0, 15728880);
         batch.endBatch();
     }
 
@@ -135,7 +134,7 @@ public final class MachineTerminalWidget {
 
     public boolean mouseClicked(double x, double y, int button) {
         MouseMode currentMouseMode = terminal.currentPrivateModeState.getMouseMode();
-        if (!currentMouseMode.isMouseEnabled()) return false;
+        if (currentMouseMode.isMouseDisabled()) return false;
         Vector2i position = getMousePosition(x, y);
         boolean overTerminal = isMouseOverTerminal((int)x, (int)y);
         if (overTerminal && shouldCaptureInput()) {
@@ -184,7 +183,7 @@ public final class MachineTerminalWidget {
 
     public boolean mouseReleased(double x, double y, int button) {
         MouseMode currentMouseMode = terminal.currentPrivateModeState.getMouseMode();
-        if (!currentMouseMode.isMouseEnabled()) return false;
+        if (currentMouseMode.isMouseDisabled()) return false;
         Vector2i position = getMousePosition(x, y);
         boolean overTerminal = isMouseOverTerminal((int)x, (int)y);
         if (overTerminal && shouldCaptureInput()) {
@@ -251,6 +250,7 @@ public final class MachineTerminalWidget {
         return true;
     }
 
+    @SuppressWarnings("unused")
     public boolean keyPressed(final int keyCode, final int scanCode, final int modifiers) {
         if (!shouldCaptureInput() && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             return false;

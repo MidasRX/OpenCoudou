@@ -15,17 +15,17 @@ public final class ModManualScreenStyle implements ManualScreenStyle {
 
     @Override
     public ResourceLocation getWindowBackground() {
-        return new ResourceLocation(API.MOD_ID, "textures/gui/manual/manual.png");
+        return ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "textures/gui/manual/manual.png");
     }
 
     @Override
     public ResourceLocation getScrollButtonTexture() {
-        return new ResourceLocation(API.MOD_ID, "textures/gui/manual/scroll_button.png");
+        return ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "textures/gui/manual/scroll_button.png");
     }
 
     @Override
     public ResourceLocation getTabButtonTexture() {
-        return new ResourceLocation(API.MOD_ID, "textures/gui/manual/tab_button.png");
+        return ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "textures/gui/manual/tab_button.png");
     }
 
     @Override

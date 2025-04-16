@@ -16,9 +16,11 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import li.cil.oc2.common.bus.device.data.FileSystems;
 
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+@SuppressWarnings("unused")
 public final class Items {
     private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, API.MOD_ID);
 
@@ -69,7 +71,7 @@ public final class Items {
         new HardDriveItem(16 * Config.diskSizeFactor, DyeColor.YELLOW));
     public static final RegistryObject<HardDriveWithExternalDataItem> HARD_DRIVE_CUSTOM = register
         ("hard_drive_custom", () ->
-         new HardDriveWithExternalDataItem(FileSystems.getKeyByValue(FileSystems.getBlockByName("rootfs")), DyeColor.BROWN));
+         new HardDriveWithExternalDataItem(Objects.requireNonNull(FileSystems.getKeyByValue(FileSystems.getBlockByName("rootfs"))), DyeColor.BROWN));
 
     public static final RegistryObject<CPUItem> CPU_TIER_1 = register("cpu_tier_1", () ->
         new CPUItem(25_000_000));
@@ -111,8 +113,8 @@ public final class Items {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        ITEMS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        ITEMS.register(context.getModEventBus());
     }
 
     ///////////////////////////////////////////////////////////////////

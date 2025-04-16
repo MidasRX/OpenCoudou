@@ -7,14 +7,15 @@ plugins {
 }
 
 apply plugin: 'org.spongepowered.mixin'
-apply from: "minecraft.gradle"
 apply plugin: "java"
 jarJar.enable()
 
 allprojects {
     gradle.projectsEvaluated {
-        tasks.withType(JavaCompile) {
-            options.compilerArgs << "-Xmaxerrs" << "1000"
+        tasks.withType(JavaCompile).tap {
+            configureEach {
+                options.compilerArgs << "-Xmaxerrs" << "1000"
+            }
         }
     }
 }
@@ -135,16 +136,16 @@ dependencies {
 
 System.setProperty("line.separator", "\n")
 
-task packageScripts(type: Zip) {
+tasks.register('packageScripts', Zip) {
     archiveFileName = "scripts.zip"
-    destinationDirectory = file("$buildDir/resources/main/data/oc2r/file_systems")
+    destinationDirectory = file("${layout.buildDirectory.get()}/resources/main/data/oc2r/file_systems")
     from "src/main/scripts"
     filter { line -> line }
 }
 
-task copyLicensesToResources(type: Copy) {
+tasks.register('copyLicensesToResources', Copy) {
     from "."
-    into file("$buildDir/resources/main")
+    into file("${layout.buildDirectory.get()}/resources/main")
     include "LICENSE*"
 }
 
@@ -160,7 +161,7 @@ minecraft {
     accessTransformer = file("src/main/resources/META-INF/accesstransformer.cfg")
 
     runs {
-        all {
+        configureEach {
             property "forge.logging.markers", "REGISTRIES"
             property "forge.logging.console.level", "debug"
 
@@ -201,7 +202,7 @@ mixin {
 //    quiet
 }
 
-task copyGeneratedResources(type: Copy) {
+tasks.register('copyGeneratedResources', Copy) {
     from "src/generated"
     into "src/main"
     exclude "resources/.cache"
@@ -226,7 +227,7 @@ jar {
     }
 }
 
-task apiJar(type: Jar) {
+tasks.register('apiJar', Jar) {
     archiveClassifier.set("api")
     from sourceSets.main.allSource
     from sourceSets.main.output
@@ -235,29 +236,6 @@ task apiJar(type: Jar) {
 
 artifacts {
     archives apiJar
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            groupId = project.group
-            artifactId = project.name
-            version = semver
-            artifact jar
-            artifact apiJar
-            jarJar.component(it)
-        }
-    }
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = System.getenv("GITHUB_MAVEN_URL") ?: ""
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
-        }
-    }
 }
 
 curseforge {

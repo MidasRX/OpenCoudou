@@ -23,6 +23,7 @@ import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nullable;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.*;
@@ -31,6 +32,7 @@ import java.util.concurrent.Executor;
 
 import static li.cil.oc2.common.util.TextFormatUtils.formatSize;
 
+@SuppressWarnings("unused")
 @Mod.EventBusSubscriber(modid = API.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class FileSystems {
     private static final Logger LOGGER = LogManager.getLogger();
@@ -50,6 +52,7 @@ public final class FileSystems {
         return blocksByName.get(name);
     }
 
+    @Nullable
     public static ResourceLocation getKeyByValue(BlockDeviceData value) {
         for (Map.Entry<ResourceLocation, BlockDeviceData> entry : BLOCK_DEVICE_DATA.entrySet()) {
             if (Objects.equals(value, entry.getValue())) {
@@ -109,7 +112,7 @@ public final class FileSystems {
                 final String type = json.getAsJsonPrimitive("type").getAsString();
                 switch (type) {
                     case "layer" -> {
-                        final ResourceLocation location = new ResourceLocation(json.getAsJsonPrimitive("location").getAsString());
+                        final ResourceLocation location = ResourceLocation.parse(json.getAsJsonPrimitive("location").getAsString());
 
                         final ZipStreamFileSystem fileSystem;
                         try (final InputStream stream = resourceManager.getResource(location).get().open()) {
@@ -132,7 +135,7 @@ public final class FileSystems {
                         }
                     }
                     case "block" -> {
-                        final ResourceLocation location = new ResourceLocation(json.getAsJsonPrimitive("location").getAsString());
+                        final ResourceLocation location = ResourceLocation.parse(json.getAsJsonPrimitive("location").getAsString());
                         if (BlockDeviceDataRegistry.getValue(location) != null) {
                             LOGGER.error("Block device from datapack collides with already registered location [{}].", location);
                             continue;

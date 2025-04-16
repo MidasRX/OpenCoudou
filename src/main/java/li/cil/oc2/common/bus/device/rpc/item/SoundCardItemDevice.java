@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+@SuppressWarnings("unused")
 public final class SoundCardItemDevice extends AbstractItemRPCDevice {
     private final int COOLDOWN_IN_TICKS = TickUtils.toTicks(Duration.ofSeconds(Config.soundCardCoolDownSeconds));
     private static final int MAX_FIND_RESULTS = 25;
@@ -68,7 +69,7 @@ public final class SoundCardItemDevice extends AbstractItemRPCDevice {
 
             gameTimeCooldownExpiresAt = gameTime + COOLDOWN_IN_TICKS;
 
-            final SoundEvent soundEvent = ForgeRegistries.SOUND_EVENTS.getValue(new ResourceLocation(name));
+            final SoundEvent soundEvent = ForgeRegistries.SOUND_EVENTS.getValue(ResourceLocation.parse(name));
             if (soundEvent == null) throw new IllegalArgumentException("Sound not found.");
             level.playSound(null, location.blockPos(), soundEvent, SoundSource.BLOCKS, volume, pitch);
         }));
@@ -76,7 +77,7 @@ public final class SoundCardItemDevice extends AbstractItemRPCDevice {
 
     @Callback
     public List<String> findSound(@Nullable @Parameter("name") final String name) {
-        if (name == null || name.length() == 0) throw new IllegalArgumentException();
+        if (name == null || name.isEmpty()) throw new IllegalArgumentException();
 
         final ArrayList<String> matches = new ArrayList<>();
 

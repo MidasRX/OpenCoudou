@@ -22,12 +22,13 @@ public final class Entities {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        ENTITIES.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        ENTITIES.register(context.getModEventBus());
     }
 
     ///////////////////////////////////////////////////////////////////
 
+    @SuppressWarnings("SameParameterValue")
     private static <T extends Entity> RegistryObject<EntityType<T>> register(final String name, final EntityType.EntityFactory<T> factory, final MobCategory classification, final Function<EntityType.Builder<T>, EntityType.Builder<T>> customizer) {
         return ENTITIES.register(name, () -> customizer.apply(EntityType.Builder.of(factory, classification)).build(name));
     }

@@ -15,7 +15,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.state.BlockState;
-import java.util.Collection;
 import net.minecraftforge.fml.ModList;
 import java.util.*;
 import javax.annotation.Nullable;
@@ -24,6 +23,7 @@ import com.google.gson.JsonObject;
 import li.cil.oc2.api.bus.device.rpc.*;
 import static java.util.Collections.singletonList;
 
+@SuppressWarnings("unused")
 public final class RedstoneInterfaceBlockEntity extends ModBlockEntity implements NamedDevice, DocumentedDevice, RPCEventSource {
     private static final String OUTPUT_TAG_NAME = "output";
     private static final String BUNDLED_TAG_NAME = "bundled";
@@ -40,7 +40,7 @@ public final class RedstoneInterfaceBlockEntity extends ModBlockEntity implement
     private static final String VALUES = "values";
     private static final String COLOUR = "colour";
 
-    private final HashMap<IEventSink, UUID> subscribers = new HashMap();
+    private final HashMap<IEventSink, UUID> subscribers = new HashMap<>();
 
     ///////////////////////////////////////////////////////////////////
 
@@ -298,7 +298,7 @@ public final class RedstoneInterfaceBlockEntity extends ModBlockEntity implement
     }
 
     public void neighborChanged(BlockPos fromPos) {
-        int sl = 0;
+        int sl;
         if (level == null) {
             return;
         }
@@ -310,9 +310,10 @@ public final class RedstoneInterfaceBlockEntity extends ModBlockEntity implement
         final ChunkPos chunkPos = new ChunkPos(fromPos);
         if (!level.hasChunk(chunkPos.x, chunkPos.z)) {
             sl = 0;
+        } else {
+            sl = level.getSignal(fromPos, direction);
         }
 
-        sl = level.getSignal(fromPos, direction);
         JsonObject msg = new JsonObject();
         msg.addProperty("event", "redstone");
         msg.addProperty("side", ""+direction);

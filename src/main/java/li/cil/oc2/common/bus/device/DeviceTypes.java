@@ -28,8 +28,8 @@ public final class DeviceTypes {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        DEVICE_TYPES.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        DEVICE_TYPES.register(context.getModEventBus());
 
         register(ItemTags.DEVICES_MEMORY);
         register(ItemTags.DEVICES_HARD_DRIVE);
@@ -47,7 +47,7 @@ public final class DeviceTypes {
         final String id = tag.location().getPath().replaceFirst("^devices/", "");
         DEVICE_TYPES.register(id, () -> new DeviceTypeImpl(
             tag,
-            new ResourceLocation(API.MOD_ID, "item/" + id + "_slot"),
+            ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "item/" + id + "_slot"),
             text("gui.{mod}.device_type." + id)
         ));
     }

@@ -1,10 +1,6 @@
 package li.cil.oc2.common.vm.terminal.fonts;
 
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.system.MemoryUtil;
-
 import java.awt.image.BufferedImage;
-import java.nio.ByteBuffer;
 
 public class Glyph {
     public final BufferedImage image;
@@ -24,9 +20,5 @@ public class Glyph {
         vStart = v;
         uEnd = u2;
         vEnd = v2;
-    }
-
-    public float[] getUVCoords() {
-        return new float[]{uStart, vStart, uEnd, vEnd};
     }
 }

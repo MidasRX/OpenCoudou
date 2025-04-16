@@ -4,7 +4,12 @@ import li.cil.oc2.common.vm.terminal.Terminal;
 
 public class DECSC {
     public static void execute(Terminal terminal) {
-        terminal.savedX = terminal.x;
-        terminal.savedY = terminal.y;
+        if (terminal.currentPrivateModeState.isAltBufferEnabled()) {
+            terminal.altSavedX = terminal.x;
+            terminal.altSavedY = terminal.y;
+        } else {
+            terminal.savedX = terminal.x;
+            terminal.savedY = terminal.y;
+        }
     }
 }

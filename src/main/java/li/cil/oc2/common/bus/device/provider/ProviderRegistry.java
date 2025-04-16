@@ -27,9 +27,9 @@ public final class ProviderRegistry {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        ITEM_DEVICE_PROVIDERS.register(FMLJavaModLoadingContext.get().getModEventBus());
-        BLOCK_DEVICE_PROVIDERS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        ITEM_DEVICE_PROVIDERS.register(context.getModEventBus());
+        BLOCK_DEVICE_PROVIDERS.register(context.getModEventBus());
 
         ITEM_DEVICE_PROVIDERS.register("memory", MemoryItemDeviceProvider::new);
         ITEM_DEVICE_PROVIDERS.register("hard_drive", HardDriveItemDeviceProvider::new);

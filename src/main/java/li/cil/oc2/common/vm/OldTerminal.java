@@ -27,7 +27,9 @@ import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 // VT100 emulation: https://vt100.net/docs/vt100-ug/chapter3.html
+// Still around in case of needing to look back when new bugs surface
 @Serialized
+@SuppressWarnings("all")
 public final class OldTerminal {
     public static final int WIDTH = 80, HEIGHT = 24;
     public static final int CHAR_WIDTH = 8;
@@ -331,9 +333,7 @@ public final class OldTerminal {
                         }      // DECKPAM – Keypad Application Mode (DEC Private)
                         case '>' -> {
                         }      // DECKPNM – Keypad Numeric Mode (DEC Private)
-                        default -> {
-                            System.out.println("Invalid escape: " + ch);
-                        }
+                        default -> System.out.println("Invalid escape: " + ch);
                     }
                 }
             }
@@ -943,7 +943,7 @@ public final class OldTerminal {
 
     @OnlyIn(Dist.CLIENT)
     private static final class Renderer implements RendererModel, RendererView {
-        private static final ResourceLocation LOCATION_FONT_TEXTURE = new ResourceLocation(API.MOD_ID, "textures/font/terminus.png");
+        private static final ResourceLocation LOCATION_FONT_TEXTURE = ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "textures/font/terminus.png");
         private static final int TEXTURE_RESOLUTION = 256;
         private static final float ONE_OVER_TEXTURE_RESOLUTION = 1.0f / (float) TEXTURE_RESOLUTION;
         private static final int TEXTURE_COLUMNS = 16;

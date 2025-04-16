@@ -5,16 +5,19 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import it.unimi.dsi.fastutil.bytes.ByteArrayFIFOQueue;
 import li.cil.ceres.api.Serialized;
-import li.cil.oc2.api.API;
-import li.cil.oc2.common.vm.terminal.escapes.CSI.CSIManager;
+import li.cil.oc2.common.vm.terminal.escapes.apc.APCManager;
+import li.cil.oc2.common.vm.terminal.escapes.csi.CSIManager;
 import li.cil.oc2.common.vm.terminal.escapes.*;
+import li.cil.oc2.common.vm.terminal.escapes.dcs.DCSManager;
+import li.cil.oc2.common.vm.terminal.escapes.osc.OSCManager;
 import li.cil.oc2.common.vm.terminal.fonts.FontHandling;
 import li.cil.oc2.common.vm.terminal.fonts.Glyph;
+import li.cil.oc2.common.vm.terminal.modes.ModeState;
+import li.cil.oc2.common.vm.terminal.modes.PrivateModeState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -72,7 +75,7 @@ public class Terminal {
     public State state = State.NORMAL;
     public int scrollFirst = 0, scrollLast = HEIGHT - 1;
     public int x, y;
-    public int savedX, savedY;
+    public int savedX, savedY, altSavedX, altSavedY;
     public int lastRowToDisplay = 24, lastRowToDisplayMax = 24;
 
     // Alt Buffer
@@ -86,7 +89,6 @@ public class Terminal {
     public final transient Set<RendererModel> renderers = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
     public transient boolean displayOnly; // Set on client to not send responses to status requests.
     public transient boolean hasPendingBell;
-    public char lastChar;
     public boolean continuationByte;
     public int unicode;
     public int bytesRead;
@@ -96,7 +98,6 @@ public class Terminal {
     public int drawingModeG1;
     public int cursorMode;
     public ModeState currentModeState = new ModeState();
-    public ModeState saveModeState = new ModeState();
     public PrivateModeState currentPrivateModeState = new PrivateModeState();
     public PrivateModeState savePrivateModeState = new PrivateModeState();
 
@@ -125,6 +126,7 @@ public class Terminal {
         public static final int SPECIAL_GRAPHICS = 1;  // BLINKING BLOCK
     }
 
+    @SuppressWarnings("unused")
     public static final class Color {
         static final int BLACK = 0;
         static final int RED = 1;
@@ -163,12 +165,6 @@ public class Terminal {
             ColorMode Mode = ColorMode.SIXTEEN_COLOR;
         }
 
-        public ColorData(final int r, final int g, final int b) {
-            R = r;
-            G = g;
-            B = b;
-        }
-
         public ColorData(final int r, final int g, final int b, final ColorMode mode) {
             R = r;
             G = g;
@@ -186,7 +182,10 @@ public class Terminal {
     }
 
     // Instances
-    private final CSIManager csiManager = new CSIManager();
+    private final CSIManager csiManager = new CSIManager(this);
+    private final OSCManager oscManager = new OSCManager(this);
+    private final DCSManager dcsManager = new DCSManager(this);
+    private final APCManager apcManager = new APCManager(this);
 
     // Nested interfaces
     public interface RendererView {
@@ -197,10 +196,6 @@ public class Terminal {
         AtomicInteger getDirtyMask();
 
         void close();
-    }
-
-    public void setDefaultMode() {
-
     }
 
     // Generic Getters
@@ -234,6 +229,9 @@ public class Terminal {
 
         if (originallyEqual) {
             lastRowToDisplay = lastRowToDisplayMax;
+        }
+        else {
+            lastRowToDisplay = Math.min(lastRowToDisplay + 1, lastRowToDisplayMax);
         }
 
         int dirtyLinesMask = 0;
@@ -436,7 +434,6 @@ public class Terminal {
                 bytesToRead++;
             } else {
                 continuationByte = false;
-                System.out.println("ERR: Invalid first byte received");
                 return;
             }
 
@@ -462,7 +459,6 @@ public class Terminal {
                 continuationByte = false;
                 bytesToRead = 0;
                 bytesRead = 0;
-                System.out.println("ERR: Invalid continuation byte received");
                 return;
             }
 
@@ -482,12 +478,8 @@ public class Terminal {
                 switch (value) {
                     case '\007' -> hasPendingBell = true;
                     case '\033' -> state = State.ESCAPE;
-                    case '\016' -> {
-                        useG0 = false;
-                    } // SO
-                    case '\017' -> {
-                        useG0 = true;
-                    } // SI
+                    case '\016' -> useG0 = false; // SO
+                    case '\017' -> useG0 = true; // SI
 
                     case (byte) '\r' /* 015 */ -> setCursorPos(0, y);
                     case (byte) '\n' /* 012 */, '\013', '\014' -> {
@@ -520,14 +512,13 @@ public class Terminal {
                 } else if (ch == '#') { // # Intermediate
                     state = State.HASH;
                 } else if (ch == 'P') {
-                    lastChar = '\0';
+                    dcsManager.reset();
                     state = State.DCS;
                 } else if (ch == ']') {
-                    System.out.println("OSC");
-                    lastChar = '\0';
+                    oscManager.reset();
                     state = State.OSC;
                 } else if (ch == '_') {
-                    lastChar = '\0';
+                    apcManager.reset();
                     state = State.APC;
                 } else {
                     state = State.NORMAL;
@@ -543,41 +534,18 @@ public class Terminal {
                         }      // DECKPAM – Keypad Application Mode (DEC public)
                         case '>' -> {
                         }      // DECKPNM – Keypad Numeric Mode (DEC public)
-                        default -> {
-                            System.out.println("Invalid escape: " + ch);
-                        }
+                        default -> System.out.println("Invalid escape: " + ch);
                     }
                 }
             }
-            case CONTROL_SEQUENCE -> csiManager.handle(ch, this);
-            case SHIFT_IN_CHARACTER_SET -> {
+            case CONTROL_SEQUENCE -> csiManager.handle(ch);
+            case SHIFT_IN_CHARACTER_SET, SHIFT_OUT_CHARACTER_SET -> {
                 state = State.NORMAL;
                 switch (ch) {
                     case 'A' -> {
                     } // United Kingdom Set
-                    case 'B' -> {
-                        drawingModeG0 = DrawingMode.ASCII;
-                    } // ASCII Set
-                    case '0' -> {
-                        drawingModeG0 = DrawingMode.SPECIAL_GRAPHICS;
-                    } // Special Graphics
-                    case '1' -> {
-                    } // Alternate Character ROM Standard Character Set
-                    case '2' -> {
-                    } // Alternate Character ROM Special Graphics
-                }
-            }
-            case SHIFT_OUT_CHARACTER_SET -> {
-                state = State.NORMAL;
-                switch (ch) {
-                    case 'A' -> {
-                    } // United Kingdom Set
-                    case 'B' -> {
-                        drawingModeG1 = DrawingMode.ASCII;
-                    } // ASCII Set
-                    case '0' -> {
-                        drawingModeG1 = DrawingMode.SPECIAL_GRAPHICS;
-                    } // Special Graphics
+                    case 'B' -> drawingModeG0 = DrawingMode.ASCII; // ASCII Set
+                    case '0' -> drawingModeG0 = DrawingMode.SPECIAL_GRAPHICS; // Special Graphics
                     case '1' -> {
                     } // Alternate Character ROM Standard Character Set
                     case '2' -> {
@@ -605,29 +573,9 @@ public class Terminal {
                     }
                 }
             }
-            case DCS -> {
-                if (lastChar == '\033' && ch == '\\') {
-                    state = State.NORMAL;
-                } else {
-                    lastChar = ch;
-                }
-                // Used for mapping Function keys and possibly other things
-            }
-            case OSC -> {
-                System.out.println("OSC: " + ch);
-                if (lastChar == '\033' && ch == '\\' || ch == '\007') {
-                    state = State.NORMAL;
-                } else {
-                    lastChar = ch;
-                }
-            }
-            case APC -> {
-                if (lastChar == '\033' && ch == '\\') {
-                    state = State.NORMAL;
-                } else {
-                    lastChar = ch;
-                }
-            }
+            case DCS -> dcsManager.handle(ch); // Used for mapping Function keys and possibly other things
+            case OSC -> oscManager.handle(ch);
+            case APC -> apcManager.handle(ch);
         }
     }
 
@@ -758,17 +706,18 @@ public class Terminal {
 
         if (curMode == DrawingMode.SPECIAL_GRAPHICS) {
             switch (ch) {
-                case 'q' -> ch = "─".codePointAt(0);
-                case 'x' -> ch = "│".codePointAt(0);
                 case 'l' -> ch = "┌".codePointAt(0);
                 case 'k' -> ch = "┐".codePointAt(0);
                 case 'm' -> ch = "└".codePointAt(0);
                 case 'j' -> ch = "┘".codePointAt(0);
-                case 't' -> ch = "┬".codePointAt(0);
-                case 'u' -> ch = "┴".codePointAt(0);
-                case 'v' -> ch = "┤".codePointAt(0);
-                case 'w' -> ch = "├".codePointAt(0);
+                case 'q' -> ch = "─".codePointAt(0);
+                case 'x' -> ch = "│".codePointAt(0);
                 case 'n' -> ch = "┼".codePointAt(0);
+                case '~' -> ch = "B".codePointAt(0);
+                case 'u' -> ch = "┤".codePointAt(0);
+                case 't' -> ch = "├".codePointAt(0);
+                case 'v' -> ch = "┴".codePointAt(0);
+                case 'w' -> ch = "┬".codePointAt(0);
             }
         }
 
@@ -791,27 +740,15 @@ public class Terminal {
             altBuffer[index] = ch;
 
             switch (currentForegroundColorMode) {
-                case SIXTEEN_COLOR -> {
-                    altColors[index] = sixteenColor.Copy();
-                }
-                case TWO_FIFTY_SIX_COLOR -> {
-                    altColors[index] = twoFiftySixColor.Copy();
-                }
-                case TRUE_COLOR -> {
-                    altColors[index] = foregroundColor.Copy();
-                }
+                case SIXTEEN_COLOR -> altColors[index] = sixteenColor.Copy();
+                case TWO_FIFTY_SIX_COLOR -> altColors[index] = twoFiftySixColor.Copy();
+                case TRUE_COLOR -> altColors[index] = foregroundColor.Copy();
             }
 
             switch (currentBackgroundColorMode) {
-                case SIXTEEN_COLOR -> {
-                    altColorsBackground[index] = sixteenColor.Copy();
-                }
-                case TWO_FIFTY_SIX_COLOR -> {
-                    altColorsBackground[index] = twoFiftySixColor.Copy();
-                }
-                case TRUE_COLOR -> {
-                    altColorsBackground[index] = backgroundColor.Copy();
-                }
+                case SIXTEEN_COLOR -> altColorsBackground[index] = sixteenColor.Copy();
+                case TWO_FIFTY_SIX_COLOR -> altColorsBackground[index] = twoFiftySixColor.Copy();
+                case TRUE_COLOR -> altColorsBackground[index] = backgroundColor.Copy();
             }
 
             altStyles[index] = style;
@@ -823,27 +760,15 @@ public class Terminal {
             buffer[index] = ch;
 
             switch (currentForegroundColorMode) {
-                case SIXTEEN_COLOR -> {
-                    colors[index] = sixteenColor.Copy();
-                }
-                case TWO_FIFTY_SIX_COLOR -> {
-                    colors[index] = twoFiftySixColor.Copy();
-                }
-                case TRUE_COLOR -> {
-                    colors[index] = foregroundColor.Copy();
-                }
+                case SIXTEEN_COLOR -> colors[index] = sixteenColor.Copy();
+                case TWO_FIFTY_SIX_COLOR -> colors[index] = twoFiftySixColor.Copy();
+                case TRUE_COLOR -> colors[index] = foregroundColor.Copy();
             }
 
             switch (currentBackgroundColorMode) {
-                case SIXTEEN_COLOR -> {
-                    colorsBackground[index] = sixteenColor.Copy();
-                }
-                case TWO_FIFTY_SIX_COLOR -> {
-                    colorsBackground[index] = twoFiftySixColor.Copy();
-                }
-                case TRUE_COLOR -> {
-                    colorsBackground[index] = backgroundColor.Copy();
-                }
+                case SIXTEEN_COLOR -> colorsBackground[index] = sixteenColor.Copy();
+                case TWO_FIFTY_SIX_COLOR -> colorsBackground[index] = twoFiftySixColor.Copy();
+                case TRUE_COLOR -> colorsBackground[index] = backgroundColor.Copy();
             }
 
             styles[index] = style;
@@ -935,7 +860,7 @@ public class Terminal {
             renderBuffer(stack, projectionMatrix);
 
             boolean steady = switch (terminal.cursorMode) {
-                case 2, 4, 6 -> true;
+                case CursorMode.STEADY_BLOCK, CursorMode.STEADY_UNDERLINE, CursorMode.STEADY_BAR_LINE -> true;
                 default -> false;
             };
 
@@ -998,6 +923,7 @@ public class Terminal {
             RenderSystem.depthMask(true);
         }
 
+        @SuppressWarnings("resource")
         public void validateLineCache() {
             if (dirty.get() == 0) {
                 return;
@@ -1165,19 +1091,19 @@ public class Terminal {
             final float b = ((foreground) & 0xFF) / 255f;
 
             switch (terminal.cursorMode) {
-                case 0, 1, 2: // BLOCK
+                case CursorMode.DEFAULT, CursorMode.BLINK_BLOCK, CursorMode.STEADY_BLOCK: // BLOCK
                     buffer.vertex(matrix, 0, CHAR_HEIGHT, 0).color(r, g, b, 1).endVertex();
                     buffer.vertex(matrix, CHAR_WIDTH, CHAR_HEIGHT, 0).color(r, g, b, 1).endVertex();
                     buffer.vertex(matrix, CHAR_WIDTH, 0, 0).color(r, g, b, 1).endVertex();
                     buffer.vertex(matrix, 0, 0, 0).color(r, g, b, 1).endVertex();
                     break;
-                case 3, 4: // UNDERLINE
+                case CursorMode.BLINK_UNDERLINE, CursorMode.STEADY_UNDERLINE: // UNDERLINE
                     buffer.vertex(matrix, 0, 1, 0).color(r, g, b, 1).endVertex();
                     buffer.vertex(matrix, CHAR_WIDTH, 1, 0).color(r, g, b, 1).endVertex();
                     buffer.vertex(matrix, CHAR_WIDTH, 0, 0).color(r, g, b, 1).endVertex();
                     buffer.vertex(matrix, 0, 0, 0).color(r, g, b, 1).endVertex();
                     break;
-                case 5, 6: // VERTICAL BAR LINE
+                case CursorMode.BLINKING_BAR_LINE, CursorMode.STEADY_BAR_LINE: // VERTICAL BAR LINE
                     buffer.vertex(matrix, 0, CHAR_HEIGHT, 0).color(r, g, b, 1).endVertex();
                     buffer.vertex(matrix, 1, CHAR_HEIGHT, 0).color(r, g, b, 1).endVertex();
                     buffer.vertex(matrix, 1, 0, 0).color(r, g, b, 1).endVertex();

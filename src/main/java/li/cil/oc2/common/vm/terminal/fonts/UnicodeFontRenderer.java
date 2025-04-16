@@ -1,12 +1,9 @@
 package li.cil.oc2.common.vm.terminal.fonts;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.font.FontRenderContext;
 import java.awt.font.GlyphVector;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,8 +18,8 @@ public class UnicodeFontRenderer {
 
         String initialSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=_.,:;<>?;':\"\\|`~[]{}1234567890△▽ ";
         int[] characters = initialSet.codePoints().toArray();
-        for (int i = 0; i < characters.length; i++) {
-            getGlyph(characters[i]);
+        for (final int character : characters) {
+            getGlyph(character);
         }
     }
 

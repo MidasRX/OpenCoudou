@@ -37,12 +37,12 @@ public final class Manuals {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        MANUALS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        MANUALS.register(context.getModEventBus());
 
-        PATH_PROVIDERS.register(FMLJavaModLoadingContext.get().getModEventBus());
-        CONTENT_PROVIDERS.register(FMLJavaModLoadingContext.get().getModEventBus());
-        TABS.register(FMLJavaModLoadingContext.get().getModEventBus());
+        PATH_PROVIDERS.register(context.getModEventBus());
+        CONTENT_PROVIDERS.register(context.getModEventBus());
+        TABS.register(context.getModEventBus());
 
         PATH_PROVIDERS.register("path_provider", () -> new NamespacePathProvider(API.MOD_ID));
         CONTENT_PROVIDERS.register("content_provider", () -> new NamespaceDocumentProvider(API.MOD_ID, "doc"));
@@ -50,7 +50,7 @@ public final class Manuals {
         TABS.register("home", () -> new TextureTab(
             ManualModel.LANGUAGE_KEY + "/index.md",
             Component.translatable("manual." + API.MOD_ID + ".home"),
-            new ResourceLocation(API.MOD_ID, "textures/gui/manual/home.png")));
+            ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "textures/gui/manual/home.png")));
         TABS.register("blocks", () -> new ItemStackTab(
             ManualModel.LANGUAGE_KEY + "/block/index.md",
             Component.translatable("manual." + API.MOD_ID + ".blocks"),

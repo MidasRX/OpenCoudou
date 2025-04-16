@@ -1,7 +1,6 @@
 package li.cil.oc2.common.vm.terminal.fonts;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -10,29 +9,29 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.nio.Buffer;
 import java.util.ArrayList;
 import java.util.List;
 
 @OnlyIn(Dist.CLIENT)
 public class FontAtlas {
-    private ResourceLocation resources;
+    private final static int PADDING = 2; // Padding between glyphs
+
+    private final ResourceLocation resources;
     private int atlasWidth;
     private int atlasHeight;
     public NativeImage atlasImage;  // The current texture
-    private DynamicTexture dynamicTexture;
+    private final DynamicTexture dynamicTexture;
     private final List<Glyph> glyphs;
 
     private int currentX = 0;  // X coordinate to place next glyph
     private int currentY = 0;  // Y coordinate to place next glyph
-    private final int padding = 2; // Padding between glyphs
 
     public FontAtlas(int initialWidth, int initialHeight) {
         this.atlasWidth = initialWidth;
         this.atlasHeight = initialHeight;
-        this.atlasImage = new NativeImage(atlasWidth, atlasHeight, true);
+        this.atlasImage = new NativeImage(atlasWidth, atlasHeight, false);
         this.dynamicTexture = new DynamicTexture(atlasImage);
-        this.resources = new ResourceLocation("oc2r", "terminus_font_atlas");
+        this.resources = ResourceLocation.fromNamespaceAndPath("oc2r", "terminus_font_atlas");
         Minecraft.getInstance().getTextureManager().register(resources, dynamicTexture);
         this.glyphs = new ArrayList<>();
 
@@ -61,7 +60,7 @@ public class FontAtlas {
     public void addGlyph(Glyph glyph) {
         if (currentX + glyph.image.getWidth() > atlasWidth) {
             currentX = 0;
-            currentY += glyph.image.getHeight() + padding;
+            currentY += glyph.image.getHeight() + PADDING;
         }
 
         // Check if there's enough space in the current atlas
@@ -88,21 +87,17 @@ public class FontAtlas {
         glyphs.add(glyph);
 
         // Update the position for the next glyph
-        currentX += glyph.image.getWidth() + padding;
+        currentX += glyph.image.getWidth() + PADDING;
         updateTexture();
     }
 
-    // Resize the atlas when there is not enough space
     private void resizeAtlas() {
         System.out.println("resizing atlas at " + atlasWidth + "x" + atlasHeight);
-        // Double the size of the atlas for now (or use a different strategy)
         int newWidth = atlasWidth * 2;
         int newHeight = atlasHeight * 2;
 
-        // Create a new NativeImage with the new dimensions
         NativeImage newAtlasImage = new NativeImage(newWidth, newHeight, false);
 
-        // Copy the old atlas contents to the new one
         for (int y = 0; y < atlasHeight; y++) {
             for (int x = 0; x < atlasWidth; x++) {
                 int color = atlasImage.getPixelRGBA(x, y);
@@ -110,28 +105,23 @@ public class FontAtlas {
             }
         }
 
-        // Replace the old atlas image with the new one
+        for (Glyph glyph : glyphs) {
+            glyph.setUV(glyph.uStart/2f, glyph.vStart/2f, glyph.uEnd/2f, glyph.vEnd/2f);
+        }
+
         this.atlasWidth = newWidth;
         this.atlasHeight = newHeight;
         this.atlasImage = newAtlasImage;
 
-        // Update the DynamicTexture with the new atlas
         this.dynamicTexture.setPixels(atlasImage);
         updateTexture();
     }
 
-    // Returns the texture location for the atlas
     public ResourceLocation getTextureId() {
         return this.resources;
     }
 
-    // Method to update the texture (upload it to OpenGL)
     public void updateTexture() {
         dynamicTexture.upload();
-    }
-
-    // Get all the glyphs
-    public List<Glyph> getGlyphs() {
-        return glyphs;
     }
 }

@@ -1,15 +1,11 @@
 package li.cil.oc2.common.serialization.ceres;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.annotations.SerializedName;
 import li.cil.ceres.api.DeserializationVisitor;
 import li.cil.ceres.api.SerializationException;
 import li.cil.ceres.api.SerializationVisitor;
 import li.cil.ceres.api.Serializer;
 import li.cil.oc2.common.vm.terminal.Terminal;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.util.GsonHelper;
 import org.jetbrains.annotations.Nullable;
 
 public class ColorModeSerializer implements Serializer<Terminal.ColorMode> {
