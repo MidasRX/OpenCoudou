@@ -63,6 +63,7 @@ public final class RedstoneInterfaceBlock extends HorizontalDirectionalBlock imp
     }
 
     @Override
+    @SuppressWarnings({"deprecation", "DataFlowIssue"})
     public void neighborChanged(BlockState state, Level worldIn, BlockPos pos, Block blockIn, BlockPos fromPos, boolean isMoving) {
         RedstoneInterfaceBlockEntity ribe = (RedstoneInterfaceBlockEntity) worldIn.getBlockEntity(pos);
         ribe.neighborChanged(fromPos);

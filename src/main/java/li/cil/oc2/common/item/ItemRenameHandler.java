@@ -13,11 +13,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+@SuppressWarnings("unused")
 public final class ItemRenameHandler {
     private static final Map<String, Supplier<Item>> RENAMES = Util.make(() -> {
         final Map<String, Supplier<Item>> map = new HashMap<>();
 
-        map.put("hard_drive_buildroot", Items.HARD_DRIVE_CUSTOM::get);
         map.put("flash_memory_buildroot", Items.FLASH_MEMORY_CUSTOM::get);
 
         return map;
@@ -28,6 +28,7 @@ public final class ItemRenameHandler {
     ///////////////////////////////////////////////////////////////////
 
     @SubscribeEvent
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private static void handleMissingMappings(final MissingMappingsEvent event) {
 
         for (final MissingMappingsEvent.Mapping mapping : event.getAllMappings(ResourceKey.createRegistryKey(event.getKey().location()))) {
