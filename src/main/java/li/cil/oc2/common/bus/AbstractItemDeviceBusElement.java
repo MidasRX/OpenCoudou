@@ -85,6 +85,7 @@ public abstract class AbstractItemDeviceBusElement extends AbstractGroupingDevic
         return new ItemQueryResult(query, entries);
     }
 
+    @SuppressWarnings("ConstantValue")
     protected void collectSyntheticDevices(final ItemDeviceQuery query, final HashSet<ItemEntry> entries) {
         if (entries.isEmpty()) {
             return;
@@ -99,7 +100,7 @@ public abstract class AbstractItemDeviceBusElement extends AbstractGroupingDevic
     protected void onEntryRemoved(final String dataKey, final CompoundTag tag, @Nullable final ItemDeviceQuery query) {
         super.onEntryRemoved(dataKey, tag, query);
         final IForgeRegistry<ItemDeviceProvider> registry = Providers.itemDeviceProviderRegistry();
-        final ItemDeviceProvider provider = registry.getValue(new ResourceLocation(dataKey));
+        final ItemDeviceProvider provider = registry.getValue(ResourceLocation.parse(dataKey));
         if (provider != null) {
             provider.unmount(query, tag);
         }

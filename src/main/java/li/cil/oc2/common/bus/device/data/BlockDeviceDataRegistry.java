@@ -16,6 +16,7 @@ import javax.annotation.Nullable;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+@SuppressWarnings("unused")
 public final class BlockDeviceDataRegistry {
     private static final DeferredRegister<BlockDeviceData> INITIALIZER = DeferredRegister.create(Registries.BLOCK_DEVICE_DATA, API.MOD_ID);
 
@@ -29,8 +30,8 @@ public final class BlockDeviceDataRegistry {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        INITIALIZER.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        INITIALIZER.register(context.getModEventBus());
     }
 
     @Nullable

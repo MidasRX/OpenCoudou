@@ -21,7 +21,7 @@ public interface DeviceType {
     /**
      * The registry name of the registry holding device types.
      */
-    ResourceKey<Registry<DeviceType>> REGISTRY = ResourceKey.createRegistryKey(new ResourceLocation(API.MOD_ID, "device_type"));
+    ResourceKey<Registry<DeviceType>> REGISTRY = ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "device_type"));
 
     /**
      * The tag representing this device type.

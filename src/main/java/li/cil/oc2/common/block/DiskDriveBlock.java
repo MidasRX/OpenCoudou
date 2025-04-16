@@ -41,6 +41,19 @@ public final class DiskDriveBlock extends HorizontalDirectionalBlock implements 
         return super.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
+    @Override
+    public void playerWillDestroy(final Level level, final BlockPos pos, final BlockState state, final Player player) {
+        final BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (!level.isClientSide() && blockEntity instanceof final DiskDriveBlockEntity diskDrive) {
+            if (!diskDrive.getDiskItemStack().isEmpty()) {
+                final ItemStack stack = diskDrive.getDiskItemStack();
+                popResource(level, pos, stack);
+            }
+        }
+
+        super.playerWillDestroy(level, pos, state, player);
+    }
+
     @SuppressWarnings("deprecation")
     @Override
     public InteractionResult use(final BlockState state, final Level level, final BlockPos pos, final Player player, final InteractionHand hand, final BlockHitResult hit) {

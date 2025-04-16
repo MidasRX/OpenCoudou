@@ -27,17 +27,17 @@ import static li.cil.oc2.common.Constants.BLOCK_ENTITY_TAG_NAME_IN_ITEM;
 import static li.cil.oc2.common.Constants.ITEMS_TAG_NAME;
 
 @JeiPlugin
+@SuppressWarnings("unused")
 public class ExtraItemsJEIPlugin implements IModPlugin {
     @Override
     public ResourceLocation getPluginUid() {
-        return new ResourceLocation(API.MOD_ID, "extra_items");
+        return ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "extra_items");
     }
 
     @Override
     public void registerItemSubtypes(final ISubtypeRegistration registration) {
         registration.registerSubtypeInterpreter(VanillaTypes.ITEM_STACK, Items.COMPUTER.get(), new ComputerSubtypeInterpreter());
         registration.registerSubtypeInterpreter(VanillaTypes.ITEM_STACK, Items.ROBOT.get(), new RobotSubtypeInterpreter());
-        registration.registerSubtypeInterpreter(VanillaTypes.ITEM_STACK, Items.HARD_DRIVE_CUSTOM.get(), new BlockDeviceSubtypeInterpreter());
         registration.registerSubtypeInterpreter(VanillaTypes.ITEM_STACK, Items.FLASH_MEMORY_CUSTOM.get(), new BlockDeviceSubtypeInterpreter());
     }
 

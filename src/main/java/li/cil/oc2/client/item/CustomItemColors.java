@@ -10,6 +10,7 @@ import net.minecraft.world.item.DyeableLeatherItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+@SuppressWarnings("unused")
 public final class CustomItemColors {
     public static final int BLACK = 0xFF404040;
     public static final int GREY = 0xFF555555;
@@ -35,6 +36,7 @@ public final class CustomItemColors {
 
     ///////////////////////////////////////////////////////////////////
 
+    @SuppressWarnings("deprecation")
     public static void initialize() {
         final ItemColors itemColors = Minecraft.getInstance().getItemColors();
         itemColors.register((stack, layer) -> layer == 1 ? getColor(stack) : NO_TINT,
@@ -42,7 +44,6 @@ public final class CustomItemColors {
             Items.HARD_DRIVE_MEDIUM.get(),
             Items.HARD_DRIVE_LARGE.get(),
             Items.HARD_DRIVE_EXTRA_LARGE.get(),
-            Items.HARD_DRIVE_CUSTOM.get(),
             Items.FLOPPY.get(),
             Items.FLOPPY_MODERN.get());
     }

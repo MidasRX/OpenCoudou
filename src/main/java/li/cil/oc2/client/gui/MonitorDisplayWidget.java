@@ -9,7 +9,7 @@ import li.cil.oc2.common.bus.device.vm.block.MonitorDevice;
 import li.cil.oc2.common.container.AbstractMonitorContainer;
 import li.cil.oc2.common.network.Network;
 import li.cil.oc2.common.network.message.MonitorInputMessage;
-import li.cil.oc2.common.vm.Terminal;
+import li.cil.oc2.common.vm.terminal.Terminal;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -24,6 +24,8 @@ import javax.annotation.Nullable;
 
 @OnlyIn(Dist.CLIENT)
 public final class MonitorDisplayWidget {
+    public boolean isInputCaptureEnabled;
+
     private static final int TERMINAL_WIDTH = Terminal.WIDTH * Terminal.CHAR_WIDTH / 2;
     private static final int TERMINAL_HEIGHT = Terminal.HEIGHT * Terminal.CHAR_HEIGHT / 2;
 
@@ -55,7 +57,7 @@ public final class MonitorDisplayWidget {
         Sprites.MONITOR_SCREEN.draw(graphics, leftPos, topPos);
 
         if (shouldCaptureInput()) {
-            Sprites.TERMINAL_FOCUSED.draw(graphics, leftPos, topPos);
+            Sprites.MONITOR_FOCUSED.draw(graphics, leftPos, topPos);
         }
     }
 
@@ -142,7 +144,7 @@ public final class MonitorDisplayWidget {
     }
 
     private boolean shouldCaptureInput() {
-        return isMouseOverTerminal && AbstractMachineTerminalScreen.isInputCaptureEnabled();
+        return isMouseOverTerminal && isInputCaptureEnabled;
     }
 
     private boolean isMouseOverTerminal(final int mouseX, final int mouseY) {

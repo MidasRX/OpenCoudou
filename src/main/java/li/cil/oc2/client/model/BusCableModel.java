@@ -15,8 +15,8 @@ import java.util.function.Function;
 import static java.util.Objects.requireNonNull;
 
 public final class BusCableModel implements IUnbakedGeometry<BusCableModel> {
-    private static final ResourceLocation BUS_CABLE_STRAIGHT_MODEL = new ResourceLocation(API.MOD_ID, "block/cable_straight");
-    private static final ResourceLocation BUS_CABLE_SUPPORT_MODEL = new ResourceLocation(API.MOD_ID, "block/cable_support");
+    private static final ResourceLocation BUS_CABLE_STRAIGHT_MODEL = ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "block/cable_straight");
+    private static final ResourceLocation BUS_CABLE_SUPPORT_MODEL = ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "block/cable_support");
     private final IUnbakedGeometry<?> proxy;
 
     BusCableModel(final IUnbakedGeometry<?> proxy) {

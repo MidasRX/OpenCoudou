@@ -29,11 +29,11 @@ public final class FirmwareRegistry {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        INITIALIZER.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        INITIALIZER.register(context.getModEventBus());
     }
 
-    @Nullable
+    @SuppressWarnings("unused")
     public static ResourceLocation getKey(final Firmware firmware) {
         return INITIALIZER.getRegistryName();
     }

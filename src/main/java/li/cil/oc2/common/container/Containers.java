@@ -24,7 +24,7 @@ public final class Containers {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        CONTAINERS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        CONTAINERS.register(context.getModEventBus());
     }
 }

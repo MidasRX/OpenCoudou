@@ -14,11 +14,11 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
-import li.cil.oc2.common.bus.device.data.FileSystems;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+@SuppressWarnings("unused")
 public final class Items {
     private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, API.MOD_ID);
 
@@ -67,9 +67,6 @@ public final class Items {
         new HardDriveItem(4 * Config.diskSizeFactor, DyeColor.CYAN));
     public static final RegistryObject<HardDriveItem> HARD_DRIVE_EXTRA_LARGE = register("hard_drive_extra_large", () ->
         new HardDriveItem(16 * Config.diskSizeFactor, DyeColor.YELLOW));
-    public static final RegistryObject<HardDriveWithExternalDataItem> HARD_DRIVE_CUSTOM = register
-        ("hard_drive_custom", () ->
-         new HardDriveWithExternalDataItem(FileSystems.getKeyByValue(FileSystems.getBlockByName("rootfs")), DyeColor.BROWN));
 
     public static final RegistryObject<CPUItem> CPU_TIER_1 = register("cpu_tier_1", () ->
         new CPUItem(25_000_000));
@@ -79,6 +76,8 @@ public final class Items {
         new CPUItem(100_000_000));
     public static final RegistryObject<CPUItem> CPU_TIER_4 = register("cpu_tier_4", () ->
         new CPUItem(200_000_000));
+    public static final RegistryObject<CPUItem> CPU_TIER_INF = register("cpu_tier_inf", () ->
+        new CPUItem(1_000_000_000));
     public static final RegistryObject<FlashMemoryItem> FLASH_MEMORY = register("flash_memory", () ->
         new FlashMemoryItem(12 * Constants.MEGABYTE));
     public static final RegistryObject<FlashMemoryWithExternalDataItem> FLASH_MEMORY_CUSTOM = register("flash_memory_custom", () ->
@@ -109,8 +108,8 @@ public final class Items {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        ITEMS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        ITEMS.register(context.getModEventBus());
     }
 
     ///////////////////////////////////////////////////////////////////

@@ -25,12 +25,12 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.function.Consumer;
 
+@SuppressWarnings("unused")
 public final class WrenchRecipeBuilder {
     private final Item result;
     private final int count;
     private final List<Ingredient> ingredients = Lists.newArrayList();
     private final Advancement.Builder advancementBuilder = Advancement.Builder.advancement();
-    private String group;
 
     public WrenchRecipeBuilder(final ItemLike result, final int count) {
         this.result = result.asItem();
@@ -81,7 +81,6 @@ public final class WrenchRecipeBuilder {
     }
 
     public WrenchRecipeBuilder setGroup(final String groupIn) {
-        this.group = groupIn;
         return this;
     }
 
@@ -94,17 +93,17 @@ public final class WrenchRecipeBuilder {
 
     public void save(final Consumer<FinishedRecipe> consumerIn, final String save) {
         final ResourceLocation resourcelocation = ForgeRegistries.ITEMS.getKey(this.result);
-        if ((new ResourceLocation(save)).equals(resourcelocation)) {
+        if ((ResourceLocation.parse(save)).equals(resourcelocation)) {
             throw new IllegalStateException("Shapeless Recipe " + save + " should remove its 'save' argument");
         } else {
-            this.save(consumerIn, new ResourceLocation(save));
+            this.save(consumerIn, ResourceLocation.parse(save));
         }
     }
 
     public void save(final Consumer<FinishedRecipe> consumerIn, final ResourceLocation id) {
         this.validate(id);
-        this.advancementBuilder.parent(new ResourceLocation("recipes/root")).addCriterion("has_the_recipe", RecipeUnlockedTrigger.unlocked(id)).rewards(AdvancementRewards.Builder.recipe(id)).requirements(RequirementsStrategy.OR);
-        consumerIn.accept(new WrenchRecipeBuilder.Result(id, this.result, this.count, "", this.ingredients, this.advancementBuilder, new ResourceLocation(id.getNamespace(), "recipes/misc/" + id.getPath())));
+        this.advancementBuilder.parent(ResourceLocation.parse("recipes/root")).addCriterion("has_the_recipe", RecipeUnlockedTrigger.unlocked(id)).rewards(AdvancementRewards.Builder.recipe(id)).requirements(RequirementsStrategy.OR);
+        consumerIn.accept(new WrenchRecipeBuilder.Result(id, this.result, this.count, "", this.ingredients, this.advancementBuilder, ResourceLocation.fromNamespaceAndPath(id.getNamespace(), "recipes/misc/" + id.getPath())));
     }
 
     private void validate(final ResourceLocation id) {

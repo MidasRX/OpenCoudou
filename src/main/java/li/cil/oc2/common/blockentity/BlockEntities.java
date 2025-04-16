@@ -37,8 +37,8 @@ public final class BlockEntities {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        BLOCK_ENTITIES.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        BLOCK_ENTITIES.register(context.getModEventBus());
     }
 
     ///////////////////////////////////////////////////////////////////

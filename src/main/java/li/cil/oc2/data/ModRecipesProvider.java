@@ -280,13 +280,6 @@ public final class ModRecipesProvider extends RecipeProvider {
             .unlockedBy("has_robot", inventoryChange(Items.ROBOT.get()))
             .save(consumer);
 
-        WrenchRecipeBuilder
-            .wrenchRecipe(Items.HARD_DRIVE_CUSTOM.get())
-            .requires(Items.HARD_DRIVE_LARGE.get())
-            .unlockedBy("has_computer", inventoryChange(Items.COMPUTER.get()))
-            .unlockedBy("has_robot", inventoryChange(Items.ROBOT.get()))
-            .save(consumer);
-
         ShapedRecipeBuilder
             .shaped(RecipeCategory.MISC, Items.FLASH_MEMORY.get())
             .pattern("ITI")

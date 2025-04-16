@@ -69,6 +69,19 @@ public final class FlashMemoryFlasherBlock extends HorizontalDirectionalBlock im
         return super.use(state, level, pos, player, hand, hit);
     }
 
+    @Override
+    public void playerWillDestroy(final Level level, final BlockPos pos, final BlockState state, final Player player) {
+        final BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (!level.isClientSide() && blockEntity instanceof final FlashMemoryFlasherBlockEntity flashFlasher) {
+            if (!flashFlasher.getDiskItemStack().isEmpty()) {
+                final ItemStack stack = flashFlasher.getDiskItemStack();
+                popResource(level, pos, stack);
+            }
+        }
+
+        super.playerWillDestroy(level, pos, state, player);
+    }
+
     ///////////////////////////////////////////////////////////////////
     // EntityBlock
 

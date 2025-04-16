@@ -28,15 +28,13 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
     private static final int CONTROLS_TOP = 8;
     private static final int ENERGY_TOP = CONTROLS_TOP + Sprites.MONITOR_SIDEBAR_1.height + 4;
 
-    private static boolean isInputCaptureEnabled;
-
-    private final MonitorDisplayWidget terminalWidget;
+    private final MonitorDisplayWidget monitorDisplayWidget;
 
     ///////////////////////////////////////////////////////////////////
 
     protected AbstractMonitorDisplayScreen(final T container, final Inventory playerInventory, final Component title) {
         super(container, playerInventory, title);
-        this.terminalWidget = new MonitorDisplayWidget(this);
+        this.monitorDisplayWidget = new MonitorDisplayWidget(this);
         imageWidth = Sprites.MONITOR_SCREEN.width;
         imageHeight = Sprites.MONITOR_SCREEN.height;
     }
@@ -47,12 +45,12 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
     public void containerTick() {
         super.containerTick();
 
-        terminalWidget.tick();
+        monitorDisplayWidget.tick();
     }
 
     @Override
     public boolean keyPressed(final int keyCode, final int scanCode, final int modifiers) {
-        if (terminalWidget.keyPressed(keyCode, scanCode, modifiers)) {
+        if (monitorDisplayWidget.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
 
@@ -68,7 +66,7 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
 
     @Override
     public boolean keyReleased(final int keyCode, final int scanCode, final int modifiers) {
-        if (terminalWidget.keyReleased(keyCode, scanCode, modifiers)) {
+        if (monitorDisplayWidget.keyReleased(keyCode, scanCode, modifiers)) {
             return true;
         }
 
@@ -85,7 +83,7 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
     @Override
     public void init() {
         super.init();
-        terminalWidget.init();
+        monitorDisplayWidget.init();
 
         final EditBox focusIndicatorEditBox = new EditBox(font, 0, 0, 0, 0, Component.empty());
         focusIndicatorEditBox.setFocused(true);
@@ -131,12 +129,12 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
             @Override
             public void onPress() {
                 super.onPress();
-                isInputCaptureEnabled = !isInputCaptureEnabled;
+                monitorDisplayWidget.isInputCaptureEnabled = !monitorDisplayWidget.isInputCaptureEnabled;
             }
 
             @Override
             public boolean isToggled() {
-                return isInputCaptureEnabled;
+                return monitorDisplayWidget.isInputCaptureEnabled;
             }
         }).withTooltip(
             Component.translatable(Constants.TERMINAL_CAPTURE_INPUT_CAPTION),
@@ -147,7 +145,7 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
     @Override
     public void onClose() {
         super.onClose();
-        terminalWidget.onClose();
+        monitorDisplayWidget.onClose();
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -167,7 +165,7 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
             Sprites.ENERGY_BAR.drawFillY(graphics, x, y, menu.getEnergy() / (float) menu.getEnergyCapacity());
         }
 
-        terminalWidget.render(graphics, Component.translatable(Constants.COMPUTER_ERROR_NOT_ENOUGH_ENERGY));
+        monitorDisplayWidget.render(graphics, Component.translatable(Constants.COMPUTER_ERROR_NOT_ENOUGH_ENERGY));
     }
 
     @Override
@@ -181,7 +179,7 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
             Sprites.ENERGY_BASE.draw(graphics, x + 4, y + 4);
         }
 
-        terminalWidget.renderBackground(graphics, mouseX, mouseY);
+        monitorDisplayWidget.renderBackground(graphics, mouseX, mouseY);
     }
 
     @Override

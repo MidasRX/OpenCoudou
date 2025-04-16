@@ -33,6 +33,7 @@ public final class ModItemModelProvider extends ItemModelProvider {
         simple(Items.CPU_TIER_2);
         simple(Items.CPU_TIER_3);
         simple(Items.CPU_TIER_4);
+        simple(Items.CPU_TIER_INF);
         simple(Items.SILICON);
         simple(Items.SILICON_BLEND);
         simple(Items.SILICON_WAFER);
@@ -44,8 +45,6 @@ public final class ModItemModelProvider extends ItemModelProvider {
         simple(Items.HARD_DRIVE_LARGE, "item/hard_drive_base")
             .texture("layer1", "item/hard_drive_tint");
         simple(Items.HARD_DRIVE_EXTRA_LARGE, "item/hard_drive_base")
-            .texture("layer1", "item/hard_drive_tint");
-        simple(Items.HARD_DRIVE_CUSTOM, "item/hard_drive_base")
             .texture("layer1", "item/hard_drive_tint");
         simple(Items.FLASH_MEMORY);
         simple(Items.FLASH_MEMORY_CUSTOM, "item/flash_memory");
@@ -77,8 +76,8 @@ public final class ModItemModelProvider extends ItemModelProvider {
 
     private <T extends Item> ItemModelBuilder simple(final RegistryObject<T> item, final String texturePath) {
         return singleTexture(item.getId().getPath(),
-            new ResourceLocation("item/generated"),
+            ResourceLocation.parse("item/generated"),
             "layer0",
-            new ResourceLocation(API.MOD_ID, texturePath));
+            ResourceLocation.fromNamespaceAndPath(API.MOD_ID, texturePath));
     }
 }

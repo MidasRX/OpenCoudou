@@ -32,41 +32,41 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 @Mod(API.MOD_ID)
 public final class Main {
-    public Main() {
-        EventBuses.registerModEventBus(API.MOD_ID, FMLJavaModLoadingContext.get().getModEventBus());
+    public Main(FMLJavaModLoadingContext context) {
+        EventBuses.registerModEventBus(API.MOD_ID, context.getModEventBus());
         Ceres.initialize();
         Sedna.initialize();
         DeviceTreeProviders.initialize();
         Serializers.initialize();
 
         ConfigManager.add(Config::new);
-        ConfigManager.initialize();
+        ConfigManager.initialize(context);
 
         RegistryUtils.begin();
 
         ItemTags.initialize();
         BlockTags.initialize();
-        Blocks.initialize();
-        Items.initialize();
-        BlockEntities.initialize();
-        Entities.initialize();
-        Containers.initialize();
-        RecipeSerializers.initialize();
-        SoundEvents.initialize();
+        Blocks.initialize(context);
+        Items.initialize(context);
+        BlockEntities.initialize(context);
+        Entities.initialize(context);
+        Containers.initialize(context);
+        RecipeSerializers.initialize(context);
+        SoundEvents.initialize(context);
 
-        ProviderRegistry.initialize();
-        DeviceTypes.initialize();
+        ProviderRegistry.initialize(context);
+        DeviceTypes.initialize(context);
 
-        BlockDeviceDataRegistry.initialize();
-        FirmwareRegistry.initialize();
+        BlockDeviceDataRegistry.initialize(context);
+        FirmwareRegistry.initialize(context);
 
-        RegistryUtils.finish();
+        RegistryUtils.finish(context);
 
-        FMLJavaModLoadingContext.get().getModEventBus().register(CommonSetup.class);
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> Manuals::initialize);
+        context.getModEventBus().register(CommonSetup.class);
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> Manuals.initialize(context));
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-            FMLJavaModLoadingContext.get().getModEventBus().register(ClientSetup.class));
+            context.getModEventBus().register(ClientSetup.class));
 
-        ItemGroup.TAB_REGISTER.register(FMLJavaModLoadingContext.get().getModEventBus());
+        ItemGroup.TAB_REGISTER.register(context.getModEventBus());
     }
 }

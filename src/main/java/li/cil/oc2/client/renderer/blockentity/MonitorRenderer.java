@@ -41,10 +41,11 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+@SuppressWarnings("unused")
 @Mod.EventBusSubscriber(value = Dist.CLIENT, modid = API.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class MonitorRenderer implements BlockEntityRenderer<MonitorBlockEntity> {
-    public static final ResourceLocation OVERLAY_POWER_LOCATION = new ResourceLocation(API.MOD_ID, "block/monitor/monitor_overlay_power");
-    public static final ResourceLocation OVERLAY_TERMINAL_LOCATION = new ResourceLocation(API.MOD_ID, "block/computer/computer_overlay_terminal");
+    public static final ResourceLocation OVERLAY_POWER_LOCATION = ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "block/monitor/monitor_overlay_power");
+    public static final ResourceLocation OVERLAY_TERMINAL_LOCATION = ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "block/computer/computer_overlay_terminal");
 
     private static final Material TEXTURE_POWER = new Material(InventoryMenu.BLOCK_ATLAS, OVERLAY_POWER_LOCATION);
     private static final Material TEXTURE_TERMINAL = new Material(InventoryMenu.BLOCK_ATLAS, OVERLAY_TERMINAL_LOCATION);
@@ -180,25 +181,25 @@ public final class MonitorRenderer implements BlockEntityRenderer<MonitorBlockEn
         final List<FormattedText> wrappedText = fontRenderer.getSplitter().splitLines(text, maxWidth, Style.EMPTY);
         if (wrappedText.size() == 1) {
             final int textWidth = fontRenderer.width(text);
-            draw(fontRenderer, stack, text, (maxWidth - textWidth) * 0.5f, 0, 0xEE3322);
+            draw(fontRenderer, stack, text, (maxWidth - textWidth) * 0.5f);
         } else {
             for (int i = 0; i < wrappedText.size(); i++) {
-                draw(fontRenderer, stack, wrappedText.get(i).getString(), 0, i * fontRenderer.lineHeight, 0xEE3322);
+                draw(fontRenderer, stack, wrappedText.get(i).getString(), i * fontRenderer.lineHeight);
             }
         }
 
         stack.popPose();
     }
 
-    private void draw(Font font, PoseStack stack, Component text, float x, float y, int color) {
+    private void draw(Font font, PoseStack stack, Component text, float x) {
         var batch = MultiBufferSource.immediate(Tesselator.getInstance().getBuilder());
-        font.drawInBatch(text, x, y, color, false, stack.last().pose(), batch, Font.DisplayMode.NORMAL, 0, 15728880);
+        font.drawInBatch(text, x, (float) 0, 15610658, false, stack.last().pose(), batch, Font.DisplayMode.NORMAL, 0, 15728880);
         batch.endBatch();
     }
 
-    private void draw(Font font, PoseStack stack, String text, float x, float y, int color) {
+    private void draw(Font font, PoseStack stack, String text, float y) {
         var batch = MultiBufferSource.immediate(Tesselator.getInstance().getBuilder());
-        font.drawInBatch(text, x, y, color, false, stack.last().pose(), batch, Font.DisplayMode.NORMAL, 0, 15728880, false);
+        font.drawInBatch(text, (float) 0, y, 15610658, false, stack.last().pose(), batch, Font.DisplayMode.NORMAL, 0, 15728880, false);
         batch.endBatch();
     }
 

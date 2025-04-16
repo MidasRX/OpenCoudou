@@ -42,7 +42,7 @@ public final class FlashMemoryWithExternalDataItem extends ModItem {
         ResourceLocation location = defaultData;
         if (!StringUtil.isNullOrEmpty(registryName)) {
             try {
-                location = new ResourceLocation(registryName);
+                location = ResourceLocation.parse(registryName);
             } catch (final ResourceLocationException ignored) {
             }
         }
@@ -56,15 +56,13 @@ public final class FlashMemoryWithExternalDataItem extends ModItem {
         }
 
         final ResourceLocation key = FirmwareRegistry.getKey(firmware);
-        if (key == null) {
-            return ItemStack.EMPTY;
-        }
 
         ItemStackUtils.getOrCreateModDataTag(stack).putString(FIRMWARE_TAG_NAME, key.toString());
 
         return stack;
     }
 
+    @SuppressWarnings("unused")
     public ItemStack withFirmware(final Firmware firmware) {
         return withFirmware(new ItemStack(this), firmware);
     }

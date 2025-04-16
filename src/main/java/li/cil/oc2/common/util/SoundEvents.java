@@ -23,13 +23,13 @@ public final class SoundEvents {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static void initialize() {
-        SOUNDS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void initialize(FMLJavaModLoadingContext context) {
+        SOUNDS.register(context.getModEventBus());
     }
 
     ///////////////////////////////////////////////////////////////////
 
     private static RegistryObject<SoundEvent> register(final String name) {
-        return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(API.MOD_ID, name)));
+        return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(API.MOD_ID, name)));
     }
 }

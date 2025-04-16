@@ -13,11 +13,13 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.IForgeRegistry;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+@SuppressWarnings("unused")
 public abstract class RegistryUtils {
     private enum Phase {
         PRE_INIT,
@@ -49,12 +51,12 @@ public abstract class RegistryUtils {
         phase = Phase.INIT;
     }
 
-    public static void finish() {
+    public static void finish(FMLJavaModLoadingContext context) {
         if (phase != Phase.INIT) throw new IllegalStateException();
         phase = Phase.POST_INIT;
 
         for (final DeferredRegister<?> register : ENTRIES) {
-            register.register(FMLJavaModLoadingContext.get().getModEventBus());
+            register.register(context.getModEventBus());
         }
 
         ENTRIES.clear();
@@ -64,7 +66,7 @@ public abstract class RegistryUtils {
         return Objects.requireNonNull(registryEntry.getName()).toString();
     }
 
-    public static <T> Optional<String> optionalKey(final T registryEntry) {
+    public static <T> Optional<String> optionalKey(@Nullable final T registryEntry) {
         if(registryEntry == null) {
             return Optional.empty();
         }

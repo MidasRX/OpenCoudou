@@ -2,6 +2,7 @@
 
 package li.cil.oc2.common.vm;
 
+import com.google.gson.annotations.SerializedName;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import org.joml.Matrix4f;
@@ -26,11 +27,15 @@ import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 // VT100 emulation: https://vt100.net/docs/vt100-ug/chapter3.html
+// Still around in case of needing to look back when new bugs surface
 @Serialized
-public final class Terminal {
+@SuppressWarnings("all")
+public final class OldTerminal {
     public static final int WIDTH = 80, HEIGHT = 24;
     public static final int CHAR_WIDTH = 8;
     public static final int CHAR_HEIGHT = 16;
+    public MouseMode CurrentMouseMode = MouseMode.None;
+    public boolean Use1006 = false;
 
     private static final int TAB_WIDTH = 4;
 
@@ -74,7 +79,10 @@ public final class Terminal {
     private static final byte DEFAULT_COLORS = Color.WHITE << COLOR_FOREGROUND_SHIFT;
     private static final byte DEFAULT_STYLE = 0;
 
-    ///////////////////////////////////////////////////////////////////
+    private static final ColorData DEFAULT_TRUE_COLOR_FOREGROUND = new ColorData(238, 238, 238);
+    private static final ColorData DEFAULT_TRUE_COLOR_BACKGROUND = new ColorData(0, 0, 0);
+
+    /// ////////////////////////////////////////////////////////////////
 
     public enum State { // Must be public for serialization.
         NORMAL, // Reading characters normally.
@@ -82,22 +90,72 @@ public final class Terminal {
         SHIFT_IN_CHARACTER_SET, // Shift in character set.
         SHIFT_OUT_CHARACTER_SET, // Shift out character set.
         HASH, // Escape sequence with # intermediate.
+        DCS,
+        OSC,
         CONTROL_SEQUENCE, // Know what sequence we have, now parsing it.
+    }
+
+    public static class ColorData {
+        public int R;
+        public int G;
+        public int B;
+
+        public ColorData() {
+            R = 0;
+            G = 0;
+            B = 0;
+        }
+
+        public ColorData(final int r, final int g, final int b) {
+            R = r;
+            G = g;
+            B = b;
+        }
+
+        public int asInt() {
+            return (((R & 0b11111111) << 16) | ((G & 0b11111111) << 8) | (B & 0b11111111));
+        }
+    }
+
+    public ColorData fromByte(byte color) {
+        return new ColorData(color, 0, 0);
+    }
+
+    public enum ColorMode {
+        @SerializedName("0")
+        SIXTEEN_COLOR,
+        @SerializedName("1")
+        TWO_FIFTY_SIX_COLOR,
+        @SerializedName("2")
+        TWENTY_FOUR_BIT_COLOR
+    }
+
+    public enum MouseMode {
+        @SerializedName("0")
+        None,
+        @SerializedName("1")
+        X10Compat,
+        @SerializedName("2")
+        Normal,
+        @SerializedName("3")
+        MouseHilite
     }
 
     public interface RendererView {
         void render(final PoseStack stack, final Matrix4f projectionMatrix);
     }
 
-    ///////////////////////////////////////////////////////////////////
+    /// ////////////////////////////////////////////////////////////////
 
     private final ByteArrayFIFOQueue input = new ByteArrayFIFOQueue(32);
     private final byte[] buffer = new byte[WIDTH * HEIGHT];
-    private final byte[] colors = new byte[WIDTH * HEIGHT];
+    private final ColorMode[] colorModes = new ColorMode[WIDTH * HEIGHT];
+    private final ColorData[] colors = new ColorData[WIDTH * HEIGHT];
+    private final ColorData[] colorsBackground = new ColorData[WIDTH * HEIGHT]; // only used for TrueColor
     private final byte[] styles = new byte[WIDTH * HEIGHT];
     private final boolean[] tabs = new boolean[WIDTH];
     private State state = State.NORMAL;
-    private final int[] args = new int[4];
+    private final int[] args = new int[5];
     private int argCount = 0;
     private int modes;
     private int scrollFirst = 0, scrollLast = HEIGHT - 1;
@@ -107,7 +165,15 @@ public final class Terminal {
     // Color info packed into one byte for compact storage
     // 0-2: background color (index)
     // 3-5: foreground color (index)
-    private byte color;
+    private ColorData color;
+    // 256 color
+    private boolean enable256;
+    private byte foregroundColor256;
+    private byte backgroundColor256;
+    // true color
+    private boolean trueColor;
+    private ColorData backgroundColor;
+    private ColorData foregroundColor;
     // Style info packed into one byte for compact storage
     private byte style;
 
@@ -115,14 +181,15 @@ public final class Terminal {
     private final transient Set<RendererModel> renderers = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
     private transient boolean displayOnly; // Set on client to not send responses to status requests.
     private transient boolean hasPendingBell;
+    private char lastChar;
 
-    ///////////////////////////////////////////////////////////////////
+    /// ////////////////////////////////////////////////////////////////
 
-    public Terminal() {
+    public OldTerminal() {
         RIS();
     }
 
-    ///////////////////////////////////////////////////////////////////
+    /// ////////////////////////////////////////////////////////////////
 
     public int getWidth() {
         return WIDTH * CHAR_WIDTH;
@@ -183,6 +250,10 @@ public final class Terminal {
         }
     }
 
+    public synchronized void putInput(final String value) {
+        putInput(ByteBuffer.wrap(value.getBytes()));
+    }
+
     public synchronized void putInput(final ByteBuffer values) {
         while (values.hasRemaining()) {
             input.enqueue(values.get());
@@ -195,6 +266,8 @@ public final class Terminal {
         }
     }
 
+    public synchronized void putInput(final char value) { putInput((byte) value); }
+
     public synchronized void putInput(final byte value) {
         input.enqueue(value);
     }
@@ -206,8 +279,10 @@ public final class Terminal {
                 switch (value) {
                     case '\007' -> hasPendingBell = true;
                     case '\033' -> state = State.ESCAPE;
-                    case '\016' -> { } // SO
-                    case '\017' -> { } // SI
+                    case '\016' -> {
+                    } // SO
+                    case '\017' -> {
+                    } // SI
 
                     case (byte) '\r' /* 015 */ -> setCursorPos(0, y);
                     case (byte) '\n' /* 012 */, '\013', '\014' -> {
@@ -240,6 +315,10 @@ public final class Terminal {
                     state = State.SHIFT_OUT_CHARACTER_SET;
                 } else if (ch == '#') { // # Intermediate
                     state = State.HASH;
+                } else if (ch == 'P') {
+                    state = State.DCS;
+                } else if (ch == ']') {
+                    state = State.OSC;
                 } else {
                     state = State.NORMAL;
                     switch (ch) {
@@ -250,8 +329,11 @@ public final class Terminal {
                         case '8' -> DECRC(); // DECRC – Restore Cursor (DEC Private)
                         case 'H' -> HTS();   // HTS – Horizontal Tabulation Set
                         case 'c' -> RIS();   // RIS – Reset To Initial State
-                        case '=' -> { }      // DECKPAM – Keypad Application Mode (DEC Private)
-                        case '>' -> { }      // DECKPNM – Keypad Numeric Mode (DEC Private)
+                        case '=' -> {
+                        }      // DECKPAM – Keypad Application Mode (DEC Private)
+                        case '>' -> {
+                        }      // DECKPNM – Keypad Numeric Mode (DEC Private)
+                        default -> System.out.println("Invalid escape: " + ch);
                     }
                 }
             }
@@ -295,30 +377,85 @@ public final class Terminal {
                         case 'l' -> RM();  // RM – Reset Mode
                         case 'n' -> DSR(); // DSR – Device Status Report
                         case 'c' -> DA();  // DA – Device Attributes
+                        case 'd' -> {
+                            setClampedCursorPos(x, args[0] - 1);
+                        }
+                        case 'G' -> {
+                            setClampedCursorPos(args[0] - 1, y);
+                        }
+                        case 't' -> {
+                            if (args[0] == 14) {
+                                putInput("\033[4;80;24t");
+                            }
+                        }
+                        case 'L' -> IL();
+                        case 'M' -> DL();
+                        case '>' -> {
+                            if (args[0] == 6) {
+                                putInput("\033[" + (y + 1) + ";" + (x + 1) + "R");
+                                return;
+                            } else if (args[0] == 0) {
+                                //putInput("\033[0>"); // Don't respond?
+                                return;
+                            }
+                            System.out.println("Invalid parameter: " + args[0]);
+                        }
+                        case '%' -> {
+                            System.out.println("%: " + argCount);
+
+                            for(int i = 0; i < argCount; i++) System.out.println(args[i]);
+                        }
+                        default -> {
+                            System.out.println("Control sequence: " + ch);
+                        }
                     }
                 }
             }
             case SHIFT_IN_CHARACTER_SET, SHIFT_OUT_CHARACTER_SET -> {
                 state = State.NORMAL;
                 switch (ch) {
-                    case 'A' -> { } // United Kingdom Set
-                    case 'B' -> { } // ASCII Set
-                    case '0' -> { } // Special Graphics
-                    case '1' -> { } // Alternate Character ROM Standard Character Set
-                    case '2' -> { } // Alternate Character ROM Special Graphics
+                    case 'A' -> {
+                    } // United Kingdom Set
+                    case 'B' -> {
+                    } // ASCII Set
+                    case '0' -> {
+                    } // Special Graphics
+                    case '1' -> {
+                    } // Alternate Character ROM Standard Character Set
+                    case '2' -> {
+                    } // Alternate Character ROM Special Graphics
                 }
             }
             case HASH -> {
                 state = State.NORMAL;
                 switch (ch) {
-                    case '3' -> { } // Change this line to double-height top half (DECDHL)
-                    case '4' -> { } // Change this line to double-height bottom half (DECDHL)
-                    case '5' -> { } // Change this line to single-width single-height (DECSWL)
-                    case '6' -> { } // Change this line to double-width single-height (DECDWL)
+                    case '3' -> {
+                    } // Change this line to double-height top half (DECDHL)
+                    case '4' -> {
+                    } // Change this line to double-height bottom half (DECDHL)
+                    case '5' -> {
+                    } // Change this line to single-width single-height (DECSWL)
+                    case '6' -> {
+                    } // Change this line to double-width single-height (DECDWL)
                     case '8' -> { // Fill Screen with Es (DECALN)
                         Arrays.fill(buffer, (byte) 'E');
                         renderers.forEach(model -> model.getDirtyMask().set(-1));
                     }
+                }
+            }
+            case DCS -> {
+                if (lastChar == '\033' && ch == '\\') {
+                    state = State.NORMAL;
+                } else {
+                    lastChar = ch;
+                }
+                // Used for mapping Function keys and possibly other things
+            }
+            case OSC -> {
+                if (lastChar == '\033' && ch == '\\' || ch == '\007') {
+                    state = State.NORMAL;
+                } else {
+                    lastChar = ch;
                 }
             }
         }
@@ -359,6 +496,24 @@ public final class Terminal {
         y = savedY;
     }
 
+    private void IL() {
+        int lines = args[0];
+
+        shiftLines(y, scrollLast-1, (Math.max(1, lines)));
+    }
+
+    private void DL() {
+        int lines = args[0];
+
+        setCursorPos(0, y);
+
+        for (int i = 0; i < Math.max(1, lines); i++) {
+            clearLine(y + i);
+        }
+
+        shiftLines(y + (Math.max(1, lines)), scrollLast, -(Math.max(1, lines)));
+    }
+
     private void HTS() {
         if (x >= 0 && x < WIDTH) {
             tabs[x] = true;
@@ -366,8 +521,14 @@ public final class Terminal {
     }
 
     private void RIS() {
-        color = DEFAULT_COLORS;
+        enable256 = false;
+        trueColor = false;
+        Use1006 = false;
+        color = fromByte(DEFAULT_COLORS);
+        backgroundColor = null;
+        foregroundColor = null;
         style = DEFAULT_STYLE;
+        CurrentMouseMode = MouseMode.None;
         clear();
         Arrays.fill(tabs, false);
         for (int i = 1; i < WIDTH; i++) {
@@ -402,6 +563,35 @@ public final class Terminal {
     }
 
     private void SGR() {
+        if (args[0] == 38 || args[0] == 48) {
+            if (args[0] == 38) {
+                if (args[1] == 5) {
+                    // 256
+                    enable256 = true;
+                    trueColor = false;
+                    foregroundColor256 = (byte) args[2];
+                } else if (args[1] == 2) {
+                    // true color
+                    enable256 = false;
+                    trueColor = true;
+                    foregroundColor = new ColorData(args[2], args[3], args[4]);
+                }
+            } else {
+                if (args[1] == 5) {
+                    // 256
+                    enable256 = true;
+                    trueColor = false;
+                    backgroundColor256 = (byte) args[2];
+                } else if (args[1] == 2) {
+                    // true color
+                    enable256 = false;
+                    trueColor = true;
+                    backgroundColor = new ColorData(args[2], args[3], args[4]);
+                }
+            }
+
+            return;
+        }
         for (int i = 0; i < argCount; i++) {
             selectStyle(args[i]);
         }
@@ -469,6 +659,31 @@ public final class Terminal {
     private void SM() {
         for (int i = 0; i < argCount; i++) {
             final int mode = args[i];
+            if (mode == 1000) {
+                CurrentMouseMode = MouseMode.Normal;
+                System.out.println("Current mouse mode: " + CurrentMouseMode);
+                continue;
+            } else if (mode == 1001) {
+                CurrentMouseMode = MouseMode.MouseHilite;
+                System.out.println("Current mouse mode: " + CurrentMouseMode);
+                continue;
+            } else if (mode == 9) {
+                CurrentMouseMode = MouseMode.X10Compat;
+                System.out.println("Current mouse mode: " + CurrentMouseMode);
+                continue;
+            } else if (mode == 1005) {
+                System.out.println("bad1");
+            } else if (mode == 1006) {
+                Use1006 = true;
+                continue;
+            } else if (mode == 1015) {
+                System.out.println("bad3");
+                continue;
+            } else if (mode == 1016) {
+                System.out.println("bad4");
+                continue;
+            }
+
             if (mode != 0) {
                 setMode(mode);
             }
@@ -481,6 +696,14 @@ public final class Terminal {
     private void RM() {
         for (int i = 0; i < argCount; i++) {
             final int mode = args[i];
+            if (mode == 9 || mode == 1000 || mode == 1001) {
+                CurrentMouseMode = MouseMode.None;
+                System.out.println("Current mouse mode: " + CurrentMouseMode);
+                continue;
+            } else if (mode == 1006) {
+                Use1006 = false;
+                continue;
+            }
             if (mode != 0) {
                 resetMode(mode);
             }
@@ -536,8 +759,14 @@ public final class Terminal {
     private void selectStyle(final int sgr) {
         switch (sgr) {
             case 0 -> { // Reset / Normal
-                color = DEFAULT_COLORS;
+                color = fromByte(DEFAULT_COLORS);
                 style = DEFAULT_STYLE;
+                enable256 = false;
+                trueColor = false;
+                foregroundColor256 = 0;
+                backgroundColor256 = 0;
+                foregroundColor = null;
+                backgroundColor = null;
             }
             case 1 -> // Bold or increased intensity
                 style |= STYLE_BOLD_MASK;
@@ -550,7 +779,9 @@ public final class Terminal {
             case 7 -> // Negative (reverse) image
                 style |= STYLE_INVERT_MASK;
             case 8 -> // Conceal aka Hide
+            {
                 style |= STYLE_HIDDEN_MASK;
+            }
             case 22 -> // Normal color or intensity
                 style &= ~(STYLE_BOLD_MASK | STYLE_DIM_MASK);
             case 24 -> // Underline off
@@ -560,14 +791,21 @@ public final class Terminal {
             case 27 -> // Reverse/invert off
                 style &= ~STYLE_INVERT_MASK;
             case 28 -> // Reveal conceal off
+            {
                 style &= ~STYLE_HIDDEN_MASK;
+            }
             case 30, 31, 32, 33, 34, 35, 36, 37 -> { // Set foreground color
+                enable256 = false;
+                trueColor = false;
                 final int color = sgr - 30;
-                this.color = (byte) ((this.color & ~(COLOR_MASK << COLOR_FOREGROUND_SHIFT)) | (color << COLOR_FOREGROUND_SHIFT));
+                System.out.println(color);
+                this.color = fromByte((byte) ((this.color.R & ~(COLOR_MASK << COLOR_FOREGROUND_SHIFT)) | (color << COLOR_FOREGROUND_SHIFT)));
             }
             case 40, 41, 42, 43, 44, 45, 46, 47 -> { //–47 Set background color
+                enable256 = false;
+                trueColor = false;
                 final int color = sgr - 40;
-                this.color = (byte) ((this.color & ~COLOR_MASK) | color);
+                this.color = fromByte((byte) ((this.color.R & ~COLOR_MASK) | color));
             }
         }
     }
@@ -607,23 +845,31 @@ public final class Terminal {
 
     private void setChar(final int x, final int y, final char ch) {
         final int index = x + y * WIDTH;
-        if (buffer[index] == ch &&
-            colors[index] == color &&
-            styles[index] == style) {
-            return;
-        }
 
         buffer[index] = (byte) ch;
-        colors[index] = color;
+        if (!enable256 && !trueColor) {
+            colorModes[index] = ColorMode.SIXTEEN_COLOR;
+            colors[index] = color;
+        } else if (enable256) {
+            colorModes[index] = ColorMode.TWO_FIFTY_SIX_COLOR;
+            colors[index] = new ColorData((backgroundColor256 & ~(0b11111111 << 8)) | (foregroundColor256 << 8), 0, 0);
+        } else {
+            colorModes[index] = ColorMode.TWENTY_FOUR_BIT_COLOR;
+            colors[index] = (foregroundColor != null) ? foregroundColor : DEFAULT_TRUE_COLOR_FOREGROUND;
+            colorsBackground[index] = (backgroundColor != null) ? backgroundColor : DEFAULT_TRUE_COLOR_BACKGROUND;
+        }
+
         styles[index] = style;
         renderers.forEach(model -> model.getDirtyMask().accumulateAndGet(1 << y, (prev, next) -> prev | next));
     }
 
     private void clear() {
         Arrays.fill(buffer, (byte) ' ');
-        Arrays.fill(colors, DEFAULT_COLORS);
+        Arrays.fill(colorModes, ColorMode.SIXTEEN_COLOR);
+        Arrays.fill(colors, fromByte(DEFAULT_COLORS));
+        Arrays.fill(colorsBackground, fromByte(DEFAULT_COLORS));
         Arrays.fill(styles, DEFAULT_STYLE);
-        setCursorPos(0,0);
+        setCursorPos(0, 0);
         renderers.forEach(model -> model.getDirtyMask().set(-1));
     }
 
@@ -632,8 +878,12 @@ public final class Terminal {
     }
 
     private void clearLine(final int y, final int fromIndex, final int toIndex) {
+        enable256 = false;
+        trueColor = false;
         Arrays.fill(buffer, y * WIDTH + fromIndex, y * WIDTH + toIndex, (byte) ' ');
-        Arrays.fill(colors, y * WIDTH + fromIndex, y * WIDTH + toIndex, DEFAULT_COLORS);
+        Arrays.fill(colorModes, y * WIDTH + fromIndex, y * WIDTH + toIndex, ColorMode.SIXTEEN_COLOR);
+        Arrays.fill(colors, y * WIDTH + fromIndex, y * WIDTH + toIndex, fromByte(DEFAULT_COLORS));
+        Arrays.fill(colorsBackground, y * WIDTH + fromIndex, y * WIDTH + toIndex, fromByte(DEFAULT_COLORS));
         Arrays.fill(styles, y * WIDTH + fromIndex, y * WIDTH + toIndex, DEFAULT_STYLE);
         renderers.forEach(model -> model.getDirtyMask().accumulateAndGet(1 << y, (prev, next) -> prev | next));
     }
@@ -655,7 +905,9 @@ public final class Terminal {
         final int dstIndex = srcIndex + count * WIDTH;
 
         System.arraycopy(buffer, srcIndex, buffer, dstIndex, charCount);
+        System.arraycopy(colorModes, srcIndex, colorModes, dstIndex, charCount);
         System.arraycopy(colors, srcIndex, colors, dstIndex, charCount);
+        System.arraycopy(colorsBackground, srcIndex, colorsBackground, dstIndex, charCount);
         System.arraycopy(styles, srcIndex, styles, dstIndex, charCount);
 
         final int clearIndex = count > 0 ? srcIndex : (dstIndex + charCount);
@@ -663,7 +915,9 @@ public final class Terminal {
         Arrays.fill(buffer, clearIndex, clearIndex + clearCount, (byte) ' ');
         // TODO Copy color and style from last line.
         // TODO Copy color and style from last line.
-        Arrays.fill(colors, clearIndex, clearIndex + clearCount, DEFAULT_COLORS);
+        Arrays.fill(colorModes, clearIndex, clearIndex + clearCount, ColorMode.SIXTEEN_COLOR);
+        Arrays.fill(colors, clearIndex, clearIndex + clearCount, fromByte(DEFAULT_COLORS));
+        Arrays.fill(colorsBackground, clearIndex, clearIndex + clearCount, fromByte(DEFAULT_COLORS));
         Arrays.fill(styles, clearIndex, clearIndex + clearCount, DEFAULT_STYLE);
 
         int dirtyLinesMask = 0;
@@ -674,9 +928,12 @@ public final class Terminal {
         }
         final int finalDirtyLinesMask = dirtyLinesMask;
         renderers.forEach(model -> model.getDirtyMask().accumulateAndGet(finalDirtyLinesMask, (left, right) -> left | right));
+
+        enable256 = false;
+        trueColor = false;
     }
 
-    ///////////////////////////////////////////////////////////////////
+    /// ////////////////////////////////////////////////////////////////
 
     private interface RendererModel {
         AtomicInteger getDirtyMask();
@@ -686,14 +943,14 @@ public final class Terminal {
 
     @OnlyIn(Dist.CLIENT)
     private static final class Renderer implements RendererModel, RendererView {
-        private static final ResourceLocation LOCATION_FONT_TEXTURE = new ResourceLocation(API.MOD_ID, "textures/font/terminus.png");
+        private static final ResourceLocation LOCATION_FONT_TEXTURE = ResourceLocation.fromNamespaceAndPath(API.MOD_ID, "textures/font/terminus.png");
         private static final int TEXTURE_RESOLUTION = 256;
         private static final float ONE_OVER_TEXTURE_RESOLUTION = 1.0f / (float) TEXTURE_RESOLUTION;
         private static final int TEXTURE_COLUMNS = 16;
         private static final int TEXTURE_BOLD_SHIFT = TEXTURE_COLUMNS; // Bold chars are in right half of texture.
 
         private static final int[] COLORS = {
-            0x010101, // Black
+            0x555555, // Black
             0xEE3322, // Red
             0x33DD44, // Green
             0xFFCC11, // Yellow
@@ -714,20 +971,49 @@ public final class Terminal {
             0x777777, // White
         };
 
-        ///////////////////////////////////////////////////////////////
+        private static final int[] COLORS_256 = {
+            0x000000, 0x800000, 0x008000, 0x808000, 0x000080, 0x800080, 0x008080, 0xc0c0c0, 0x808080, 0xff0000,
+            0x00ff00, 0xffff00, 0x0000ff, 0xff00ff, 0x00ffff, 0xffffff, 0x000000, 0x00005f, 0x000087, 0x0000af,
+            0x0000d7, 0x0000ff, 0x005f00, 0x005f5f, 0x005f87, 0x005faf, 0x005fd7, 0x005fff, 0x008700, 0x00875f,
+            0x008787, 0x0087af, 0x0087d7, 0x0087ff, 0x00af00, 0x00af5f, 0x00af87, 0x00afaf, 0x00afd7, 0x00afff,
+            0x00d700, 0x00d75f, 0x00d787, 0x00d7af, 0x00d7d7, 0x00d7ff, 0x00ff00, 0x00ff5f, 0x00ff87, 0x00ffaf,
+            0x00ffd7, 0x00ffff, 0x5f0000, 0x5f005f, 0x5f0087, 0x5f00af, 0x5f00d7, 0x5f00ff, 0x5f5f00, 0x5f5f5f,
+            0x5f5f87, 0x5f5faf, 0x5f5fd7, 0x5f5fff, 0x5f8700, 0x5f875f, 0x5f8787, 0x5f87af, 0x5f87d7, 0x5f87ff,
+            0x5faf00, 0x5faf5f, 0x5faf87, 0x5fafaf, 0x5fafd7, 0x5fafff, 0x5fd700, 0x5fd75f, 0x5fd787, 0x5fd7af,
+            0x5fd7d7, 0x5fd7ff, 0x5fff00, 0x5fff5f, 0x5fff87, 0x5fffaf, 0x5fffd7, 0x5fffff, 0x870000, 0x87005f,
+            0x870087, 0x8700af, 0x8700d7, 0x8700ff, 0x875f00, 0x875f5f, 0x875f87, 0x875faf, 0x875fd7, 0x875fff,
+            0x878700, 0x87875f, 0x878787, 0x8787af, 0x8787d7, 0x8787ff, 0x87af00, 0x87af5f, 0x87af87, 0x87afaf,
+            0x87afd7, 0x87afff, 0x87d700, 0x87d75f, 0x87d787, 0x87d7af, 0x87d7d7, 0x87d7ff, 0x87ff00, 0x87ff5f,
+            0x87ff87, 0x87ffaf, 0x87ffd7, 0x87ffff, 0xaf0000, 0xaf005f, 0xaf0087, 0xaf00af, 0xaf00d7, 0xaf00ff,
+            0xaf5f00, 0xaf5f5f, 0xaf5f87, 0xaf5faf, 0xaf5fd7, 0xaf5fff, 0xaf8700, 0xaf875f, 0xaf8787, 0xaf87af,
+            0xaf87d7, 0xaf87ff, 0xafaf00, 0xafaf5f, 0xafaf87, 0xafafaf, 0xafafd7, 0xafafff, 0xafd700, 0xafd75f,
+            0xafd787, 0xafd7af, 0xafd7d7, 0xafd7ff, 0xafff00, 0xafff5f, 0xafff87, 0xafffaf, 0xafffd7, 0xafffff,
+            0xd70000, 0xd7005f, 0xd70087, 0xd700af, 0xd700d7, 0xd700ff, 0xd75f00, 0xd75f5f, 0xd75f87, 0xd75faf,
+            0xd75fd7, 0xd75fff, 0xd78700, 0xd7875f, 0xd78787, 0xd787af, 0xd787d7, 0xd787ff, 0xdfaf00, 0xdfaf5f,
+            0xdfaf87, 0xdfafaf, 0xdfafdf, 0xdfafff, 0xdfdf00, 0xdfdf5f, 0xdfdf87, 0xdfdfaf, 0xdfdfdf, 0xdfdfff,
+            0xdfff00, 0xdfff5f, 0xdfff87, 0xdfffaf, 0xdfffdf, 0xdfffff, 0xff0000, 0xff005f, 0xff0087, 0xff00af,
+            0xff00df, 0xff00ff, 0xff5f00, 0xff5f5f, 0xff5f87, 0xff5faf, 0xff5fdf, 0xff5fff, 0xff8700, 0xff875f,
+            0xff8787, 0xff87af, 0xff87df, 0xff87ff, 0xffaf00, 0xffaf5f, 0xffaf87, 0xffafaf, 0xffafdf, 0xffafff,
+            0xffdf00, 0xffdf5f, 0xffdf87, 0xffdfaf, 0xffdfdf, 0xffdfff, 0xffff00, 0xffff5f, 0xffff87, 0xffffaf,
+            0xffffdf, 0xffffff, 0x080808, 0x121212, 0x1c1c1c, 0x262626, 0x303030, 0x3a3a3a, 0x444444, 0x4e4e4e,
+            0x585858, 0x626262, 0x6c6c6c, 0x767676, 0x808080, 0x8a8a8a, 0x949494, 0x9e9e9e, 0xa8a8a8, 0xb2b2b2,
+            0xbcbcbc, 0xc6c6c6, 0xd0d0d0, 0xdadada, 0xe4e4e4, 0xeeeeee
+        };
 
-        private final Terminal terminal;
+        /// ////////////////////////////////////////////////////////////
+
+        private final OldTerminal terminal;
         private final VertexBuffer[] lines = new VertexBuffer[HEIGHT];
 
         private final AtomicInteger dirty = new AtomicInteger(-1);
 
-        ///////////////////////////////////////////////////////////////
+        /// ////////////////////////////////////////////////////////////
 
-        public Renderer(final Terminal terminal) {
+        public Renderer(final OldTerminal terminal) {
             this.terminal = terminal;
         }
 
-        ///////////////////////////////////////////////////////////////
+        /// ////////////////////////////////////////////////////////////
 
         @Override
         public void render(final PoseStack stack, final Matrix4f projectionMatrix) {
@@ -755,7 +1041,7 @@ public final class Terminal {
             }
         }
 
-        ///////////////////////////////////////////////////////////////
+        /// ////////////////////////////////////////////////////////////
 
         private int findLineIndex(VertexBuffer[] vba, VertexBuffer vb) {
             int i = 0;
@@ -799,7 +1085,6 @@ public final class Terminal {
             }
 
 
-
             final int mask = dirty.getAndSet(0);
             for (int row = 0; row < lines.length; row++) {
                 if ((mask & (1 << row)) == 0) {
@@ -818,12 +1103,12 @@ public final class Terminal {
 
                 if (lines[row] == null) {
                     lines[row] = new VertexBuffer(VertexBuffer.Usage.DYNAMIC);
-                }else if (lines[row] != null) {
+                } else if (lines[row] != null) {
                     lines[row].close();
                     lines[row] = new VertexBuffer(VertexBuffer.Usage.DYNAMIC);
                 }
 
-                if (!lines[row].isInvalid()){
+                if (!lines[row].isInvalid()) {
                     lines[row].bind();
                     lines[row].upload(rb);
                     VertexBuffer.unbind();
@@ -838,16 +1123,34 @@ public final class Terminal {
 
             float tx = 0f;
             for (int col = 0, index = row * WIDTH; col < WIDTH; col++, index++) {
-                final byte colors = terminal.colors[index];
+                final ColorMode colorMode = terminal.colorModes[index];
+                final ColorData colors = terminal.colors[index];
                 final byte style = terminal.styles[index];
 
                 if ((style & STYLE_HIDDEN_MASK) != 0) continue;
 
                 final int[] palette = (style & STYLE_DIM_MASK) != 0 ? DIM_COLORS : COLORS;
-
-                final int foregroundIndex = (colors >> COLOR_FOREGROUND_SHIFT) & COLOR_MASK;
-                final int backgroundIndex = colors & COLOR_MASK;
-                final int background = palette[(style & STYLE_INVERT_MASK) == 0 ? backgroundIndex : foregroundIndex];
+                int background;
+                int foregroundIndex;
+                int backgroundIndex;
+                switch (colorMode) {
+                    case SIXTEEN_COLOR:
+                        foregroundIndex = (colors.R >> COLOR_FOREGROUND_SHIFT) & COLOR_MASK;
+                        backgroundIndex = colors.R & COLOR_MASK;
+                        background = palette[(style & STYLE_INVERT_MASK) == 0 ? backgroundIndex : foregroundIndex];
+                        break;
+                    case TWO_FIFTY_SIX_COLOR:
+                        foregroundIndex = (char)((colors.R >> 8) & 0b11111111);
+                        backgroundIndex = (char)(colors.R & 0b11111111);
+                        background = COLORS_256[(style & STYLE_INVERT_MASK) == 0 ? backgroundIndex : foregroundIndex];
+                        break;
+                    case TWENTY_FOUR_BIT_COLOR:
+                        background = terminal.colorsBackground[index].asInt();
+                        break;
+                    default:
+                        background = colors.R & COLOR_MASK;
+                        break;
+                }
 
                 final boolean hadBackground = backgroundStartX >= 0;
                 final boolean hasBackground = background != palette[0];
@@ -890,16 +1193,34 @@ public final class Terminal {
         private void renderForeground(final Matrix4f matrix, final BufferBuilder buffer, final int row) {
             float tx = 0f;
             for (int col = 0, index = row * WIDTH; col < WIDTH; col++, index++) {
-                final byte colors = terminal.colors[index];
+                final ColorMode colorMode = terminal.colorModes[index];
+                final ColorData color = terminal.colors[index];
                 final byte style = terminal.styles[index];
 
                 if ((style & STYLE_HIDDEN_MASK) != 0) continue;
 
-                final int[] palette = (style & STYLE_DIM_MASK) != 0 ? DIM_COLORS : COLORS;
-
-                final int foregroundIndex = (colors >> COLOR_FOREGROUND_SHIFT) & COLOR_MASK;
-                final int backgroundIndex = colors & COLOR_MASK;
-                final int foreground = palette[(style & STYLE_INVERT_MASK) == 0 ? foregroundIndex : backgroundIndex];
+                int foreground;
+                int foregroundIndex;
+                int backgroundIndex;
+                switch (colorMode) {
+                    case SIXTEEN_COLOR:
+                        final int[] palette = (style & STYLE_DIM_MASK) != 0 ? DIM_COLORS : COLORS;
+                        foregroundIndex = (color.R >> COLOR_FOREGROUND_SHIFT) & COLOR_MASK;
+                        backgroundIndex = color.R & COLOR_MASK;
+                        foreground = palette[(style & STYLE_INVERT_MASK) == 0 ? foregroundIndex : backgroundIndex];
+                        break;
+                    case TWO_FIFTY_SIX_COLOR:
+                        foregroundIndex = (char)((color.R >> 8) & 0b11111111);
+                        backgroundIndex = (char)(color.R & 0b11111111);
+                        foreground = COLORS_256[(style & STYLE_INVERT_MASK) == 0 ? foregroundIndex : backgroundIndex];
+                        break;
+                    case TWENTY_FOUR_BIT_COLOR:
+                        foreground = terminal.colors[index].asInt();
+                        break;
+                    default:
+                        foreground = color.R & COLOR_MASK;
+                        break;
+                }
 
                 final int character = terminal.buffer[index] & 0xFF;
 
@@ -980,3 +1301,5 @@ public final class Terminal {
         }
     }
 }
+
+

@@ -44,7 +44,7 @@ public abstract class AbstractBlockDeviceItem extends ModItem {
         ResourceLocation location = defaultData;
         if (!StringUtil.isNullOrEmpty(registryName)) {
             try {
-                location = new ResourceLocation(registryName);
+                location = ResourceLocation.parse(registryName);
             } catch (final ResourceLocationException ignored) {
             }
         }
@@ -67,6 +67,7 @@ public abstract class AbstractBlockDeviceItem extends ModItem {
         return stack;
     }
 
+    @SuppressWarnings("unused")
     public ItemStack withData(final BlockDeviceData data) {
         return withData(new ItemStack(this), data);
     }
@@ -87,6 +88,7 @@ public abstract class AbstractBlockDeviceItem extends ModItem {
 
     ///////////////////////////////////////////////////////////////////
 
+    @SuppressWarnings("unused")
     protected ResourceLocation getDefaultData() {
         return defaultData;
     }

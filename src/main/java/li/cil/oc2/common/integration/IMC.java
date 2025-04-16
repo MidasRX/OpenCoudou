@@ -2,13 +2,13 @@
 
 package li.cil.oc2.common.integration;
 
+import dev.architectury.platform.forge.EventBuses;
 import li.cil.oc2.api.API;
 import li.cil.oc2.api.imc.RPCMethodParameterTypeAdapter;
 import li.cil.oc2.common.bus.device.rpc.RPCMethodParameterTypeAdapters;
 import net.minecraft.Util;
 import net.minecraftforge.fml.InterModComms;
 import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -30,7 +30,7 @@ public final class IMC {
     ///////////////////////////////////////////////////////////////////
 
     public static void initialize() {
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(IMC::handleIMCMessages);
+        EventBuses.getModEventBus(API.MOD_ID).get().addListener(IMC::handleIMCMessages);
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -56,7 +56,7 @@ public final class IMC {
         });
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "SameParameterValue"})
     private static <T> Optional<T> getMessageParameter(final InterModComms.IMCMessage message, final Class<T> type) {
         final Object value = message.messageSupplier().get();
         if (type.isInstance(value)) {

@@ -6,11 +6,11 @@ import li.cil.oc2.api.API;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.IConfigSpec;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+@SuppressWarnings("unused")
 @Mod.EventBusSubscriber(modid = API.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ConfigManager {
     @Retention(RetentionPolicy.RUNTIME)
@@ -68,7 +69,6 @@ public final class ConfigManager {
         PARSERS.put(short.class, ConfigManager::parseShortField);
         PARSERS.put(long.class, ConfigManager::parseLongField);
         PARSERS.put(double.class, ConfigManager::parseDoubleField);
-        PARSERS.put(boolean.class, ConfigManager::parseBooleanField);
         PARSERS.put(String.class, ConfigManager::parseStringField);
         PARSERS.put(UUID.class, ConfigManager::parseUUIDField);
         PARSERS.put(ResourceLocation.class, ConfigManager::parseResourceLocationField);
@@ -87,11 +87,11 @@ public final class ConfigManager {
         CONFIGS.put(config.getValue(), new ConfigDefinition(config.getKey(), values));
     }
 
-    public static void initialize() {
+    public static void initialize(FMLJavaModLoadingContext context) {
         CONFIGS.forEach((spec, config) -> {
             final Type typeAnnotation = config.instance.getClass().getAnnotation(Type.class);
             final ModConfig.Type configType = typeAnnotation != null ? typeAnnotation.value() : ModConfig.Type.COMMON;
-            ModLoadingContext.get().registerConfig(configType, spec);
+            context.registerConfig(configType, spec);
         });
     }
 
@@ -196,7 +196,7 @@ public final class ConfigManager {
 
         final ForgeConfigSpec.ConfigValue<String> configValue = builder.define(path, defaultValue.toString());
 
-        return new ConfigFieldPair<>(field, configValue, ResourceLocation::new);
+        return new ConfigFieldPair<>(field, configValue, ResourceLocation::parse);
     }
 
     private static String getPath(@Nullable final String prefix, final Field field) {
