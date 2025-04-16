@@ -2,6 +2,7 @@ package li.cil.oc2.common.vm.terminal.modes;
 
 import li.cil.ceres.api.Serialized;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,7 +83,15 @@ public class PrivateModeState {
     public boolean APPLICATION_SYNC = false;
     public boolean APPLICATION_ESC_MODE = false;
 
-    public boolean getMode(int mode) {
+    public int getModeForRequest(int mode) {
+        Boolean modeState = getMode(mode);
+        if (modeState == null) return 0;
+        if (modeState) return 1;
+        return 2;
+    }
+
+    @Nullable
+    public Boolean getMode(int mode) {
         return switch (mode) {
             case 1 -> DECCKM;
             case 2 -> DECANM;
@@ -158,7 +167,7 @@ public class PrivateModeState {
             case 2006 -> ENABLE_READLINE_NEWLINE_PASTE;
             case 2026 -> APPLICATION_SYNC;
             case 7727 -> APPLICATION_ESC_MODE;
-            default -> throw new IndexOutOfBoundsException();
+            default -> null;
         };
     }
 

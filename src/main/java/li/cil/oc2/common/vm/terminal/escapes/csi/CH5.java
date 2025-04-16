@@ -18,10 +18,10 @@ public class CH5 extends CSISequenceHandler { // Combined Handler 5 (XTSMPOINTER
         } else if (state.dollarSign) { // DECRQM
             int mode = args[0];
             if (state.questionMark) { // DECSET/DECRST
-                terminal.putResponse("\033[?" + mode + ";" + (terminal.currentPrivateModeState.getMode(mode) ? 1 : 0) + "$y");
+                terminal.putResponse("\033[?" + mode + ";" + terminal.currentPrivateModeState.getModeForRequest(mode) + "$y");
             }
             else { // SM/RM
-                terminal.putResponse("\033[" + mode + ";" + (terminal.currentModeState.getMode(mode) ? 1 : 0) + "$y");
+                terminal.putResponse("\033[" + mode + ";" + terminal.currentModeState.getModeForRequest(mode) + "$y");
             }
         } else  { // XTPUSHSGR
             System.out.println("XTPUSHSGR not implemented");
