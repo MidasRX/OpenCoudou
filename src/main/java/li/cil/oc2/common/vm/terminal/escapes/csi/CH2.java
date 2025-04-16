@@ -188,6 +188,8 @@ public class CH2 extends CSISequenceHandler { // Combined Handler 2 (SM & DECSET
                 case 2004 -> terminal.currentPrivateModeState.SET_BRACKETED_PASTE = true;
                 case 2005 -> terminal.currentPrivateModeState.ENABLE_READLINE_CHAR_QUOTE = true;
                 case 2006 -> terminal.currentPrivateModeState.ENABLE_READLINE_NEWLINE_PASTE = true;
+                case 2026 -> terminal.currentPrivateModeState.APPLICATION_SYNC = true;
+                case 7727 -> terminal.currentPrivateModeState.APPLICATION_ESC_MODE = true;
             }
 
             ImplementedPrivateModes.instance.modeUsed(args[i], true);

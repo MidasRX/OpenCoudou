@@ -12,7 +12,7 @@ public class ImplementedPrivateModes {
         modeStatus.put(2, false); // DECANM;
         modeStatus.put(3, false); // DECCOLM;
         modeStatus.put(4, true); // DECSCLM;
-        modeStatus.put(5, false); // DECSCNM;
+        modeStatus.put(5, true); // DECSCNM; Has no function, meant for older terminals
         modeStatus.put(6, true); // DECOM;
         modeStatus.put(7, true); // DECAWM;
         modeStatus.put(8, true); // DECARM;
@@ -81,6 +81,7 @@ public class ImplementedPrivateModes {
         modeStatus.put(2005, false); // ENABLE_READLINE_CHAR_QUOTE;
         modeStatus.put(2006, false); // ENABLE_READLINE_NEWLINE_PASTE;
         modeStatus.put(2026, true); // APPLICATION_SYNC;
+        modeStatus.put(7727, true); // APPLICATION_ESC_MODE;
     }
 
     public void modeUsed(int mode, boolean state) {

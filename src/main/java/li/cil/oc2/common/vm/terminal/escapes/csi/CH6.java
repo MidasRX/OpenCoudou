@@ -99,6 +99,8 @@ public class CH6 extends CSISequenceHandler { // Combined Handler 6 (XTSAVE, XTS
             case 2004 -> terminal.savePrivateModeState.SET_BRACKETED_PASTE = terminal.currentPrivateModeState.SET_BRACKETED_PASTE;
             case 2005 -> terminal.savePrivateModeState.ENABLE_READLINE_CHAR_QUOTE = terminal.currentPrivateModeState.ENABLE_READLINE_CHAR_QUOTE;
             case 2006 -> terminal.savePrivateModeState.ENABLE_READLINE_NEWLINE_PASTE = terminal.currentPrivateModeState.ENABLE_READLINE_NEWLINE_PASTE;
+            case 2026 -> terminal.savePrivateModeState.APPLICATION_SYNC = terminal.currentPrivateModeState.APPLICATION_SYNC;
+            case 7727 -> terminal.savePrivateModeState.APPLICATION_ESC_MODE = terminal.currentPrivateModeState.APPLICATION_ESC_MODE;
         }
     }
 }

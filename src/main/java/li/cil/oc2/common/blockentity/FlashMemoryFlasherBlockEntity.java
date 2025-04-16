@@ -35,7 +35,6 @@ public final class FlashMemoryFlasherBlockEntity extends ModBlockEntity implemen
 
     private final FlashMemoryItemStackHandler itemHandler = new FlashMemoryItemStackHandler();
     private final FlashMemoryFlasherDevice<FlashMemoryFlasherBlockEntity> device = new FlashMemoryFlasherDevice<>(this);
-    private final ThrottledSoundEmitter accessSoundEmitter;
     private final ThrottledSoundEmitter insertSoundEmitter;
     private final ThrottledSoundEmitter ejectSoundEmitter;
 
@@ -44,8 +43,6 @@ public final class FlashMemoryFlasherBlockEntity extends ModBlockEntity implemen
     public FlashMemoryFlasherBlockEntity(final BlockPos pos, final BlockState state) {
         super(BlockEntities.FLASH_MEMORY_FLASHER.get(), pos, state);
 
-        this.accessSoundEmitter = new ThrottledSoundEmitter(LocationSupplierUtils.of(this),
-            SoundEvents.FLOPPY_ACCESS.get()).withMinInterval(Duration.ofSeconds(1));
         this.insertSoundEmitter = new ThrottledSoundEmitter(LocationSupplierUtils.of(this),
             SoundEvents.FLOPPY_INSERT.get()).withMinInterval(Duration.ofMillis(100));
         this.ejectSoundEmitter = new ThrottledSoundEmitter(LocationSupplierUtils.of(this),
@@ -143,7 +140,7 @@ public final class FlashMemoryFlasherBlockEntity extends ModBlockEntity implemen
 
     @Override
     public void handleDataAccess() {
-        accessSoundEmitter.play();
+        // DO NOTHING
     }
 
     ///////////////////////////////////////////////////////////////////

@@ -25,6 +25,14 @@ public class RIS {
         terminal.useG0 = true;
         terminal.clear();
         terminal.clearAlt();
+        Arrays.fill(terminal.buffer, ' ');
+        Arrays.fill(terminal.colors, Terminal.DEFAULT_COLORS.Copy());
+        Arrays.fill(terminal.colorsBackground, Terminal.DEFAULT_COLORS.Copy());
+        Arrays.fill(terminal.styles, Terminal.DEFAULT_STYLE);
+        Arrays.fill(terminal.altBuffer, ' ');
+        Arrays.fill(terminal.altColors, Terminal.DEFAULT_COLORS.Copy());
+        Arrays.fill(terminal.altColorsBackground, Terminal.DEFAULT_COLORS.Copy());
+        Arrays.fill(terminal.altStyles, Terminal.DEFAULT_STYLE);
         Arrays.fill(terminal.tabs, false);
         Arrays.fill(terminal.altTabs, false);
         for (int i = 1; i < Terminal.WIDTH; i++) {

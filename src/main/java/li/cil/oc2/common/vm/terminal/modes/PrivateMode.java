@@ -75,4 +75,5 @@ public final class PrivateMode {
     public static final int ENABLE_READLINE_CHAR_QUOTE = 2005; // Enable readline character quoting
     public static final int ENABLE_READLINE_NEWLINE_PASTE = 2006; // Enable readline newline pasting
     public static final int APPLICATION_SYNC = 2026; // Wait to render until application is ready
+    public static final int APPLICATION_ESC_MODE = 7727; // Send escape key as ^[0[
 }

@@ -24,7 +24,7 @@ allprojects {
 def getGitRef() {
     try {
         final def stdout = new ByteArrayOutputStream()
-        exec {
+        providers.exec {
             commandLine "git", "rev-parse", "--short", "HEAD"
             standardOutput = stdout
         }
@@ -34,7 +34,7 @@ def getGitRef() {
     }
 }
 
-version = "${semver}+${getGitRef()}"
+version = System.getenv('RELEASE_TYPE') == "release" ? "${semver}" : "${semver}+${getGitRef()}"
 group = "li.cil.oc2"
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -264,7 +264,7 @@ modrinth {
     gameVersions = ["1.20.1"]
     loaders = ["forge"]
     dependencies {
-        optional.version "markdownmanual"
+        required.project "markdownmanual"
     }
 }
 

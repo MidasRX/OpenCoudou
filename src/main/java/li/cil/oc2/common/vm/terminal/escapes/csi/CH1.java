@@ -8,10 +8,13 @@ public class CH1 extends CSISequenceHandler { // Combined Handler 1 (DECSTBM & X
     }
 
     public void execute(int[] args, int argCount, CSIState state) {
-        if (state.questionMark) {
+        if (state.questionMark) { // XTRESTORE
             handleXTRESTORE(args[0]);
         }
-        else if (argCount == 2) {
+        else if (state.dollarSign) { // DECCARA
+            System.out.println("DECCARA is not implemented");
+        }
+        else if (argCount == 2) { // DECSTBM
             handleDECSTBM(args, argCount);
         }
     }
@@ -90,15 +93,19 @@ public class CH1 extends CSISequenceHandler { // Combined Handler 1 (DECSTBM & X
             case 2004 -> terminal.currentPrivateModeState.SET_BRACKETED_PASTE = terminal.savePrivateModeState.SET_BRACKETED_PASTE;
             case 2005 -> terminal.currentPrivateModeState.ENABLE_READLINE_CHAR_QUOTE = terminal.savePrivateModeState.ENABLE_READLINE_CHAR_QUOTE;
             case 2006 -> terminal.currentPrivateModeState.ENABLE_READLINE_NEWLINE_PASTE = terminal.savePrivateModeState.ENABLE_READLINE_NEWLINE_PASTE;
+            case 2026 -> terminal.currentPrivateModeState.APPLICATION_SYNC = terminal.savePrivateModeState.APPLICATION_SYNC;
+            case 7727 -> terminal.currentPrivateModeState.APPLICATION_ESC_MODE = terminal.savePrivateModeState.APPLICATION_ESC_MODE;
         }
     }
 
     private void handleDECSTBM(int[] args, int argCount) {
         final int first, last;
         if (argCount == 2) {
+            System.out.println("Top: " + args[0] + ", Bottom: " + args[1]);
             first = args[0] - 1;
             last = args[1] - 1;
         } else {
+            System.out.println("Full screen");
             first = 0;
             last = Terminal.HEIGHT - 1;
         }

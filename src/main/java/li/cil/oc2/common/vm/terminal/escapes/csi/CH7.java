@@ -9,7 +9,9 @@ public class CH7 extends CSISequenceHandler { // Combined Handler 7 (XTVERSION, 
 
     public void execute(final int[] args, final int argsCount, final CSIState state) {
         if (state.greaterThan) { // XTVERSION
-            System.out.println("XTVERSION not implemented");
+            if (args[0] == 0) {
+                terminal.putResponse("\033P>|oc2rvt(1.0.0)\033\\");
+            }
         } else if (state.space) { // DECSCUSR
             int cursorStyle = args[0];
             if (cursorStyle < 0 || cursorStyle > 6) {

@@ -274,8 +274,10 @@ public class Terminal {
             Arrays.fill(altColorsBackground, c.Copy());
             Arrays.fill(altStyles, DEFAULT_STYLE);
         } else {
-            Arrays.fill(buffer, ' ');
-            Arrays.fill(colors, DEFAULT_COLORS.Copy());
+            int startIndex = (lastRowToDisplayMax - HEIGHT) * WIDTH;
+            int endIndex = startIndex + (HEIGHT * WIDTH);
+            Arrays.fill(buffer, startIndex, endIndex, ' ');
+            Arrays.fill(colors, startIndex, endIndex, DEFAULT_COLORS.Copy());
             ColorData c;
             switch (currentBackgroundColorMode) {
                 case SIXTEEN_COLOR -> c = sixteenColor;
@@ -283,8 +285,8 @@ public class Terminal {
                 case TRUE_COLOR -> c = backgroundColor;
                 default -> c = DEFAULT_COLORS.Copy();
             }
-            Arrays.fill(colorsBackground, c.Copy());
-            Arrays.fill(styles, DEFAULT_STYLE);
+            Arrays.fill(colorsBackground, startIndex, endIndex, c.Copy());
+            Arrays.fill(styles, startIndex, endIndex, DEFAULT_STYLE);
         }
         setCursorPos(0, 0);
         renderers.forEach(model -> model.getDirtyMask().set(-1));
@@ -423,159 +425,163 @@ public class Terminal {
         }
     }
 
-    public void putOutput(final byte value) {
-        final char ch = (char) value;
-        if (!continuationByte && (ch & (1 << 7)) != 0) {
-            continuationByte = true;
-            bytesToRead = 0;
-            bytesRead = 0;
-            unicode = 0;
-            if ((ch & (1 << 6)) != 0) {
-                bytesToRead++;
-            } else {
-                continuationByte = false;
-                return;
-            }
+    public synchronized void putOutput(final byte value) {
+        synchronized (buffer) {
+            synchronized (altBuffer) {
+                final char ch = (char) value;
+                if (!continuationByte && (ch & (1 << 7)) != 0) {
+                    continuationByte = true;
+                    bytesToRead = 0;
+                    bytesRead = 0;
+                    unicode = 0;
+                    if ((ch & (1 << 6)) != 0) {
+                        bytesToRead++;
+                    } else {
+                        continuationByte = false;
+                        return;
+                    }
 
-            if ((ch & (1 << 5)) != 0) {
-                bytesToRead++;
-            } else {
-                unicode = (ch & 0b11111) << 6; // 2 Byte Char
-                return;
-            }
+                    if ((ch & (1 << 5)) != 0) {
+                        bytesToRead++;
+                    } else {
+                        unicode = (ch & 0b11111) << 6; // 2 Byte Char
+                        return;
+                    }
 
-            if ((ch & (1 << 4)) != 0) {
-                bytesToRead++;
-            } else {
-                unicode = (ch & 0b1111) << 12; // 3 Byte Char
-                return;
-            }
+                    if ((ch & (1 << 4)) != 0) {
+                        bytesToRead++;
+                    } else {
+                        unicode = (ch & 0b1111) << 12; // 3 Byte Char
+                        return;
+                    }
 
-            unicode = (ch & 0b111) << 18; // 4 Byte Char
+                    unicode = (ch & 0b111) << 18; // 4 Byte Char
 
-            return;
-        } else if (continuationByte) {
-            if ((ch & (1 << 7)) == 0) {
-                continuationByte = false;
-                bytesToRead = 0;
-                bytesRead = 0;
-                return;
-            }
+                    return;
+                } else if (continuationByte) {
+                    if ((ch & (1 << 7)) == 0) {
+                        continuationByte = false;
+                        bytesToRead = 0;
+                        bytesRead = 0;
+                        return;
+                    }
 
-            bytesRead++;
+                    bytesRead++;
 
-            unicode |= (ch & 0b111111) << ((bytesToRead - bytesRead) * 6);
+                    unicode |= (ch & 0b111111) << ((bytesToRead - bytesRead) * 6);
 
-            if (bytesToRead == bytesRead) {
-                bytesToRead = 0;
-                bytesRead = 0;
-            } else {
-                return;
-            }
-        }
-        switch (state) {
-            case NORMAL -> {
-                switch (value) {
-                    case '\007' -> hasPendingBell = true;
-                    case '\033' -> state = State.ESCAPE;
-                    case '\016' -> useG0 = false; // SO
-                    case '\017' -> useG0 = true; // SI
+                    if (bytesToRead == bytesRead) {
+                        bytesToRead = 0;
+                        bytesRead = 0;
+                    } else {
+                        return;
+                    }
+                }
+                switch (state) {
+                    case NORMAL -> {
+                        switch (value) {
+                            case '\007' -> hasPendingBell = true;
+                            case '\033' -> state = State.ESCAPE;
+                            case '\016' -> useG0 = false; // SO
+                            case '\017' -> useG0 = true; // SI
 
-                    case (byte) '\r' /* 015 */ -> setCursorPos(0, y);
-                    case (byte) '\n' /* 012 */, '\013', '\014' -> {
-                        if (currentModeState.LNM) {
-                            NEL.execute(this);
+                            case (byte) '\r' /* 015 */ -> setCursorPos(0, y);
+                            case (byte) '\n' /* 012 */, '\013', '\014' -> {
+                                if (currentModeState.LNM) {
+                                    NEL.execute(this);
+                                } else {
+                                    IND.execute(this);
+                                }
+                            }
+                            case (byte) '\t' /* 011 */ -> {
+                                if (x < WIDTH) {
+                                    do {
+                                        x++;
+                                    } while (x < WIDTH && (currentPrivateModeState.isAltBufferEnabled() ? !altTabs[x] : !tabs[x]));
+                                }
+                            }
+                            case (byte) '\b' /* 010 */ -> setCursorPos(Math.min(x, WIDTH - 1) - 1, y);
+
+                            default -> putChar((continuationByte) ? unicode : ch);
+                        }
+                    }
+                    case ESCAPE -> {
+                        if (ch == '[') { // Control Sequence Indicator
+                            csiManager.reset();
+                            state = State.CONTROL_SEQUENCE;
+                        } else if (ch == '(') { // SCS – Select Character Set
+                            state = State.SHIFT_IN_CHARACTER_SET;
+                        } else if (ch == ')') { // SCS – Select Character Set
+                            state = State.SHIFT_OUT_CHARACTER_SET;
+                        } else if (ch == '#') { // # Intermediate
+                            state = State.HASH;
+                        } else if (ch == 'P') {
+                            dcsManager.reset();
+                            state = State.DCS;
+                        } else if (ch == ']') {
+                            oscManager.reset();
+                            state = State.OSC;
+                        } else if (ch == '_') {
+                            apcManager.reset();
+                            state = State.APC;
                         } else {
-                            IND.execute(this);
+                            state = State.NORMAL;
+                            switch (ch) {
+                                case 'D' -> IND.execute(this);   // IND – Index
+                                case 'E' -> NEL.execute(this);   // NEL – Next Line
+                                case 'M' -> RI.execute(this);    // RI – Reverse Index
+                                case '7' -> DECSC.execute(this); // DECSC – Save Cursor (DEC public)
+                                case '8' -> DECRC.execute(this); // DECRC – Restore Cursor (DEC public)
+                                case 'H' -> HTS.execute(this);   // HTS – Horizontal Tabulation Set
+                                case 'c' -> RIS.execute(this);   // RIS – Reset To Initial State
+                                case '=' -> {
+                                }      // DECKPAM – Keypad Application Mode (DEC public)
+                                case '>' -> {
+                                }      // DECKPNM – Keypad Numeric Mode (DEC public)
+                                default -> System.out.println("Invalid escape: " + ch);
+                            }
                         }
                     }
-                    case (byte) '\t' /* 011 */ -> {
-                        if (x < WIDTH) {
-                            do {
-                                x++;
-                            } while (x < WIDTH && (currentPrivateModeState.isAltBufferEnabled() ? !altTabs[x] : !tabs[x]));
+                    case CONTROL_SEQUENCE -> csiManager.handle(ch);
+                    case SHIFT_IN_CHARACTER_SET, SHIFT_OUT_CHARACTER_SET -> {
+                        state = State.NORMAL;
+                        switch (ch) {
+                            case 'A' -> {
+                            } // United Kingdom Set
+                            case 'B' -> drawingModeG0 = DrawingMode.ASCII; // ASCII Set
+                            case '0' -> drawingModeG0 = DrawingMode.SPECIAL_GRAPHICS; // Special Graphics
+                            case '1' -> {
+                            } // Alternate Character ROM Standard Character Set
+                            case '2' -> {
+                            } // Alternate Character ROM Special Graphics
                         }
                     }
-                    case (byte) '\b' /* 010 */ -> setCursorPos(Math.min(x, WIDTH - 1) - 1, y);
-
-                    default -> putChar((continuationByte) ? unicode : ch);
-                }
-            }
-            case ESCAPE -> {
-                if (ch == '[') { // Control Sequence Indicator
-                    csiManager.reset();
-                    state = State.CONTROL_SEQUENCE;
-                } else if (ch == '(') { // SCS – Select Character Set
-                    state = State.SHIFT_IN_CHARACTER_SET;
-                } else if (ch == ')') { // SCS – Select Character Set
-                    state = State.SHIFT_OUT_CHARACTER_SET;
-                } else if (ch == '#') { // # Intermediate
-                    state = State.HASH;
-                } else if (ch == 'P') {
-                    dcsManager.reset();
-                    state = State.DCS;
-                } else if (ch == ']') {
-                    oscManager.reset();
-                    state = State.OSC;
-                } else if (ch == '_') {
-                    apcManager.reset();
-                    state = State.APC;
-                } else {
-                    state = State.NORMAL;
-                    switch (ch) {
-                        case 'D' -> IND.execute(this);   // IND – Index
-                        case 'E' -> NEL.execute(this);   // NEL – Next Line
-                        case 'M' -> RI.execute(this);    // RI – Reverse Index
-                        case '7' -> DECSC.execute(this); // DECSC – Save Cursor (DEC public)
-                        case '8' -> DECRC.execute(this); // DECRC – Restore Cursor (DEC public)
-                        case 'H' -> HTS.execute(this);   // HTS – Horizontal Tabulation Set
-                        case 'c' -> RIS.execute(this);   // RIS – Reset To Initial State
-                        case '=' -> {
-                        }      // DECKPAM – Keypad Application Mode (DEC public)
-                        case '>' -> {
-                        }      // DECKPNM – Keypad Numeric Mode (DEC public)
-                        default -> System.out.println("Invalid escape: " + ch);
-                    }
-                }
-            }
-            case CONTROL_SEQUENCE -> csiManager.handle(ch);
-            case SHIFT_IN_CHARACTER_SET, SHIFT_OUT_CHARACTER_SET -> {
-                state = State.NORMAL;
-                switch (ch) {
-                    case 'A' -> {
-                    } // United Kingdom Set
-                    case 'B' -> drawingModeG0 = DrawingMode.ASCII; // ASCII Set
-                    case '0' -> drawingModeG0 = DrawingMode.SPECIAL_GRAPHICS; // Special Graphics
-                    case '1' -> {
-                    } // Alternate Character ROM Standard Character Set
-                    case '2' -> {
-                    } // Alternate Character ROM Special Graphics
-                }
-            }
-            case HASH -> {
-                state = State.NORMAL;
-                switch (ch) {
-                    case '3' -> {
-                    } // Change this line to double-height top half (DECDHL)
-                    case '4' -> {
-                    } // Change this line to double-height bottom half (DECDHL)
-                    case '5' -> {
-                    } // Change this line to single-width single-height (DECSWL)
-                    case '6' -> {
-                    } // Change this line to double-width single-height (DECDWL)
-                    case '8' -> { // Fill Screen with Es (DECALN)
-                        if (currentPrivateModeState.isAltBufferEnabled()) {
-                            Arrays.fill(altBuffer, 'E');
-                        } else {
-                            Arrays.fill(buffer, (lastRowToDisplayMax - HEIGHT) * WIDTH, ((WIDTH - 1) + (HEIGHT - 1) * WIDTH) + 1, 'E');
+                    case HASH -> {
+                        state = State.NORMAL;
+                        switch (ch) {
+                            case '3' -> {
+                            } // Change this line to double-height top half (DECDHL)
+                            case '4' -> {
+                            } // Change this line to double-height bottom half (DECDHL)
+                            case '5' -> {
+                            } // Change this line to single-width single-height (DECSWL)
+                            case '6' -> {
+                            } // Change this line to double-width single-height (DECDWL)
+                            case '8' -> { // Fill Screen with Es (DECALN)
+                                if (currentPrivateModeState.isAltBufferEnabled()) {
+                                    Arrays.fill(altBuffer, 'E');
+                                } else {
+                                    Arrays.fill(buffer, (lastRowToDisplayMax - HEIGHT) * WIDTH, ((WIDTH - 1) + (HEIGHT - 1) * WIDTH) + 1, 'E');
+                                }
+                                renderers.forEach(model -> model.getDirtyMask().set(-1));
+                            }
                         }
-                        renderers.forEach(model -> model.getDirtyMask().set(-1));
                     }
+                    case DCS -> dcsManager.handle(ch); // Used for mapping Function keys and possibly other things
+                    case OSC -> oscManager.handle(ch);
+                    case APC -> apcManager.handle(ch);
                 }
             }
-            case DCS -> dcsManager.handle(ch); // Used for mapping Function keys and possibly other things
-            case OSC -> oscManager.handle(ch);
-            case APC -> apcManager.handle(ch);
         }
     }
 

@@ -256,14 +256,18 @@ public final class MachineTerminalWidget {
             return false;
         }
 
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE && terminal.currentPrivateModeState.APPLICATION_ESC_MODE) {
+            terminal.putInput("\033[0[");
+        }
+
         if ((modifiers & GLFW.GLFW_MOD_CONTROL) != 0 && keyCode == GLFW.GLFW_KEY_V) {
             final String value = getClient().keyboardHandler.getClipboard();
             boolean bracketed = terminal.currentPrivateModeState.SET_BRACKETED_PASTE;
-            if(bracketed) terminal.putInput("\033[200~");
+            if (bracketed) terminal.putInput("\033[200~");
             for (final char ch : value.toCharArray()) {
                 terminal.putInput((byte) ch);
             }
-            if(bracketed) terminal.putInput("\033[201~");
+            if (bracketed) terminal.putInput("\033[201~");
         } else {
             byte[] sequence;
             if (terminal.currentPrivateModeState.DECCKM && (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT))

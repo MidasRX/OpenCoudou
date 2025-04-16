@@ -28,28 +28,32 @@ public class CSIManager {
         sequences.put('B', new CUD(terminal));
         sequences.put('C', new CUF(terminal));
         sequences.put('D', new CUB(terminal));
+        sequences.put('G', new CHA(terminal));
         sequences.put('H', new CUP(terminal));
-        sequences.put('f', new HVP(terminal));
-        sequences.put('m', new SGR(terminal));
-        sequences.put('K', new EL(terminal));
         sequences.put('J', new ED(terminal));
-        sequences.put('r', new CH1(terminal));
+        sequences.put('K', new EL(terminal));
+        sequences.put('L', new IL(terminal));
+        sequences.put('M', new DL(terminal));
+        sequences.put('P', new CH10(terminal));
+        sequences.put('S', new CH8(terminal));
+        sequences.put('T', new CH9(terminal));
+        sequences.put('X', new ECH(terminal));
+
+        sequences.put('c', new DA(terminal));
+        sequences.put('d', new VPA(terminal));
+        sequences.put('f', new HVP(terminal));
         sequences.put('g', new TBC(terminal));
         sequences.put('h', new CH2(terminal));
         sequences.put('l', new CH3(terminal));
+        sequences.put('m', new SGR(terminal));
         sequences.put('n', new DSR(terminal));
-        sequences.put('c', new DA(terminal));
-        sequences.put('d', new VPA(terminal));
-        sequences.put('G', new CHA(terminal));
-        sequences.put('t', new CH4(terminal));
         sequences.put('p', new CH5(terminal));
-        sequences.put('s', new CH6(terminal));
-        sequences.put('X', new ECH(terminal));
         sequences.put('q', new CH7(terminal));
-        sequences.put('L', new IL(terminal));
-        sequences.put('M', new DL(terminal));
-        sequences.put('S', new CH8(terminal));
-        sequences.put('T', new CH9(terminal));
+        sequences.put('r', new CH1(terminal));
+        sequences.put('s', new CH6(terminal));
+        sequences.put('t', new CH4(terminal));
+
+        sequences.put('@', new CH11(terminal));
     }
 
     public void handle(final char ch) {
@@ -99,6 +103,8 @@ public class CSIManager {
             }
 
             terminal.state = Terminal.State.NORMAL;
+
+            System.out.println("Control sequence sent: " + ch);
 
             CSISequenceHandler handler = sequences.get(ch);
             CSIState state = new CSIState(questionMark, greaterThan, dollarSign, hash, quote, singleQuote, space, exclamation);

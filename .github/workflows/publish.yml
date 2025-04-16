@@ -18,6 +18,15 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Set release type to 'release'
+        run: |
+          echo "RELEASE_TYPE=release" >> $GITHUB_ENV
+        if: github.event.release.prerelease == false
+      - name: Set release type to 'alpha'
+        run: |
+          echo "RELEASE_TYPE=alpha" >> $GITHUB_ENV
+        if: github.event.release.prerelease == true
+
       - uses: actions/checkout@v4
       - name: build
         run: |
@@ -30,15 +39,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           asset_paths: '["./build/libs/*-all.jar"]'
-
-      - name: Set release type to 'release'
-        run: |
-          echo "RELEASE_TYPE=release" >> $GITHUB_ENV
-        if: github.event.release.prerelease == false
-      - name: Set release type to 'alpha'
-        run: |
-          echo "RELEASE_TYPE=alpha" >> $GITHUB_ENV
-        if: github.event.release.prerelease == true
 
       - name: Publish to Curseforge
         run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' curseforge

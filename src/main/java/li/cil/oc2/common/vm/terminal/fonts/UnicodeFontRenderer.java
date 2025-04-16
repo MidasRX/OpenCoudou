@@ -39,7 +39,7 @@ public class UnicodeFontRenderer {
         FontMetrics metrics = g.getFontMetrics();
         int ascent = metrics.getAscent();
 
-        g.drawGlyphVector(gv, 0, ascent);
+        g.drawGlyphVector(gv, 0, ascent - 1);
         g.dispose();
 
         Glyph glyph = new Glyph(img, 16, 32, (int) gv.getGlyphMetrics(0).getAdvance());
