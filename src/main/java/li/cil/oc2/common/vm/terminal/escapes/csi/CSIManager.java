@@ -104,8 +104,6 @@ public class CSIManager {
 
             terminal.state = Terminal.State.NORMAL;
 
-            System.out.println("Control sequence sent: " + ch);
-
             CSISequenceHandler handler = sequences.get(ch);
             CSIState state = new CSIState(questionMark, greaterThan, dollarSign, hash, quote, singleQuote, space, exclamation);
 

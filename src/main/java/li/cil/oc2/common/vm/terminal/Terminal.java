@@ -43,8 +43,11 @@ public class Terminal {
     public static final int STYLE_BLINK_MASK = 1 << 3;
     public static final int STYLE_INVERT_MASK = 1 << 4;
     public static final int STYLE_HIDDEN_MASK = 1 << 5;
+    public static final int STYLE_ITALIC_MASK = 1 << 6;
 
     // Default Styles
+    public static final ColorData DEFAULT_BACKGROUND_COLOR = new ColorData(Color.WHITE, Color.BLACK, 0, ColorMode.DEFAULT_BACKGROUND);
+    public static final ColorData DEFAULT_BRIGHT_COLORS = new ColorData(Color.WHITE, Color.BLACK, 0, ColorMode.SIXTEEN_COLOR_BRIGHT);
     public static final ColorData DEFAULT_COLORS = new ColorData(Color.WHITE, Color.BLACK, 0, ColorMode.SIXTEEN_COLOR);
     public static final byte DEFAULT_STYLE = 0;
     public static final ColorData DEFAULT_256_COLORS = new ColorData(Color.WHITE, Color.BLACK, 0, ColorMode.TWO_FIFTY_SIX_COLOR);
@@ -56,6 +59,7 @@ public class Terminal {
     public ColorMode currentForegroundColorMode = ColorMode.SIXTEEN_COLOR;
     public ColorMode currentBackgroundColorMode = ColorMode.SIXTEEN_COLOR;
     public ColorData sixteenColor;
+    public ColorData sixteenColorBright;
     // 256 Color
     public ColorData twoFiftySixColor;
     // True Color
@@ -103,12 +107,16 @@ public class Terminal {
 
     // Related Enums
     public enum ColorMode {
+        @SerializedName("4")
+        DEFAULT_BACKGROUND,
         @SerializedName("0")
         SIXTEEN_COLOR,
         @SerializedName("1")
         TWO_FIFTY_SIX_COLOR,
         @SerializedName("2")
-        TRUE_COLOR
+        TRUE_COLOR,
+        @SerializedName("3")
+        SIXTEEN_COLOR_BRIGHT
     }
 
     public static final class CursorMode {
@@ -261,16 +269,17 @@ public class Terminal {
 
     // Terminal Management
     public void clear() {
+        ColorData c;
+        switch (currentBackgroundColorMode) {
+            case SIXTEEN_COLOR -> c = sixteenColor;
+            case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
+            case TRUE_COLOR -> c = backgroundColor;
+            case SIXTEEN_COLOR_BRIGHT -> c = sixteenColorBright;
+            default -> c = Terminal.DEFAULT_BACKGROUND_COLOR;
+        }
         if (currentPrivateModeState.isAltBufferEnabled()) {
             Arrays.fill(altBuffer, ' ');
             Arrays.fill(altColors, DEFAULT_COLORS.Copy());
-            ColorData c;
-            switch (currentBackgroundColorMode) {
-                case SIXTEEN_COLOR -> c = sixteenColor;
-                case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
-                case TRUE_COLOR -> c = backgroundColor;
-                default -> c = DEFAULT_COLORS.Copy();
-            }
             Arrays.fill(altColorsBackground, c.Copy());
             Arrays.fill(altStyles, DEFAULT_STYLE);
         } else {
@@ -278,13 +287,6 @@ public class Terminal {
             int endIndex = startIndex + (HEIGHT * WIDTH);
             Arrays.fill(buffer, startIndex, endIndex, ' ');
             Arrays.fill(colors, startIndex, endIndex, DEFAULT_COLORS.Copy());
-            ColorData c;
-            switch (currentBackgroundColorMode) {
-                case SIXTEEN_COLOR -> c = sixteenColor;
-                case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
-                case TRUE_COLOR -> c = backgroundColor;
-                default -> c = DEFAULT_COLORS.Copy();
-            }
             Arrays.fill(colorsBackground, startIndex, endIndex, c.Copy());
             Arrays.fill(styles, startIndex, endIndex, DEFAULT_STYLE);
         }
@@ -300,6 +302,7 @@ public class Terminal {
             case SIXTEEN_COLOR -> c = sixteenColor;
             case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
             case TRUE_COLOR -> c = backgroundColor;
+            case SIXTEEN_COLOR_BRIGHT -> c = sixteenColorBright;
             default -> c = DEFAULT_COLORS.Copy();
         }
         Arrays.fill(altColorsBackground, c.Copy());
@@ -312,29 +315,23 @@ public class Terminal {
 
     public void clearLine(final int y, final int fromIndex, final int toIndex) {
         currentForegroundColorMode = ColorMode.SIXTEEN_COLOR;
+        ColorData c;
+        switch (currentBackgroundColorMode) {
+            case SIXTEEN_COLOR -> c = sixteenColor;
+            case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
+            case TRUE_COLOR -> c = backgroundColor;
+            case SIXTEEN_COLOR_BRIGHT -> c = sixteenColorBright;
+            default -> c = Terminal.DEFAULT_BACKGROUND_COLOR;
+        }
         if (currentPrivateModeState.isAltBufferEnabled()) {
             Arrays.fill(altBuffer, y * WIDTH + fromIndex, y * WIDTH + toIndex, ' ');
             Arrays.fill(altColors, y * WIDTH + fromIndex, y * WIDTH + toIndex, DEFAULT_COLORS.Copy());
-            ColorData c;
-            switch (currentBackgroundColorMode) {
-                case SIXTEEN_COLOR -> c = sixteenColor;
-                case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
-                case TRUE_COLOR -> c = backgroundColor;
-                default -> c = DEFAULT_COLORS.Copy();
-            }
             Arrays.fill(altColorsBackground, y * WIDTH + fromIndex, y * WIDTH + toIndex, c.Copy());
             Arrays.fill(altStyles, y * WIDTH + fromIndex, y * WIDTH + toIndex, DEFAULT_STYLE);
         } else {
             int correctedY = (y + (lastRowToDisplayMax - HEIGHT));
             Arrays.fill(buffer, correctedY * WIDTH + fromIndex, correctedY * WIDTH + toIndex, ' ');
             Arrays.fill(colors, correctedY * WIDTH + fromIndex, correctedY * WIDTH + toIndex, DEFAULT_COLORS.Copy());
-            ColorData c;
-            switch (currentBackgroundColorMode) {
-                case SIXTEEN_COLOR -> c = sixteenColor;
-                case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
-                case TRUE_COLOR -> c = backgroundColor;
-                default -> c = DEFAULT_COLORS.Copy();
-            }
             Arrays.fill(colorsBackground, correctedY * WIDTH + fromIndex, correctedY * WIDTH + toIndex, c.Copy());
             Arrays.fill(styles, correctedY * WIDTH + fromIndex, correctedY * WIDTH + toIndex, DEFAULT_STYLE);
         }
@@ -638,6 +635,14 @@ public class Terminal {
         final int srcIndex = firstLine * WIDTH;
         final int charCount = (lastLine + 1) * WIDTH - srcIndex;
         final int dstIndex = srcIndex + count * WIDTH;
+        ColorData c;
+        switch (currentBackgroundColorMode) {
+            case SIXTEEN_COLOR -> c = sixteenColor;
+            case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
+            case TRUE_COLOR -> c = backgroundColor;
+            case SIXTEEN_COLOR_BRIGHT -> c = sixteenColorBright;
+            default -> c = Terminal.DEFAULT_BACKGROUND_COLOR;
+        }
         if (currentPrivateModeState.isAltBufferEnabled()) {
             System.arraycopy(altBuffer, srcIndex, altBuffer, dstIndex, charCount);
             System.arraycopy(altColors, srcIndex, altColors, dstIndex, charCount);
@@ -650,13 +655,6 @@ public class Terminal {
             // TODO Copy color and style from last line.
             // TODO Copy color and style from last line.
             Arrays.fill(altColors, clearIndex, clearIndex + clearCount, DEFAULT_COLORS.Copy());
-            ColorData c;
-            switch (currentBackgroundColorMode) {
-                case SIXTEEN_COLOR -> c = sixteenColor;
-                case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
-                case TRUE_COLOR -> c = backgroundColor;
-                default -> c = DEFAULT_COLORS.Copy();
-            }
             Arrays.fill(altColorsBackground, clearIndex, clearIndex + clearCount, c.Copy());
             Arrays.fill(altStyles, clearIndex, clearIndex + clearCount, DEFAULT_STYLE);
 
@@ -680,13 +678,6 @@ public class Terminal {
             // TODO Copy color and style from last line.
             // TODO Copy color and style from last line.
             Arrays.fill(colors, clearIndex, clearIndex + clearCount, DEFAULT_COLORS.Copy());
-            ColorData c;
-            switch (currentBackgroundColorMode) {
-                case SIXTEEN_COLOR -> c = sixteenColor;
-                case TWO_FIFTY_SIX_COLOR -> c = twoFiftySixColor;
-                case TRUE_COLOR -> c = backgroundColor;
-                default -> c = DEFAULT_COLORS.Copy();
-            }
             Arrays.fill(colorsBackground, clearIndex, clearIndex + clearCount, c.Copy());
             Arrays.fill(styles, clearIndex, clearIndex + clearCount, DEFAULT_STYLE);
 
@@ -749,12 +740,14 @@ public class Terminal {
                 case SIXTEEN_COLOR -> altColors[index] = sixteenColor.Copy();
                 case TWO_FIFTY_SIX_COLOR -> altColors[index] = twoFiftySixColor.Copy();
                 case TRUE_COLOR -> altColors[index] = foregroundColor.Copy();
+                case SIXTEEN_COLOR_BRIGHT -> altColors[index] = sixteenColorBright.Copy();
             }
 
             switch (currentBackgroundColorMode) {
                 case SIXTEEN_COLOR -> altColorsBackground[index] = sixteenColor.Copy();
                 case TWO_FIFTY_SIX_COLOR -> altColorsBackground[index] = twoFiftySixColor.Copy();
                 case TRUE_COLOR -> altColorsBackground[index] = backgroundColor.Copy();
+                case SIXTEEN_COLOR_BRIGHT -> altColorsBackground[index] = sixteenColorBright.Copy();
             }
 
             altStyles[index] = style;
@@ -769,12 +762,14 @@ public class Terminal {
                 case SIXTEEN_COLOR -> colors[index] = sixteenColor.Copy();
                 case TWO_FIFTY_SIX_COLOR -> colors[index] = twoFiftySixColor.Copy();
                 case TRUE_COLOR -> colors[index] = foregroundColor.Copy();
+                case SIXTEEN_COLOR_BRIGHT -> colors[index] = sixteenColorBright.Copy();
             }
 
             switch (currentBackgroundColorMode) {
                 case SIXTEEN_COLOR -> colorsBackground[index] = sixteenColor.Copy();
                 case TWO_FIFTY_SIX_COLOR -> colorsBackground[index] = twoFiftySixColor.Copy();
                 case TRUE_COLOR -> colorsBackground[index] = backgroundColor.Copy();
+                case SIXTEEN_COLOR_BRIGHT -> colorsBackground[index] = sixteenColorBright.Copy();
             }
 
             styles[index] = style;
@@ -787,6 +782,17 @@ public class Terminal {
     // Renderer
     @OnlyIn(Dist.CLIENT)
     public static final class Renderer implements RendererModel, RendererView {
+        public static final int[] BRIGHT_COLORS = {
+            0x7B7B7B, // Black
+            0xFF4524, // Red
+            0x3AFF5B, // Green
+            0xFFDB10, // Yellow
+            0x1281FF, // Blue
+            0xFF3ADE, // Magenta
+            0x27DDFF, // Cyan
+            0xFFFFFF, // White
+        };
+
         public static final int[] COLORS = {
             0x555555, // Black
             0xEE3322, // Red
@@ -799,7 +805,7 @@ public class Terminal {
         };
 
         public static final int[] DIM_COLORS = {
-            0x010101, // Black
+            0x000000, // Black
             0x772211, // Red
             0x116622, // Green
             0x886611, // Yellow
@@ -810,7 +816,7 @@ public class Terminal {
         };
 
         public static final int[] COLORS_256 = {
-            0x010101, 0x772211, 0x116622, 0x886611, 0x115588, 0x771177, 0x116677, 0x777777,
+            0x000000, 0x772211, 0x116622, 0x886611, 0x115588, 0x771177, 0x116677, 0x777777,
             0x555555, 0xEE3322, 0x33DD44, 0xFFCC11, 0x1188EE, 0xDD33CC, 0x22CCDD, 0xEEEEEE,
             0x000000, 0x00005f, 0x000087, 0x0000af, 0x0000d7, 0x0000ff, 0x005f00, 0x005f5f,
             0x005f87, 0x005faf, 0x005fd7, 0x005fff, 0x008700, 0x00875f, 0x008787, 0x0087af,
@@ -985,10 +991,12 @@ public class Terminal {
                     case SIXTEEN_COLOR -> palette[!invertBackground ? color.G : color.R];
                     case TWO_FIFTY_SIX_COLOR -> COLORS_256[!invertBackground ? color.G : color.R];
                     case TRUE_COLOR -> color.ToInt();
+                    case SIXTEEN_COLOR_BRIGHT -> BRIGHT_COLORS[!invertBackground ? color.G : color.R];
+                    case DEFAULT_BACKGROUND -> 0x000000;
                 };
 
                 final boolean hadBackground = backgroundStartX >= 0;
-                final boolean hasBackground = background != palette[0];
+                final boolean hasBackground = background != 0x000000;
                 if (!hadBackground && hasBackground) {
                     backgroundStartX = tx;
                     backgroundColor = background;
@@ -1037,6 +1045,8 @@ public class Terminal {
                     case SIXTEEN_COLOR -> palette[!invertBackground ? color.R : color.G];
                     case TWO_FIFTY_SIX_COLOR -> COLORS_256[!invertBackground ? color.R : color.G];
                     case TRUE_COLOR -> color.ToInt();
+                    case SIXTEEN_COLOR_BRIGHT -> BRIGHT_COLORS[!invertBackground ? color.R : color.G];
+                    case DEFAULT_BACKGROUND -> throw new IllegalStateException("Unexpected value for foreground: " + color.Mode);
                 };
 
                 final int character = (useAltBuffer) ? terminal.altBuffer[index] : terminal.buffer[index];
@@ -1053,12 +1063,23 @@ public class Terminal {
             final float b = (color & 0xFF) / 255f;
 
             if (isPrintableCharacter(character)) {
-                Glyph glyph = FontHandling.getGlyph(character);
+                FontHandling.FontStyle font = getFontStyle(style);
 
-                buffer.vertex(matrix, offset, CHAR_HEIGHT, 0).color(r, g, b, 1).uv(glyph.uStart, glyph.vEnd).endVertex();
-                buffer.vertex(matrix, offset + CHAR_WIDTH, CHAR_HEIGHT, 0).color(r, g, b, 1).uv(glyph.uEnd, glyph.vEnd).endVertex();
-                buffer.vertex(matrix, offset + CHAR_WIDTH, 0, 0).color(r, g, b, 1).uv(glyph.uEnd, glyph.vStart).endVertex();
-                buffer.vertex(matrix, offset, 0, 0).color(r, g, b, 1).uv(glyph.uStart, glyph.vStart).endVertex();
+                Glyph glyph = FontHandling.getGlyph(character, font);
+
+                if (font == FontHandling.FontStyle.ITALIC || font == FontHandling.FontStyle.BOLD_ITALIC) { // Italic
+                    buffer.vertex(matrix, offset, CHAR_HEIGHT, 0).color(r, g, b, 1).uv(glyph.uStart, glyph.vEnd).endVertex();
+                    buffer.vertex(matrix, offset + CHAR_WIDTH + 8, CHAR_HEIGHT, 0).color(r, g, b, 1).uv(glyph.uEnd, glyph.vEnd).endVertex();
+                    buffer.vertex(matrix, offset + CHAR_WIDTH + 8, 0, 0).color(r, g, b, 1).uv(glyph.uEnd, glyph.vStart).endVertex();
+                    buffer.vertex(matrix, offset, 0, 0).color(r, g, b, 1).uv(glyph.uStart, glyph.vStart).endVertex();
+                }
+                else
+                {
+                    buffer.vertex(matrix, offset, CHAR_HEIGHT, 0).color(r, g, b, 1).uv(glyph.uStart, glyph.vEnd).endVertex();
+                    buffer.vertex(matrix, offset + CHAR_WIDTH, CHAR_HEIGHT, 0).color(r, g, b, 1).uv(glyph.uEnd, glyph.vEnd).endVertex();
+                    buffer.vertex(matrix, offset + CHAR_WIDTH, 0, 0).color(r, g, b, 1).uv(glyph.uEnd, glyph.vStart).endVertex();
+                    buffer.vertex(matrix, offset, 0, 0).color(r, g, b, 1).uv(glyph.uStart, glyph.vStart).endVertex();
+                }
             }
 
             if ((style & STYLE_UNDERLINE_MASK) != 0) {
@@ -1067,6 +1088,20 @@ public class Terminal {
                 buffer.vertex(matrix, offset + CHAR_WIDTH, CHAR_HEIGHT - 2, 0).color(r, g, b, 1).uv(0, 0).endVertex();
                 buffer.vertex(matrix, offset, CHAR_HEIGHT - 2, 0).color(r, g, b, 1).uv(0, 0).endVertex();
             }
+        }
+
+        private FontHandling.FontStyle getFontStyle(byte style) {
+            FontHandling.FontStyle font;
+            if ((style & STYLE_BOLD_MASK) != 0 && (style & STYLE_ITALIC_MASK) != 0) {
+                font = FontHandling.FontStyle.BOLD_ITALIC;
+            } else if ((style & STYLE_BOLD_MASK) != 0) {
+                font = FontHandling.FontStyle.BOLD;
+            } else if ((style & STYLE_ITALIC_MASK) != 0) {
+                font = FontHandling.FontStyle.ITALIC;
+            } else {
+                font = FontHandling.FontStyle.REGULAR;
+            }
+            return font;
         }
 
         public void renderCursor(final PoseStack stack) {

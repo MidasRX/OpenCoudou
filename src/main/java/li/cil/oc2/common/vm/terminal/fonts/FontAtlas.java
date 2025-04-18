@@ -26,12 +26,12 @@ public class FontAtlas {
     private int currentX = 0;  // X coordinate to place next glyph
     private int currentY = 0;  // Y coordinate to place next glyph
 
-    public FontAtlas(int initialWidth, int initialHeight) {
+    public FontAtlas(int initialWidth, int initialHeight, String fontAtlasName) {
         this.atlasWidth = initialWidth;
         this.atlasHeight = initialHeight;
         this.atlasImage = new NativeImage(atlasWidth, atlasHeight, false);
         this.dynamicTexture = new DynamicTexture(atlasImage);
-        this.resources = ResourceLocation.fromNamespaceAndPath("oc2r", "terminus_font_atlas");
+        this.resources = ResourceLocation.fromNamespaceAndPath("oc2r", fontAtlasName);
         Minecraft.getInstance().getTextureManager().register(resources, dynamicTexture);
         this.glyphs = new ArrayList<>();
 

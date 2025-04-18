@@ -40,9 +40,10 @@ public class SGR extends CSISequenceHandler {
         switch (arg) {
             case 0 -> { // Reset / Normal
                 terminal.sixteenColor = Terminal.DEFAULT_COLORS.Copy();
+                terminal.sixteenColorBright = Terminal.DEFAULT_BRIGHT_COLORS.Copy();
                 terminal.style = Terminal.DEFAULT_STYLE;
                 terminal.currentForegroundColorMode = Terminal.ColorMode.SIXTEEN_COLOR;
-                terminal.currentBackgroundColorMode = Terminal.ColorMode.SIXTEEN_COLOR;
+                terminal.currentBackgroundColorMode = Terminal.ColorMode.DEFAULT_BACKGROUND;
                 terminal.twoFiftySixColor = Terminal.DEFAULT_256_COLORS.Copy();
                 terminal.foregroundColor = Terminal.DEFAULT_TRUE_COLOR_FOREGROUND.Copy();
                 terminal.backgroundColor = Terminal.DEFAULT_TRUE_COLOR_BACKGROUND.Copy();
@@ -51,6 +52,8 @@ public class SGR extends CSISequenceHandler {
                 terminal.style |= Terminal.STYLE_BOLD_MASK;
             case 2 -> // Faint or decreased intensity
                 terminal.style |= Terminal.STYLE_DIM_MASK;
+            case 3 ->
+                terminal.style |= Terminal.STYLE_ITALIC_MASK;
             case 4 -> // Underscore
                 terminal.style |= Terminal.STYLE_UNDERLINE_MASK;
             case 5 -> // Blink
@@ -61,6 +64,8 @@ public class SGR extends CSISequenceHandler {
                 terminal.style |= Terminal.STYLE_HIDDEN_MASK;
             case 22 -> // Normal color or intensity
                 terminal.style &= ~(Terminal.STYLE_BOLD_MASK | Terminal.STYLE_DIM_MASK);
+            case 23 ->
+                terminal.style &= ~Terminal.STYLE_ITALIC_MASK;
             case 24 -> // Underline off
                 terminal.style &= ~Terminal.STYLE_UNDERLINE_MASK;
             case 25 -> // Blink off
@@ -73,9 +78,17 @@ public class SGR extends CSISequenceHandler {
                 terminal.currentForegroundColorMode = Terminal.ColorMode.SIXTEEN_COLOR;
                 terminal.sixteenColor.R = arg - 30;
             }
-            case 40, 41, 42, 43, 44, 45, 46, 47 -> { //–47 Set background color
+            case 40, 41, 42, 43, 44, 45, 46, 47 -> { // Set background color
                 terminal.currentBackgroundColorMode = Terminal.ColorMode.SIXTEEN_COLOR;
                 terminal.sixteenColor.G = arg - 40;
+            }
+            case 90, 91, 92, 93, 94, 95, 96, 97 -> { // Set foreground color
+                terminal.currentForegroundColorMode = Terminal.ColorMode.SIXTEEN_COLOR_BRIGHT;
+                terminal.sixteenColorBright.R = arg - 90;
+            }
+            case 100, 101, 102, 103, 104, 105, 106, 107 -> { // Set background color
+                terminal.currentBackgroundColorMode = Terminal.ColorMode.SIXTEEN_COLOR_BRIGHT;
+                terminal.sixteenColorBright.G = arg - 100;
             }
         }
     }
