@@ -1,7 +1,7 @@
 package li.cil.oc2.common.vxlan;
 
 import li.cil.oc2.api.capabilities.NetworkInterface;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

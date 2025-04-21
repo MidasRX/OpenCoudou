@@ -5,7 +5,7 @@ package li.cil.oc2.common.item;
 import li.cil.oc2.api.API;
 import li.cil.oc2.api.bus.device.DeviceTypes;
 import li.cil.oc2.client.renderer.entity.RobotWithoutLevelRenderer;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.energy.EnergyStorageItemStack;
 import li.cil.oc2.common.entity.Entities;
 import li.cil.oc2.common.entity.Robot;

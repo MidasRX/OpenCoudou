@@ -5,7 +5,7 @@ package li.cil.oc2.common.blockentity;
 import li.cil.oc2.api.bus.DeviceBus;
 import li.cil.oc2.api.bus.DeviceBusElement;
 import li.cil.oc2.client.model.BusCableBakedModel;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.Constants;
 import li.cil.oc2.common.block.BusCableBlock;
 import li.cil.oc2.common.bus.AbstractBlockDeviceBusElement;

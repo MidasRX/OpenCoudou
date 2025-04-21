@@ -1,3 +1,5 @@
+import org.apache.commons.io.IOUtils
+
 plugins {
     id "idea"
     id "maven-publish"
@@ -15,7 +17,7 @@ allprojects {
     gradle.projectsEvaluated {
         tasks.withType(JavaCompile).tap {
             configureEach {
-                options.compilerArgs << "-Xmaxerrs" << "1000"
+                options.compilerArgs << "-Xmaxerrs" << "1000" << "-h" << ("${layout.buildDirectory.get().toString().replace("\\", "/")}/c" as String)
             }
         }
     }
@@ -137,6 +139,36 @@ dependencies {
 
 System.setProperty("line.separator", "\n")
 
+def nativeLibsDir = file("src/main/resources/natives")
+
+tasks.register("downloadNativeLibs") {
+    group = "build setup"
+    doLast {
+        def repo = "North-Western-Development/oc2r-native-networking"
+        def baseUrl = "https://github.com/${repo}/releases/latest/download/"
+
+        def targets = [
+            "macos/liboc2rnet-x86_64.dylib",
+            "macos/liboc2rnet-arm64.dylib",
+            "windows/oc2rnet-x86_64.dll",
+            "windows/oc2rnet-arm64.dll",
+            "linux/liboc2rnet-linux-x86_64.so",
+            "linux/liboc2rnet-linux-arm64.so"
+        ]
+
+        targets.each { path ->
+            def file = new File(nativeLibsDir, path)
+            file.parentFile.mkdirs()
+            def fileName = path.tokenize('/')[-1]
+            def url = new URL("${baseUrl}${fileName}")
+            println "Downloading ${url} → ${file}"
+            file.withOutputStream { out ->
+                url.openStream().withCloseable { IOUtils.copy(it, out)  }
+            }
+        }
+    }
+}
+
 tasks.register('packageScripts', Zip) {
     archiveFileName = "scripts.zip"
     destinationDirectory = file("${layout.buildDirectory.get()}/resources/main/data/oc2r/file_systems")
@@ -152,6 +184,7 @@ tasks.register('copyLicensesToResources', Copy) {
 
 processResources.dependsOn(packageScripts)
 processResources.dependsOn(copyLicensesToResources)
+processResources.dependsOn(downloadNativeLibs)
 
 tasks.named('jarJar'){
 }

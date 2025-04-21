@@ -10,7 +10,7 @@ import li.cil.oc2.api.bus.device.object.ObjectDevice;
 import li.cil.oc2.api.bus.device.object.Parameter;
 import li.cil.oc2.api.bus.device.provider.ItemDeviceQuery;
 import li.cil.oc2.api.capabilities.TerminalUserProvider;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.bus.AbstractDeviceBusElement;
 import li.cil.oc2.common.bus.CommonDeviceBusController;
 import li.cil.oc2.common.bus.device.util.Devices;
@@ -20,6 +20,7 @@ import li.cil.oc2.common.container.RobotInventoryContainer;
 import li.cil.oc2.common.container.RobotTerminalContainer;
 import li.cil.oc2.common.energy.FixedEnergyStorage;
 import li.cil.oc2.common.entity.robot.*;
+import li.cil.oc2.common.ext.ICaptureInputStateStorage;
 import li.cil.oc2.common.integration.Wrenches;
 import li.cil.oc2.common.item.Items;
 import li.cil.oc2.common.network.Network;
@@ -86,7 +87,7 @@ import java.util.function.Consumer;
 import static java.util.Collections.singleton;
 import static li.cil.oc2.common.Constants.*;
 
-public final class Robot extends Entity implements li.cil.oc2.api.capabilities.Robot, TerminalUserProvider {
+public final class Robot extends Entity implements li.cil.oc2.api.capabilities.Robot, TerminalUserProvider, ICaptureInputStateStorage {
     public static final EntityDataAccessor<BlockPos> TARGET_POSITION = SynchedEntityData.defineId(Robot.class, EntityDataSerializers.BLOCK_POS);
     public static final EntityDataAccessor<Direction> TARGET_DIRECTION = SynchedEntityData.defineId(Robot.class, EntityDataSerializers.DIRECTION);
     public static final EntityDataAccessor<Byte> SELECTED_SLOT = SynchedEntityData.defineId(Robot.class, EntityDataSerializers.BYTE);
@@ -125,6 +126,8 @@ public final class Robot extends Entity implements li.cil.oc2.api.capabilities.R
     private final ItemStackHandler inventory = new FixedSizeItemStackHandler(INVENTORY_SIZE);
     private final Set<Player> terminalUsers = Collections.newSetFromMap(new WeakHashMap<>());
     private long lastPistonMovement;
+
+    public boolean captureInputState;
 
     ///////////////////////////////////////////////////////////////////
 
@@ -170,6 +173,16 @@ public final class Robot extends Entity implements li.cil.oc2.api.capabilities.R
     @Override
     public void setSelectedSlot(final int value) {
         getEntityData().set(SELECTED_SLOT, (byte) Mth.clamp(value, 0, INVENTORY_SIZE - 1));
+    }
+
+    @Override
+    public boolean getCaptureInputState() {
+        return captureInputState;
+    }
+
+    @Override
+    public void setCaptureInputState(boolean value) {
+        this.captureInputState = value;
     }
 
     @Nonnull

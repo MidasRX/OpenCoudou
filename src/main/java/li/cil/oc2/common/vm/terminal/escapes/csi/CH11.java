@@ -56,7 +56,6 @@ public class CH11 extends CSISequenceHandler { // Combined Handler 10 (ICH and S
 
             Arrays.fill(terminal.buffer, endIndex, endIndex + chars, ' ');
             Arrays.fill(terminal.colors, endIndex, endIndex + chars, Terminal.DEFAULT_COLORS.Copy());
-
             Arrays.fill(terminal.colorsBackground, endIndex, endIndex + chars, c.Copy());
             Arrays.fill(terminal.styles, endIndex, endIndex + chars, Terminal.DEFAULT_STYLE);
         }

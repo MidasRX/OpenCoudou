@@ -2,9 +2,11 @@
 
 package li.cil.oc2.common.container;
 
+import li.cil.oc2.client.ClientSetup;
 import li.cil.oc2.common.block.Blocks;
 import li.cil.oc2.common.blockentity.ComputerBlockEntity;
 import li.cil.oc2.common.bus.CommonDeviceBusController;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.network.Network;
 import li.cil.oc2.common.network.message.ComputerPowerMessage;
 import li.cil.oc2.common.network.message.ComputerTerminalInputMessage;
@@ -22,6 +24,7 @@ import java.nio.ByteBuffer;
 
 public abstract class AbstractComputerContainer extends AbstractMachineTerminalContainer {
     private final ComputerBlockEntity computer;
+    private static boolean captureInputState = Config.captureInputDefaultState;
 
     ///////////////////////////////////////////////////////////////////
 
@@ -57,6 +60,24 @@ public abstract class AbstractComputerContainer extends AbstractMachineTerminalC
     @Override
     public Terminal getTerminal() {
         return computer.getTerminal();
+    }
+
+    @Override
+    public boolean getCaptureInputState() {
+        return switch (Config.captureInputMode) {
+            case PER_BLOCK -> computer.getCaptureInputState();
+            case SHARED_BETWEEN_TYPE -> captureInputState;
+            case GLOBAL_CAPTURE -> ClientSetup.getCaptureInputState();
+        };
+    }
+
+    @Override
+    public void setCaptureInputState(final boolean state) {
+        switch (Config.captureInputMode) {
+            case PER_BLOCK -> computer.setCaptureInputState(state);
+            case SHARED_BETWEEN_TYPE -> captureInputState = state;
+            case GLOBAL_CAPTURE -> ClientSetup.setCaptureInputState(state);
+        }
     }
 
     @Override

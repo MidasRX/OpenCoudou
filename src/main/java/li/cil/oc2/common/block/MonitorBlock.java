@@ -2,7 +2,7 @@
 
 package li.cil.oc2.common.block;
 
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.blockentity.BlockEntities;
 import li.cil.oc2.common.blockentity.MonitorBlockEntity;
 import li.cil.oc2.common.blockentity.TickableBlockEntity;

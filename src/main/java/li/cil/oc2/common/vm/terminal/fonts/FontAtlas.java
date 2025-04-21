@@ -92,7 +92,6 @@ public class FontAtlas {
     }
 
     private void resizeAtlas() {
-        System.out.println("resizing atlas at " + atlasWidth + "x" + atlasHeight);
         int newWidth = atlasWidth * 2;
         int newHeight = atlasHeight * 2;
 

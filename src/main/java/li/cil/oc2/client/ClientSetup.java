@@ -14,6 +14,7 @@ import li.cil.oc2.client.renderer.entity.RobotRenderer;
 import li.cil.oc2.client.renderer.entity.model.RobotModel;
 import li.cil.oc2.common.block.Blocks;
 import li.cil.oc2.common.blockentity.BlockEntities;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.container.Containers;
 import li.cil.oc2.common.entity.Entities;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -26,9 +27,12 @@ import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("unused")
 public final class ClientSetup {
+    @Nullable private static Boolean captureInputState = null;
+
     @SubscribeEvent
     public static void handleSetupEvent(final FMLClientSetupEvent event) {
         BusInterfaceNameRenderer.initialize();
@@ -58,6 +62,7 @@ public final class ClientSetup {
 
     @SubscribeEvent
     public static void handleModelRegistryEvent(final RegisterGeometryLoaders event) {
+        if (Blocks.BUS_CABLE.getId() == null) throw new RuntimeException("Null bus cable ID");
         event.register(Blocks.BUS_CABLE.getId().toString().replace("oc2r:", ""), new BusCableModelLoader());
     }
 
@@ -83,5 +88,17 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void handleRegisterLayerDefinitionsEvent(final EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(RobotModel.ROBOT_MODEL_LAYER, RobotModel::createRobotLayer);
+    }
+
+    public static boolean getCaptureInputState() {
+        if (captureInputState == null) {
+            captureInputState = Config.captureInputDefaultState;
+        }
+
+        return captureInputState;
+    }
+
+    public static void setCaptureInputState(final boolean value) {
+        captureInputState = value;
     }
 }

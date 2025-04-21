@@ -7,7 +7,7 @@ import li.cil.oc2.api.inet.session.DatagramSession;
 import li.cil.oc2.api.inet.session.EchoSession;
 import li.cil.oc2.api.inet.session.Session;
 import li.cil.oc2.api.inet.session.StreamSession;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import org.apache.logging.log4j.LogManager;

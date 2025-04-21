@@ -23,7 +23,6 @@ public class TcpHeader {
 
     public boolean read(final ByteBuffer data) {
         if (data.remaining() < MIN_HEADER_SIZE_NO_PORTS) {
-            System.out.println("A");
             return false;
         }
         final int position = data.position();
@@ -31,7 +30,6 @@ public class TcpHeader {
         acknowledgmentNumber = data.getInt();
         final int dataOffset = position + ((data.get() >>> 2) & 0x3C) - 4;
         if (dataOffset > data.limit()) {
-            System.out.println("C dataOffset=" + dataOffset + ", data.limit()=" + data.limit());
             return false;
         }
         final int flags = Byte.toUnsignedInt(data.get());
@@ -62,7 +60,6 @@ public class TcpHeader {
             if (type == OPTION_MAX_SEGMENT_SIZE) {
                 if (size != 4) {
                     data.position(position);
-                    System.out.println("B");
                     return false;
                 }
                 maxSegmentSize = Short.toUnsignedInt(data.getShort());

@@ -9,6 +9,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -237,9 +238,9 @@ public final class InetUtils {
         return -1 << (32 - prefix);
     }
 
-    private static void configureIpSpace(final Ipv4Space ipSpace, final String hosts) {
+    private static void configureIpSpace(final Ipv4Space ipSpace, final List<String> hosts) {
         int i = 1;
-        for (final String hostString : hosts.split(",")) {
+        for (final String hostString : hosts) {
             final String rangeString = hostString.trim();
             if (rangeString.isEmpty()) {
                 continue;
@@ -253,9 +254,9 @@ public final class InetUtils {
         }
     }
 
-    public static Ipv4Space computeIpSpace(final String deniedHosts, final String allowedHosts) {
-        final boolean deniedHostsIsEmpty = deniedHosts.trim().isEmpty();
-        final boolean allowedHostsIsEmpty = allowedHosts.trim().isEmpty();
+    public static Ipv4Space computeIpSpace(final List<String> deniedHosts, final List<String> allowedHosts) {
+        final boolean deniedHostsIsEmpty = deniedHosts.isEmpty();
+        final boolean allowedHostsIsEmpty = allowedHosts.isEmpty();
         if (deniedHostsIsEmpty && allowedHostsIsEmpty) {
             return new Ipv4Space(Ipv4Space.Modes.DENYLIST);
         } else if (allowedHostsIsEmpty) {

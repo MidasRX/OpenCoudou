@@ -101,11 +101,9 @@ public class CH1 extends CSISequenceHandler { // Combined Handler 1 (DECSTBM & X
     private void handleDECSTBM(int[] args, int argCount) {
         final int first, last;
         if (argCount == 2) {
-            System.out.println("Top: " + args[0] + ", Bottom: " + args[1]);
             first = args[0] - 1;
             last = args[1] - 1;
         } else {
-            System.out.println("Full screen");
             first = 0;
             last = Terminal.HEIGHT - 1;
         }

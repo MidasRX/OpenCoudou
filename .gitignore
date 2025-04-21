@@ -30,6 +30,7 @@ logs
 # Files from Forge MDK
 forge*changelog.txt
 /src/generated/
+/src/main/resources/natives/
 
 #vscode
 .vscode

@@ -4,7 +4,7 @@ package li.cil.oc2.common.item;
 
 import li.cil.oc2.api.API;
 import li.cil.oc2.common.Constants;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.block.Blocks;
 import li.cil.oc2.common.bus.device.data.FirmwareRegistry;
 import net.minecraft.world.item.DyeColor;
@@ -81,7 +81,7 @@ public final class Items {
     public static final RegistryObject<FlashMemoryItem> FLASH_MEMORY = register("flash_memory", () ->
         new FlashMemoryItem(12 * Constants.MEGABYTE));
     public static final RegistryObject<FlashMemoryWithExternalDataItem> FLASH_MEMORY_CUSTOM = register("flash_memory_custom", () ->
-        new FlashMemoryWithExternalDataItem(FirmwareRegistry.BUILDROOT.getId()));
+        new FlashMemoryWithExternalDataItem(FirmwareRegistry.MINUX.getId()));
 
     public static final RegistryObject<FloppyItem> FLOPPY = register("floppy", () ->
         new FloppyItem(512 * Constants.KILOBYTE));

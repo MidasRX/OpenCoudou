@@ -8,7 +8,7 @@ import li.cil.oc2.api.bus.device.DeviceTypes;
 import li.cil.oc2.api.bus.device.provider.ItemDeviceQuery;
 import li.cil.oc2.api.capabilities.TerminalUserProvider;
 import li.cil.oc2.client.audio.LoopingSoundManager;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.block.ComputerBlock;
 import li.cil.oc2.common.bus.AbstractBlockDeviceBusElement;
 import li.cil.oc2.common.bus.BlockDeviceBusController;
@@ -18,6 +18,7 @@ import li.cil.oc2.common.capabilities.Capabilities;
 import li.cil.oc2.common.container.ComputerInventoryContainer;
 import li.cil.oc2.common.container.ComputerTerminalContainer;
 import li.cil.oc2.common.energy.FixedEnergyStorage;
+import li.cil.oc2.common.ext.ICaptureInputStateStorage;
 import li.cil.oc2.common.network.Network;
 import li.cil.oc2.common.network.message.ComputerBootErrorMessage;
 import li.cil.oc2.common.network.message.ComputerBusStateMessage;
@@ -50,7 +51,7 @@ import java.util.*;
 import static li.cil.oc2.common.Constants.BLOCK_ENTITY_TAG_NAME_IN_ITEM;
 import static li.cil.oc2.common.Constants.ITEMS_TAG_NAME;
 
-public final class ComputerBlockEntity extends ModBlockEntity implements TerminalUserProvider, TickableBlockEntity {
+public final class ComputerBlockEntity extends ModBlockEntity implements TerminalUserProvider, TickableBlockEntity, ICaptureInputStateStorage {
     private static final String BUS_ELEMENT_TAG_NAME = "busElement";
     private static final String DEVICES_TAG_NAME = "devices";
     private static final String TERMINAL_TAG_NAME = "terminal";
@@ -79,6 +80,7 @@ public final class ComputerBlockEntity extends ModBlockEntity implements Termina
     private final FixedEnergyStorage energy = new FixedEnergyStorage(Config.computerEnergyStorage);
     private final ComputerVirtualMachine virtualMachine = new ComputerVirtualMachine(new BlockDeviceBusController(busElement, Config.computerEnergyPerTick, this), deviceItems::getDeviceAddressBase);
     private final Set<Player> terminalUsers = Collections.newSetFromMap(new WeakHashMap<>());
+    private boolean captureInputState;
 
     ///////////////////////////////////////////////////////////////////
 
@@ -99,6 +101,16 @@ public final class ComputerBlockEntity extends ModBlockEntity implements Termina
 
     public VMItemStackHandlers getItemStackHandlers() {
         return deviceItems;
+    }
+
+    @Override
+    public boolean getCaptureInputState() {
+        return captureInputState;
+    }
+
+    @Override
+    public void setCaptureInputState(boolean value) {
+        this.captureInputState = value;
     }
 
     public void start() {

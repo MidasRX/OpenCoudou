@@ -4,7 +4,7 @@ package li.cil.oc2.client.gui;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import li.cil.oc2.client.gui.widget.ToggleImageButton;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.Constants;
 import li.cil.oc2.common.container.AbstractMonitorContainer;
 import li.cil.oc2.common.util.TooltipUtils;
@@ -129,12 +129,13 @@ public abstract class AbstractMonitorDisplayScreen<T extends AbstractMonitorCont
             @Override
             public void onPress() {
                 super.onPress();
-                monitorDisplayWidget.isInputCaptureEnabled = !monitorDisplayWidget.isInputCaptureEnabled;
+
+                getMenu().toggleCaptureInputState();
             }
 
             @Override
             public boolean isToggled() {
-                return monitorDisplayWidget.isInputCaptureEnabled;
+                return getMenu().getCaptureInputState();
             }
         }).withTooltip(
             Component.translatable(Constants.TERMINAL_CAPTURE_INPUT_CAPTION),

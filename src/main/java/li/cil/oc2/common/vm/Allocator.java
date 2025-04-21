@@ -3,7 +3,7 @@
 package li.cil.oc2.common.vm;
 
 import li.cil.oc2.api.API;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;

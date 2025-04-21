@@ -643,20 +643,20 @@ public class Terminal {
             case SIXTEEN_COLOR_BRIGHT -> c = sixteenColorBright;
             default -> c = Terminal.DEFAULT_BACKGROUND_COLOR;
         }
+        final int shiftUpOrDown = count > 0 ? srcIndex : (dstIndex + charCount);
         if (currentPrivateModeState.isAltBufferEnabled()) {
             System.arraycopy(altBuffer, srcIndex, altBuffer, dstIndex, charCount);
             System.arraycopy(altColors, srcIndex, altColors, dstIndex, charCount);
             System.arraycopy(altColorsBackground, srcIndex, altColorsBackground, dstIndex, charCount);
             System.arraycopy(altStyles, srcIndex, altStyles, dstIndex, charCount);
 
-            final int clearIndex = count > 0 ? srcIndex : (dstIndex + charCount);
+            // TODO Copy color and style from last line.
+            // TODO Copy color and style from last line.
             final int clearCount = Math.abs(count * WIDTH);
-            Arrays.fill(altBuffer, clearIndex, clearIndex + clearCount, ' ');
-            // TODO Copy color and style from last line.
-            // TODO Copy color and style from last line.
-            Arrays.fill(altColors, clearIndex, clearIndex + clearCount, DEFAULT_COLORS.Copy());
-            Arrays.fill(altColorsBackground, clearIndex, clearIndex + clearCount, c.Copy());
-            Arrays.fill(altStyles, clearIndex, clearIndex + clearCount, DEFAULT_STYLE);
+            Arrays.fill(altBuffer, shiftUpOrDown, shiftUpOrDown + clearCount, ' ');
+            Arrays.fill(altColors, shiftUpOrDown, shiftUpOrDown + clearCount, DEFAULT_COLORS.Copy());
+            Arrays.fill(altColorsBackground, shiftUpOrDown, shiftUpOrDown + clearCount, c.Copy());
+            Arrays.fill(altStyles, shiftUpOrDown, shiftUpOrDown + clearCount, DEFAULT_STYLE);
 
             int dirtyLinesMask = 0;
             final int dirtyStart = Math.min(firstLine, firstLine + count);
@@ -672,14 +672,13 @@ public class Terminal {
             System.arraycopy(colorsBackground, srcIndex, colorsBackground, dstIndex, charCount);
             System.arraycopy(styles, srcIndex, styles, dstIndex, charCount);
 
-            final int clearIndex = count > 0 ? srcIndex : (dstIndex + charCount);
+            // TODO Copy color and style from last line.
+            // TODO Copy color and style from last line.
             final int clearCount = Math.abs(count * WIDTH);
-            Arrays.fill(buffer, clearIndex, clearIndex + clearCount, ' ');
-            // TODO Copy color and style from last line.
-            // TODO Copy color and style from last line.
-            Arrays.fill(colors, clearIndex, clearIndex + clearCount, DEFAULT_COLORS.Copy());
-            Arrays.fill(colorsBackground, clearIndex, clearIndex + clearCount, c.Copy());
-            Arrays.fill(styles, clearIndex, clearIndex + clearCount, DEFAULT_STYLE);
+            Arrays.fill(buffer, shiftUpOrDown, shiftUpOrDown + clearCount, ' ');
+            Arrays.fill(colors, shiftUpOrDown, shiftUpOrDown + clearCount, DEFAULT_COLORS.Copy());
+            Arrays.fill(colorsBackground, shiftUpOrDown, shiftUpOrDown + clearCount, c.Copy());
+            Arrays.fill(styles, shiftUpOrDown, shiftUpOrDown + clearCount, DEFAULT_STYLE);
 
             int dirtyLinesMask = 0;
             final int dirtyStart = Math.min(firstLine, firstLine + count);
@@ -1046,7 +1045,7 @@ public class Terminal {
                     case TWO_FIFTY_SIX_COLOR -> COLORS_256[!invertBackground ? color.R : color.G];
                     case TRUE_COLOR -> color.ToInt();
                     case SIXTEEN_COLOR_BRIGHT -> BRIGHT_COLORS[!invertBackground ? color.R : color.G];
-                    case DEFAULT_BACKGROUND -> throw new IllegalStateException("Unexpected value for foreground: " + color.Mode);
+                    case DEFAULT_BACKGROUND -> 0x000000;
                 };
 
                 final int character = (useAltBuffer) ? terminal.altBuffer[index] : terminal.buffer[index];

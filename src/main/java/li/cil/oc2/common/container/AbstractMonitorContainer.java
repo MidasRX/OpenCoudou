@@ -2,9 +2,11 @@
 
 package li.cil.oc2.common.container;
 
+import li.cil.oc2.client.ClientSetup;
 import li.cil.oc2.common.block.Blocks;
 import li.cil.oc2.common.blockentity.MonitorBlockEntity;
 import li.cil.oc2.common.bus.CommonDeviceBusController;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.network.Network;
 import li.cil.oc2.common.network.message.*;
 import li.cil.oc2.common.vm.VirtualMachine;
@@ -18,6 +20,7 @@ import javax.annotation.Nullable;
 
 public abstract class AbstractMonitorContainer extends AbstractMachineContainer {
     private final MonitorBlockEntity monitor;
+    private static boolean captureInputState = Config.captureInputDefaultState;
 
     ///////////////////////////////////////////////////////////////////
 
@@ -42,6 +45,24 @@ public abstract class AbstractMonitorContainer extends AbstractMachineContainer 
     public boolean getPowerState() { return monitor.getPowerState(); }
 
     public boolean isMounted() { return monitor.isMounted(); }
+
+    public boolean getCaptureInputState() {
+        return switch (Config.captureInputMode) {
+            case PER_BLOCK -> monitor.getCaptureInputState();
+            case SHARED_BETWEEN_TYPE -> captureInputState;
+            case GLOBAL_CAPTURE -> ClientSetup.getCaptureInputState();
+        };
+    }
+
+    public void setCaptureInputState(final boolean state) {
+        switch (Config.captureInputMode) {
+            case PER_BLOCK -> monitor.setCaptureInputState(state);
+            case SHARED_BETWEEN_TYPE -> captureInputState = state;
+            case GLOBAL_CAPTURE -> ClientSetup.setCaptureInputState(state);
+        }
+    }
+
+    public void toggleCaptureInputState() { setCaptureInputState(!getCaptureInputState()); }
 
     @Override
     public void sendPowerStateToServer(final boolean value) {

@@ -25,7 +25,7 @@ public final class FirmwareRegistry {
 
     ///////////////////////////////////////////////////////////////////
 
-    public static final RegistryObject<Firmware> BUILDROOT = INITIALIZER.register("buildroot", BuildrootFirmware::new);
+    public static final RegistryObject<Firmware> MINUX = INITIALIZER.register("minux", MinuxFirmware::new);
 
     ///////////////////////////////////////////////////////////////////
 

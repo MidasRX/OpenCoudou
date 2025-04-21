@@ -18,5 +18,13 @@ public abstract class AbstractMachineTerminalContainer extends AbstractMachineCo
 
     public abstract Terminal getTerminal();
 
+    public abstract boolean getCaptureInputState();
+
+    public abstract void setCaptureInputState(boolean state);
+
+    public void toggleCaptureInputState() {
+        setCaptureInputState(!getCaptureInputState());
+    }
+
     public abstract void sendTerminalInputToServer(final ByteBuffer input);
 }

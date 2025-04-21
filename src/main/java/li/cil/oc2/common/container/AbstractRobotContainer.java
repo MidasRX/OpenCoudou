@@ -2,7 +2,9 @@
 
 package li.cil.oc2.common.container;
 
+import li.cil.oc2.client.ClientSetup;
 import li.cil.oc2.common.bus.CommonDeviceBusController;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.energy.FixedEnergyStorage;
 import li.cil.oc2.common.entity.Robot;
 import li.cil.oc2.common.network.Network;
@@ -19,6 +21,7 @@ import java.nio.ByteBuffer;
 
 public abstract class AbstractRobotContainer extends AbstractMachineTerminalContainer {
     private final Robot robot;
+    private static boolean captureInputState = Config.captureInputDefaultState;
 
     ///////////////////////////////////////////////////////////////////
 
@@ -58,6 +61,24 @@ public abstract class AbstractRobotContainer extends AbstractMachineTerminalCont
     @Override
     public Terminal getTerminal() {
         return robot.getTerminal();
+    }
+
+    @Override
+    public boolean getCaptureInputState() {
+        return switch (Config.captureInputMode) {
+            case PER_BLOCK -> robot.getCaptureInputState();
+            case SHARED_BETWEEN_TYPE -> captureInputState;
+            case GLOBAL_CAPTURE -> ClientSetup.getCaptureInputState();
+        };
+    }
+
+    @Override
+    public void setCaptureInputState(final boolean state) {
+        switch (Config.captureInputMode) {
+            case PER_BLOCK -> robot.setCaptureInputState(state);
+            case SHARED_BETWEEN_TYPE -> captureInputState = state;
+            case GLOBAL_CAPTURE -> ClientSetup.setCaptureInputState(state);
+        }
     }
 
     @Override

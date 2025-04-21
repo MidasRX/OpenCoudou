@@ -105,7 +105,6 @@ public class IntegerSpaceTest {
             assertTrue(space.put(23, 26));
             assertEquals("[23-27, 29-39]", space.toString());
         } catch (final AssertionError e) {
-            System.out.println("Space state: " + space);
             throw e;
         }
     }

@@ -4,7 +4,7 @@ import li.cil.oc2.api.inet.LayerParameters;
 import li.cil.oc2.api.inet.InternetManager;
 import li.cil.oc2.api.inet.provider.InternetProvider;
 import li.cil.oc2.api.inet.layer.LinkLocalLayer;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import net.minecraft.nbt.Tag;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;

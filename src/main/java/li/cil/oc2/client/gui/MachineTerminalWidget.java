@@ -26,8 +26,6 @@ import java.nio.charset.StandardCharsets;
 
 @OnlyIn(Dist.CLIENT)
 public final class MachineTerminalWidget {
-    public boolean isInputCaptureEnabled;
-
     private static final int TERMINAL_WIDTH = Terminal.WIDTH * Terminal.CHAR_WIDTH / 2;
     private static final int TERMINAL_HEIGHT = Terminal.HEIGHT * Terminal.CHAR_HEIGHT / 2;
 
@@ -302,7 +300,7 @@ public final class MachineTerminalWidget {
     }
 
     private boolean shouldCaptureInput() {
-        return isMouseOverTerminal && isInputCaptureEnabled &&
+        return isMouseOverTerminal && container.getCaptureInputState() &&
             container.getVirtualMachine().isRunning();
     }
 

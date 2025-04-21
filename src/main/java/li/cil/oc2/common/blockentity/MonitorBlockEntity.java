@@ -3,7 +3,7 @@
 package li.cil.oc2.common.blockentity;
 
 import li.cil.oc2.client.renderer.MonitorGUIRenderer;
-import li.cil.oc2.common.Config;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.block.MonitorBlock;
 import li.cil.oc2.common.bus.device.DeviceGroup;
 import li.cil.oc2.common.bus.device.vm.block.KeyboardDevice;
@@ -11,6 +11,7 @@ import li.cil.oc2.common.bus.device.vm.block.MonitorDevice;
 import li.cil.oc2.common.capabilities.Capabilities;
 import li.cil.oc2.common.container.MonitorDisplayContainer;
 import li.cil.oc2.common.energy.FixedEnergyStorage;
+import li.cil.oc2.common.ext.ICaptureInputStateStorage;
 import li.cil.oc2.common.network.MonitorLoadBalancer;
 import li.cil.oc2.common.network.Network;
 import li.cil.oc2.common.network.message.*;
@@ -43,7 +44,7 @@ import java.util.zip.Inflater;
 import static li.cil.oc2.common.bus.device.vm.block.MonitorDevice.HEIGHT;
 import static li.cil.oc2.common.bus.device.vm.block.MonitorDevice.WIDTH;
 
-public final class MonitorBlockEntity extends ModBlockEntity implements TickableBlockEntity {
+public final class MonitorBlockEntity extends ModBlockEntity implements TickableBlockEntity, ICaptureInputStateStorage {
     @FunctionalInterface
     public interface FrameConsumer {
         void processFrame(final Picture picture);
@@ -88,6 +89,8 @@ public final class MonitorBlockEntity extends ModBlockEntity implements Tickable
     private final H264Encoder encoder = new H264Encoder(new CQPRateControl(12));
     private final ByteBuffer encoderBuffer = ByteBuffer.allocateDirect(WIDTH * HEIGHT * SimpleFramebufferDevice.STRIDE);
 
+    private boolean captureInputState;
+
     ///////////////////////////////////////////////////////////////////
 
     public void setRequiresKeyframe() {
@@ -108,6 +111,16 @@ public final class MonitorBlockEntity extends ModBlockEntity implements Tickable
 
     public void handleInput(final int keycode, final boolean isDown) {
         keyboardDevice.sendKeyEvent(keycode, isDown);
+    }
+
+    @Override
+    public boolean getCaptureInputState() {
+        return captureInputState;
+    }
+
+    @Override
+    public void setCaptureInputState(boolean value) {
+        this.captureInputState = value;
     }
 
     @Nullable
