@@ -114,9 +114,9 @@ public final class Main {
         }
 
         private static String getArchString(String arch) {
-            if (arch.equals("amd64")) {
+            if (arch.equals("amd64") || arch.equals("x86_64")) {
                 return "x86_64";
-            } else if (arch.equals("aarch64")) {
+            } else if (arch.equals("aarch64") || arch.equals("arm64")) {
                 return "arm64";
             } else {
                 throw new UnsupportedOperationException("Unsupported architecture: " + arch);
