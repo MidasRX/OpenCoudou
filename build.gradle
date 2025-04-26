@@ -13,6 +13,44 @@ apply plugin: 'org.spongepowered.mixin'
 apply plugin: "java"
 jarJar.enable()
 
+gradle.projectsEvaluated {
+    configurations.first().incoming.beforeResolve {
+        def nativeLibsDir = file("src/main/resources/natives")
+        // native networking library
+        def nativeNetworkingBaseUrl = "https://github.com/${native_networking_repo}/releases/download/${network_lib_version}/"
+
+        def targets = [
+            "macos/liboc2rnet-x86_64.dylib",
+            "macos/liboc2rnet-arm64.dylib",
+            "windows/oc2rnet-x86_64.dll",
+            "windows/oc2rnet-arm64.dll",
+            "linux/liboc2rnet-linux-x86_64.so",
+            "linux/liboc2rnet-linux-arm64.so"
+        ]
+
+        targets.each { path ->
+            def file = new File(nativeLibsDir, path)
+            file.parentFile.mkdirs()
+            def fileName = path.tokenize('/')[-1]
+            def url = new URL("${nativeNetworkingBaseUrl}${fileName}")
+            println "Downloading ${url} → ${file}"
+            file.withOutputStream { out ->
+                url.openStream().withCloseable { IOUtils.copy(it, out) }
+            }
+        }
+
+        // senda
+        def sednaUrl = "https://github.com/${senda_repo}/releases/download/${minecraft_version}-${minecraft_sdk}/${sedna_version}/sedna-${minecraft_version}-${minecraft_sdk}-${sedna_version}+${sedna_version_commit_ref}.jar"
+        def sednaFile = new File('libs', 'sedna.jar')
+        sednaFile.parentFile.mkdirs()
+        def url = new URL("${sednaUrl}")
+        println "Downloading ${url} → ${sednaFile}"
+        sednaFile.withOutputStream { out ->
+            url.openStream().withCloseable { IOUtils.copy(it, out) }
+        }
+    }
+}
+
 allprojects {
     gradle.projectsEvaluated {
         tasks.withType(JavaCompile).tap {
@@ -141,47 +179,6 @@ dependencies {
 
 System.setProperty("line.separator", "\n")
 
-def nativeLibsDir = file("src/main/resources/natives")
-
-tasks.register("downloadDependencies") {
-    group = "build setup"
-    doLast {
-        // native networking library
-        def nativeNetworkingBaseUrl = "https://github.com/${native_networking_repo}/releases/download/${network_lib_version}/"
-
-        def targets = [
-            "macos/liboc2rnet-x86_64.dylib",
-            "macos/liboc2rnet-arm64.dylib",
-            "windows/oc2rnet-x86_64.dll",
-            "windows/oc2rnet-arm64.dll",
-            "linux/liboc2rnet-linux-x86_64.so",
-            "linux/liboc2rnet-linux-arm64.so"
-        ]
-
-        targets.each { path ->
-            def file = new File(nativeLibsDir, path)
-            file.parentFile.mkdirs()
-            def fileName = path.tokenize('/')[-1]
-            def url = new URL("${nativeNetworkingBaseUrl}${fileName}")
-            println "Downloading ${url} → ${file}"
-            file.withOutputStream { out ->
-                url.openStream().withCloseable { IOUtils.copy(it, out)  }
-            }
-        }
-
-        // senda
-        def sednaUrl = "https://github.com/${senda_repo}/releases/download/${minecraft_version}-${minecraft_sdk}/${sedna_version}/sedna-${minecraft_version}-${minecraft_sdk}-${sedna_version}+${sedna_version_commit_ref}.jar"
-        def sednaFile = new File('libs', 'sedna.jar')
-        sednaFile.parentFile.mkdirs()
-        def url = new URL("${sednaUrl}")
-        println "Downloading ${url} → ${sednaFile}"
-        sednaFile.withOutputStream { out ->
-            url.openStream().withCloseable { IOUtils.copy(it, out)  }
-        }
-
-    }
-}
-
 tasks.register('packageScripts', Zip) {
     archiveFileName = "scripts.zip"
     destinationDirectory = file("${layout.buildDirectory.get()}/resources/main/data/oc2r/file_systems")
@@ -197,7 +194,6 @@ tasks.register('copyLicensesToResources', Copy) {
 
 processResources.dependsOn(packageScripts)
 processResources.dependsOn(copyLicensesToResources)
-processResources.dependsOn(downloadDependencies)
 
 tasks.named('jarJar'){
 }
