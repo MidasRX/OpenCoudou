@@ -61,14 +61,11 @@ allprojects {
     }
 }
 
-def getGitRef() {
+static def getGitRef() {
     try {
-        final def stdout = new ByteArrayOutputStream()
-        providers.exec {
-            commandLine "git", "rev-parse", "--short", "HEAD"
-            standardOutput = stdout
-        }
-        return stdout.toString().trim()
+        def command = "git rev-parse --short HEAD"
+        def process = command.execute()
+        return process.text.trim();
     } catch (final Throwable ignored) {
         return "unknown"
     }
