@@ -98,7 +98,7 @@ public final class Main {
             Platform platform = getPlatformName();
             String arch = getArchString();
             String libName = switch (platform) {
-                case MACOS -> "liboc2rnet-macos-" + arch + ".dylib";
+                case MACOS -> "liboc2rnet-" + arch + ".dylib";
                 case WINDOWS -> "oc2rnet-" + arch + ".dll";
                 case LINUX -> "liboc2rnet-linux-" + arch + ".so";
             };
