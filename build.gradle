@@ -14,7 +14,7 @@ apply plugin: "java"
 jarJar.enable()
 
 gradle.projectsEvaluated {
-    configurations.first().incoming.beforeResolve {
+    project.configurations.named("jarJar") {
         def nativeLibsDir = file("src/main/resources/natives")
         // native networking library
         def nativeNetworkingBaseUrl = "https://github.com/${native_networking_repo}/releases/download/${network_lib_version}/"
