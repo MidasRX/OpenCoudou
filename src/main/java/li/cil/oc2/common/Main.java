@@ -39,6 +39,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
 
 @Mod(API.MOD_ID)
 public final class Main {
@@ -83,45 +84,61 @@ public final class Main {
     }
 
     public static class NativeLoader {
+        private static final HashMap<String, String> supportedArch = new HashMap<>();
+        private static boolean officiallySupported = true;
+
+        static {
+            supportedArch.put("x86_64", "x86_64");
+            supportedArch.put("amd64", "x86_64");
+            supportedArch.put("aarch64", "arm64");
+            supportedArch.put("arm64", "arm64");
+        }
+
         public static void loadLibrary() {
-            String os = System.getProperty("os.name").toLowerCase();
-            String arch = System.getProperty("os.arch").toLowerCase();
-
-            String platform;
-            String libName;
-            String fileNameArch = getArchString(arch);
-
-            if (os.contains("mac")) {
-                platform = "macos";
-                libName = "liboc2rnet-" + fileNameArch + ".dylib";
-            } else if (os.contains("win")) {
-                platform = "windows";
-                libName = "oc2rnet-"+ fileNameArch + ".dll";
-            } else if (os.contains("nux") || os.contains("nix")) {
-                platform = "linux";
-                libName = "liboc2rnet-linux-" + fileNameArch + ".so";
-            } else {
-                throw new UnsupportedOperationException("Unsupported OS: " + os);
-            }
+            Platform platform = getPlatformName();
+            String arch = getArchString();
+            String libName = switch (platform) {
+                case MACOS -> "liboc2rnet-macos-" + arch + ".dylib";
+                case WINDOWS -> "oc2rnet-" + arch + ".dll";
+                case LINUX -> "liboc2rnet-linux-" + arch + ".so";
+            };
 
             String resourcePath = "/natives/" + platform + "/" + libName;
             try {
                 Path tempFile = extractToTemp(resourcePath);
                 System.load(tempFile.toAbsolutePath().toString());
+            } catch(FileNotFoundException fileNotFoundException) {
+                if (officiallySupported) {
+                    throw new RuntimeException("Failed to load native library, jar file is corrupted or build failed, attempted to load from path: " + resourcePath);
+                } else {
+                    throw new UnsupportedOperationException("Unsupported architecture: " + arch);
+                }
             } catch (IOException e) {
                 throw new RuntimeException("Failed to load native library: " + resourcePath, e);
             }
         }
 
-        private static String getArchString(String arch) {
-            if (arch.equals("amd64")) {
-                return "x86_64";
-            } else if (arch.equals("aarch64")) {
-                return "arm64";
-            } else if (arch.equals("x86")) {
-                return "i386";
-            } else {
+        private static String getArchString() {
+            String arch = System.getProperty("os.arch").toLowerCase();
+            String result = supportedArch.get(arch);
+            if (result == null) {
+                officiallySupported = false;
                 return arch;
+            }
+            return result;
+        }
+
+        private static Platform getPlatformName() {
+            String os = System.getProperty("os.name").toLowerCase();
+
+            if (os.contains("mac")) {
+                return Platform.MACOS;
+            } else if (os.contains("win")) {
+                return Platform.WINDOWS;
+            } else if (os.contains("nux") || os.contains("nix")) {
+                return Platform.LINUX;
+            } else {
+                throw new UnsupportedOperationException("Unsupported OS: " + os);
             }
         }
 
@@ -131,6 +148,17 @@ public final class Main {
                 Path local = Path.of(System.getProperty("user.dir"), System.mapLibraryName("oc2rnet"));
                 Files.copy(in, local, StandardCopyOption.REPLACE_EXISTING);
                 return local;
+            }
+        }
+
+        private enum Platform {
+            LINUX,
+            MACOS,
+            WINDOWS;
+
+            @Override
+            public String toString() {
+                return super.toString().toLowerCase();
             }
         }
     }

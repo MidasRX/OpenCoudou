@@ -13,7 +13,7 @@ public class VXLANSpec {
     VXLANSpec(ForgeConfigSpec.Builder builder) {
         enable = builder.comment(
             "Whether to enable VXLAN support, must be on for the internet card to work"
-        ).define("enable", true);
+        ).define("enable", false);
 
         remoteHost = builder.comment("The remote host that the VXLAN protocol is running on")
             .define("remoteHost", "::1");
