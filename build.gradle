@@ -145,7 +145,7 @@ tasks.register("downloadNativeLibs") {
     group = "build setup"
     doLast {
         def repo = "North-Western-Development/oc2r-native-networking"
-        def baseUrl = "https://github.com/${repo}/releases/latest/download/"
+        def baseUrl = "https://github.com/${repo}/releases/download/1.0.1"
 
         def targets = [
             "macos/liboc2rnet-x86_64.dylib",
