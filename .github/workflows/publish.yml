@@ -28,17 +28,6 @@ jobs:
         if: github.event.release.prerelease == true
 
       - uses: actions/checkout@v4
-      - name: build
-        run: |
-          ./gradlew -Psemver='${{ github.event.release.tag_name }}' build
-
-      - name: Add Artifacts to Github Release
-        uses: alexellis/upload-assets@0.4.1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          asset_paths: '["./build/libs/*-all.jar"]'
-
       - name: Publish to Curseforge & Modrinth
         run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' publish
         env:
@@ -46,3 +35,11 @@ jobs:
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
           RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
           CHANGELOG: ${{ github.event.release.body }}
+
+
+      - name: Add Artifacts to Github Release
+        uses: alexellis/upload-assets@0.4.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["./build/libs/*-all.jar"]'
