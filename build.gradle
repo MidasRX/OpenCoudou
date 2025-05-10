@@ -285,7 +285,12 @@ curseforge {
         releaseType = System.getenv('RELEASE_TYPE') ?: "alpha"
         changelogType = 'markdown'
         changelog = System.getenv("CHANGELOG") ?: "Changelog not available."
-        addGameVersion minecraft_sdk
+        addGameVersion switch(minecraft_sdk) {
+            case "forge" -> "Forge"
+            case "fabric" -> "Fabric"
+            case "neoforge" -> "NeoForge"
+            case "quilt" -> "Quilt"
+        }
         addGameVersion minecraft_version
         addGameVersion "Java 17"
         mainArtifact "build/libs/oc2r-${minecraft_version}-${minecraft_sdk}-${version}-all.jar"
