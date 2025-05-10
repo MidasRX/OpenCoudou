@@ -39,16 +39,10 @@ jobs:
         with:
           asset_paths: '["./build/libs/*-all.jar"]'
 
-      - name: Publish to Curseforge
-        run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' curseforge
-        env:
-          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
-          RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
-          CHANGELOG: ${{ github.event.release.body }}
-
-      - name: Publish to Modrinth
-        run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' modrinth
+      - name: Publish to Curseforge & Modrinth
+        run: ./gradlew -Psemver='${{ github.event.release.tag_name }}' publish
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
           RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
           CHANGELOG: ${{ github.event.release.body }}

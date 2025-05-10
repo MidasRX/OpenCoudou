@@ -274,6 +274,11 @@ tasks.register('apiJar', Jar) {
     include "li/cil/oc2/api/**"
 }
 
+publish {
+    dependsOn(tasks.modrinth)
+    dependsOn(tasks.curseforge)
+}
+
 artifacts {
     archives apiJar
 }
