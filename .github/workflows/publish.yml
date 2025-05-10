@@ -36,7 +36,6 @@ jobs:
           RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
           CHANGELOG: ${{ github.event.release.body }}
 
-
       - name: Add Artifacts to Github Release
         uses: alexellis/upload-assets@0.4.1
         env:
