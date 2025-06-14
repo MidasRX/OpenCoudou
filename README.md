@@ -32,7 +32,7 @@ The original section that was found here is preserved below, however it should b
 [VM Device]: src/main/java/li/cil/oc2/api/bus/device/vm/VMDevice.java
 [disk drive]: src/main/java/li/cil/oc2/common/blockentity/DiskDriveBlockEntity.java
 [network card]: src/main/java/li/cil/oc2/common/bus/device/vm/item/NetworkInterfaceCardDevice.java
-[documentation]: src/main/resources/assets/oc2/doc/en_us/index.md
+[documentation]: src/main/resources/assets/oc2r/doc/en_us/index.md
 [GithubPackagesGradle]: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
 [Sangar (fnuecke)]: https://github.com/fnuecke
 [Sedna]: https://github.com/fnuecke/sedna
