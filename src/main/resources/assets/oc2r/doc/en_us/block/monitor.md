@@ -5,7 +5,7 @@ The monitor, like the projector, provides a framebuffer device to [computers](co
 
 Monitors need to be powered directly to function. The device bus cannot provide enough energy on its own. When insufficiently powered, this is indicated by a red error text on the screen.
 
-On a Linux system, monitors will typically appear as `/dev/fbX` devices. To send data to the framebuffer, it is possible to write to these devices. For example, to clear a framebuffer one might pipe zeros to the device like so: `cat /dev/zero > /dev/fb0`.
+On a Linux system, monitors will typically appear as */dev/fbX* devices. To send data to the framebuffer, it is possible to write to these devices. For example, to clear a framebuffer one might pipe zeros to the device like so: *cat /dev/zero > /dev/fb0*.
 
 The monitor provides a built-in keyboard for usage with the default Linux distro, this feature may be interrupted by having another keyboard device connected to the same computer.
 
