@@ -5,7 +5,7 @@ The projector provides a framebuffer device to [computers](computer.md). They ha
 
 Projectors need to be powered directly to function. The device bus cannot provide enough energy on its own. When insufficiently powered, this is indicated by a red glow in the projector's lens.
 
-On a Linux system, projectors will typically appear as `/dev/fbX` devices. To send data to the framebuffer, it is possible to write to these devices. For example, to clear a framebuffer one might pipe zeros to the device like so: `cat /dev/zero > /dev/fb0`.
+On a Linux system, projectors will typically appear as */dev/fbX* devices. To send data to the framebuffer, it is possible to write to these devices. For example, to clear a framebuffer one might pipe zeros to the device like so: *cat /dev/zero > /dev/fb0*.
 
 When using the default Linux distribution, the [keyboard](keyboard.md) may be used, to send input to the virtual terminal, running on the first connected framebuffer.
 
