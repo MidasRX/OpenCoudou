@@ -101,7 +101,11 @@ public class StreamSessionImpl extends SessionBase implements StreamSession {
         state = switch (state) {
             case ESTABLISHED -> TcpStates.FINISH;
             case CONNECT -> TcpStates.REJECT;
-            default -> throw new IllegalStateException();
+            case FINISH, REJECT, EXPIRED -> state; // Already closing or closed
+            case ACCEPT -> {
+                LOGGER.warn("Closing session in ACCEPT state, forcing to REJECT");
+                yield TcpStates.REJECT;
+            }
         };
     }
 
