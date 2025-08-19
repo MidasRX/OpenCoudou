@@ -78,14 +78,14 @@ public final class BlobStorage {
             close();
             dataDirectory = newDataDir;
             
-            AsyncUtils.runAsync(() -> {
-                try {
-                    Files.createDirectories(dataDirectory);
-                    LOGGER.info("Blob storage directory initialized at: {}", dataDirectory);
-                } catch (final IOException e) {
-                    LOGGER.error("Failed to create blob storage directory", e);
-                }
-            }, "Initialize blob storage directory");
+            try {
+                // Create directories synchronously since this is called during server startup
+                // when the config system might not be fully initialized yet
+                Files.createDirectories(dataDirectory);
+                LOGGER.info("Blob storage directory initialized at: {}", dataDirectory);
+            } catch (final IOException e) {
+                LOGGER.error("Failed to create blob storage directory", e);
+            }
         }
     }
 
@@ -109,7 +109,15 @@ public final class BlobStorage {
         }
         BLOBS.clear();
         
-        if (AsyncConfig.SERVER.enableSuperDebug.get()) {
+        // Safely check debug config if available
+        boolean debug = false;
+        try {
+            debug = AsyncConfig.SERVER != null && AsyncConfig.SERVER.enableSuperDebug.get();
+        } catch (IllegalStateException ignored) {
+            // Config system might be shutting down, continue with debug disabled
+        }
+        
+        if (debug) {
             LOGGER.info("Closed all blob storage resources");
         }
     }
@@ -199,12 +207,21 @@ public final class BlobStorage {
      * @return a CompletableFuture that completes when the blob is closed.
      */
     public static CompletableFuture<Void> closeAsync(final UUID handle) {
+        // Check debug state before async operation to avoid config access issues
+        boolean debug = false;
+        try {
+            debug = AsyncConfig.SERVER != null && AsyncConfig.SERVER.enableSuperDebug.get();
+        } catch (IllegalStateException ignored) {
+            // Config system might be shutting down, continue with debug disabled
+        }
+        
+        final boolean finalDebug = debug;
         return AsyncUtils.runAsync(() -> {
             try {
                 final FileChannel blob = BLOBS.remove(handle);
                 if (blob != null) {
                     blob.close();
-                    if (AsyncConfig.SERVER.enableSuperDebug.get()) {
+                    if (finalDebug) {
                         LOGGER.debug("Closed blob: {}", handle);
                     }
                 }
@@ -237,11 +254,20 @@ public final class BlobStorage {
      * @return a CompletableFuture that completes when the blob is deleted.
      */
     public static CompletableFuture<Void> deleteAsync(final UUID handle) {
+        // Check debug state before async operation to avoid config access issues
+        boolean debug = false;
+        try {
+            debug = AsyncConfig.SERVER != null && AsyncConfig.SERVER.enableSuperDebug.get();
+        } catch (IllegalStateException ignored) {
+            // Config system might be shutting down, continue with debug disabled
+        }
+        
+        final boolean finalDebug = debug;
         return AsyncUtils.runAsync(() -> {
             final Path path = getBlobPath(handle);
             try {
                 final boolean deleted = Files.deleteIfExists(path);
-                if (deleted && AsyncConfig.SERVER.enableSuperDebug.get()) {
+                if (deleted && finalDebug) {
                     LOGGER.debug("Deleted blob file: {}", path);
                 }
             } catch (final IOException e) {
