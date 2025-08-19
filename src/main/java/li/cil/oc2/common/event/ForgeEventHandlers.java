@@ -37,8 +37,16 @@ public final class ForgeEventHandlers {
         server = event.getServer();
         LOGGER.info("Server starting, initializing async components");
 
-        // Run async tests if enabled
-        if (AsyncConfig.SERVER.runAsyncTests.get()) {
+        // Safely check if we should run async tests
+        boolean shouldRunTests = false;
+        try {
+            shouldRunTests = AsyncConfig.SERVER != null && AsyncConfig.SERVER.runAsyncTests.get();
+        } catch (IllegalStateException e) {
+            LOGGER.warn("Config not available, skipping async tests");
+        }
+
+        // Run async tests if enabled and config is available
+        if (shouldRunTests) {
             LOGGER.info("Running async operation tests...");
             AsyncTestUtils.verifyAsyncOperations()
                 .thenAccept(uuid -> {
