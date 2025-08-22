@@ -2,7 +2,6 @@ package li.cil.oc2.common.event;
 
 import li.cil.oc2.api.API;
 import li.cil.oc2.common.config.AsyncConfig;
-import li.cil.oc2.common.util.AsyncTestUtils;
 import li.cil.oc2.common.util.AsyncUtils;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
@@ -36,31 +35,6 @@ public final class ForgeEventHandlers {
     public static void handleServerAboutToStart(final ServerAboutToStartEvent event) {
         server = event.getServer();
         LOGGER.info("Server starting, initializing async components");
-
-        // Safely check if we should run async tests
-        boolean shouldRunTests = false;
-        try {
-            shouldRunTests = AsyncConfig.SERVER != null && AsyncConfig.SERVER.runAsyncTests.get();
-        } catch (IllegalStateException e) {
-            LOGGER.warn("Config not available, skipping async tests");
-        }
-
-        // Run async tests if enabled and config is available
-        if (shouldRunTests) {
-            LOGGER.info("Running async operation tests...");
-            AsyncTestUtils.verifyAsyncOperations()
-                .thenAccept(uuid -> {
-                    if (uuid != null) {
-                        LOGGER.debug("Async test completed with UUID: {}", uuid);
-                    } else {
-                        LOGGER.debug("Async test completed");
-                    }
-                })
-                .exceptionally(e -> {
-                    LOGGER.error("Async test failed", e);
-                    return null;
-                });
-        }
     }
 
     @SubscribeEvent
