@@ -43,25 +43,44 @@ public class HardDriveDevice extends AbstractBlockStorageDevice<ByteBufferBlockD
     protected CompletableFuture<ByteBufferBlockDevice> createBlockDevice() {
         blobHandle = BlobStorage.validateHandle(blobHandle);
         
-        if (AsyncConfig.SERVER.asyncStorageOperations.get()) {
+        boolean useAsync = false;
+        try {
+            if (AsyncConfig.SERVER != null) {
+                useAsync = AsyncConfig.SERVER.asyncStorageOperations.get();
+            }
+        } catch (IllegalStateException e) {
+            LOGGER.trace("Config not loaded yet, using default async storage operations setting");
+        }
+        
+        if (useAsync) {
             return BlobStorage.getOrOpenAsync(blobHandle)
-                .thenApplyAsync(channel -> {
+                .thenApplyAsync(buffer -> {
                     try {
-                        if (AsyncConfig.SERVER.enableSuperDebug.get()) {
-                            LOGGER.debug("Mapping buffer for blob: {}", blobHandle);
+                        boolean debug = false;
+                        try {
+                            if (AsyncConfig.SERVER != null) {
+                                debug = AsyncConfig.SERVER.enableSuperDebug.get();
+                            }
+                        } catch (IllegalStateException e) {
+                            // Config not loaded yet, use default debug setting
                         }
-                        final MappedByteBuffer buffer = channel.map(MapMode.READ_WRITE, 0, size);
+                        
+                        if (debug) {
+                            LOGGER.debug("Using buffer for blob: {}", blobHandle);
+                        }
+                        
+                        buffer.limit(size);
                         return ByteBufferBlockDevice.wrap(buffer, readonly);
-                    } catch (final IOException e) {
-                        LOGGER.error("Failed to map buffer for blob: " + blobHandle, e);
-                        throw new CompletionException(e);
+                    } catch (final Exception e) {
+                        LOGGER.error("Failed to create block device for blob: " + blobHandle, e);
+                        throw new CompletionException("Failed to create block device", e);
                     }
                 }, WORKERS);
         } else {
             return CompletableFuture.supplyAsync(() -> {
                 try {
-                    final FileChannel channel = BlobStorage.getOrOpen(blobHandle);
-                    final MappedByteBuffer buffer = channel.map(MapMode.READ_WRITE, 0, size);
+                    final MappedByteBuffer buffer = BlobStorage.getOrOpen(blobHandle);
+                    buffer.limit(size);
                     return ByteBufferBlockDevice.wrap(buffer, readonly);
                 } catch (final IOException e) {
                     LOGGER.error("Failed to create block device", e);

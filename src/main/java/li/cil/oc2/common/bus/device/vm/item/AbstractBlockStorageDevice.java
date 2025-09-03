@@ -74,25 +74,27 @@ public abstract class AbstractBlockStorageDevice<TBlock extends BlockDevice, TId
 
     @Override
     public VMDeviceLoadResult mount(final VMContext context) {
+        this.context = context;  // Store context for later cleanup
+
         if (!allocateDevice(context)) {
+            closeDevice();
             return VMDeviceLoadResult.fail();
         }
 
         if (!address.claim(context, device)) {
+            closeDevice();
             return VMDeviceLoadResult.fail();
         }
 
         if (interrupt.claim(context)) {
             device.getInterrupt().set(interrupt.getAsInt(), context.getInterruptController());
         } else {
+            closeDevice();
             return VMDeviceLoadResult.fail();
         }
 
+        loadPersistedState();
         context.getEventBus().register(this);
-
-        if (deviceTag != null) {
-            NBTSerialization.deserialize(deviceTag, device);
-        }
 
         return VMDeviceLoadResult.success();
     }
@@ -218,6 +220,26 @@ public abstract class AbstractBlockStorageDevice<TBlock extends BlockDevice, TId
     protected void handleDataAccess() {
     }
 
+    /**
+     * Loads the device's persisted state from the saved deviceTag.
+     * This is called after the device has been created but before it's registered with the VM.
+     */
+    protected void loadPersistedState() {
+        if (device == null || deviceTag == null) {
+            return;
+        }
+
+        try {
+            // Deserialize the device state from the saved tag
+            NBTSerialization.deserialize(deviceTag, device);
+
+            // Clear the tag to avoid holding onto the data
+            deviceTag = null;
+        } catch (final Exception e) {
+            LOGGER.error("Failed to load persisted device state", e);
+        }
+    }
+
     ///////////////////////////////////////////////////////////////
 
     private boolean allocateDevice(final VMContext context) {
@@ -240,10 +262,30 @@ public abstract class AbstractBlockStorageDevice<TBlock extends BlockDevice, TId
         return true;
     }
 
+    private VMContext context;  // Store context for memory deallocation
+//
+//    @Override
+//    public VMDeviceLoadResult mount(final VMContext context) {
+//        this.context = context;  // Store context for later cleanup
+//
+//        if (!allocateDevice(context)) {
+//            return VMDeviceLoadResult.fail();
+//        }
+//
+//        if (!address.claim(context, device)) {
+//            closeDevice();
+//            return VMDeviceLoadResult.fail();
+//        }
+//
+//        loadPersistedState();
+//
+//        context.getEventBus().register(this);
+//
+//        return VMDeviceLoadResult.success();
+//    }
+
     private void closeDevice() {
-        // Join the init job before releasing the device to avoid writes from thread to closed device.
-        // Since we use memory mapped memory, closing the device leads to it holding a dead pointer,
-        // meaning further access to it will hard-crash the JVM.
+        // Join the init job before releasing the device to avoid writes to a closed device
         joinOpenJob();
 
         if (device == null) {
@@ -251,12 +293,30 @@ public abstract class AbstractBlockStorageDevice<TBlock extends BlockDevice, TId
         }
 
         try {
+            // Close the underlying device
             device.close();
-        } catch (final IOException e) {
-            LOGGER.error(e);
-        }
 
-        device = null;
+            // Note: Memory is automatically released when the VM is stopped
+            // as per the MemoryAllocator API design
+
+            // Close blob storage if it exists
+            if (blobHandle != null) {
+                try {
+                    BlobStorage.close(blobHandle);
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to close blob storage", e);
+                }
+                blobHandle = null;
+            }
+        } catch (final IOException e) {
+            LOGGER.error("Error closing device", e);
+        } finally {
+            device = null;
+            context = null;  // Clear the context reference
+
+            // Explicitly suggest garbage collection to help with memory cleanup
+            System.gc();
+        }
     }
 
     ///////////////////////////////////////////////////////////////

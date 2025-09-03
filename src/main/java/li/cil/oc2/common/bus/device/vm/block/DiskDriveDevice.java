@@ -92,11 +92,11 @@ public final class DiskDriveDevice<T extends BlockEntity & DiskDriveContainer> e
         blobHandle = BlobStorage.validateHandle(blobHandle);
         return CompletableFuture.supplyAsync(() -> {
             try {
-                final FileChannel channel = BlobStorage.getOrOpen(blobHandle);
-                final MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_WRITE, 0, capacity);
+                final MappedByteBuffer buffer = BlobStorage.getOrOpen(blobHandle);
+                buffer.limit(capacity);
                 return ByteBufferBlockDevice.wrap(buffer, false);
-            } catch (final IOException e) {
-                throw new RuntimeException(e);
+            } catch (final Exception e) {
+                throw new RuntimeException("Failed to create block device", e);
             }
         }, WORKERS);
     }
