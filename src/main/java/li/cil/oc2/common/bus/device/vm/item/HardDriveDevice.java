@@ -43,13 +43,32 @@ public class HardDriveDevice extends AbstractBlockStorageDevice<ByteBufferBlockD
     protected CompletableFuture<ByteBufferBlockDevice> createBlockDevice() {
         blobHandle = BlobStorage.validateHandle(blobHandle);
         
-        if (AsyncConfig.SERVER.asyncStorageOperations.get()) {
+        boolean useAsync = false;
+        try {
+            if (AsyncConfig.SERVER != null) {
+                useAsync = AsyncConfig.SERVER.asyncStorageOperations.get();
+            }
+        } catch (IllegalStateException e) {
+            LOGGER.trace("Config not loaded yet, using default async storage operations setting");
+        }
+        
+        if (useAsync) {
             return BlobStorage.getOrOpenAsync(blobHandle)
                 .thenApplyAsync(channel -> {
                     try {
-                        if (AsyncConfig.SERVER.enableSuperDebug.get()) {
+                        boolean debug = false;
+                        try {
+                            if (AsyncConfig.SERVER != null) {
+                                debug = AsyncConfig.SERVER.enableSuperDebug.get();
+                            }
+                        } catch (IllegalStateException e) {
+                            // Config not loaded yet, use default debug setting
+                        }
+                        
+                        if (debug) {
                             LOGGER.debug("Mapping buffer for blob: {}", blobHandle);
                         }
+                        
                         final MappedByteBuffer buffer = channel.map(MapMode.READ_WRITE, 0, size);
                         return ByteBufferBlockDevice.wrap(buffer, readonly);
                     } catch (final IOException e) {

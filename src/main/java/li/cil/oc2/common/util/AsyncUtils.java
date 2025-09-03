@@ -75,23 +75,47 @@ public final class AsyncUtils {
      * @return a CompletableFuture that will complete when the task finishes
      */
     public static <T> CompletableFuture<T> runAsync(Supplier<T> task, String description) {
-        if (AsyncConfig.SERVER.enableSuperDebug.get()) {
-            LOGGER.info("Starting async task: {}", description);
-            logStackTrace("Async task stack trace");
+        if (ASYNC_EXECUTOR.isShutdown()) {
+            LOGGER.warn("Attempted to submit async task '{}' after executor was shut down", description);
+            CompletableFuture<T> failedFuture = new CompletableFuture<>();
+            failedFuture.completeExceptionally(new RejectedExecutionException("Executor has been shut down"));
+            return failedFuture;
         }
 
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return task.get();
-            } catch (Throwable t) {
-                LOGGER.error("Error in async task: " + description, t);
-                throw t;
-            } finally {
-                if (AsyncConfig.SERVER.enableSuperDebug.get()) {
-                    LOGGER.info("Completed async task: {}", description);
-                }
+        try {
+            if (AsyncConfig.SERVER != null && AsyncConfig.SERVER.enableSuperDebug.get()) {
+                LOGGER.info("Starting async task: {}", description);
+                logStackTrace("Async task stack trace");
             }
-        }, ASYNC_EXECUTOR);
+        } catch (IllegalStateException e) {
+            // Config not loaded yet, skip debug logging
+            LOGGER.trace("Config not loaded yet, skipping debug logging for: {}", description);
+        }
+
+        try {
+            return CompletableFuture.supplyAsync(() -> {
+                try {
+                    return task.get();
+                } catch (Throwable t) {
+                    LOGGER.error("Error in async task: " + description, t);
+                    throw t;
+                } finally {
+                    try {
+                        if (AsyncConfig.SERVER != null && AsyncConfig.SERVER.enableSuperDebug.get()) {
+                            LOGGER.info("Completed async task: {}", description);
+                        }
+                    } catch (IllegalStateException e) {
+                        // Config not loaded yet, skip debug logging
+                        LOGGER.trace("Config not loaded yet, skipping debug logging for: {}", description);
+                    }
+                }
+            }, ASYNC_EXECUTOR);
+        } catch (RejectedExecutionException e) {
+            LOGGER.warn("Failed to submit async task '{}' - executor is shutting down", description, e);
+            CompletableFuture<T> failedFuture = new CompletableFuture<>();
+            failedFuture.completeExceptionally(e);
+            return failedFuture;
+        }
     }
 
     /**
@@ -107,6 +131,15 @@ public final class AsyncUtils {
             return null;
         }, description);
     }
+    
+    /**
+     * Checks if the async executor has been shut down.
+     *
+     * @return true if the executor has been shut down, false otherwise
+     */
+    public static boolean isShutdown() {
+        return ASYNC_EXECUTOR.isShutdown();
+    }
 
     /**
      * Logs the current stack trace if super debug mode is enabled.
@@ -114,14 +147,19 @@ public final class AsyncUtils {
      * @param message the message to log with the stack trace
      */
     public static void logStackTrace(String message) {
-        if (AsyncConfig.SERVER.enableSuperDebug.get()) {
-            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-            StringBuilder sb = new StringBuilder(message).append("\n");
-            // Skip the first 2 elements (getStackTrace and this method)
-            for (int i = 2; i < Math.min(stackTrace.length, 10); i++) {
-                sb.append("    at ").append(stackTrace[i]).append("\n");
+        try {
+            if (AsyncConfig.SERVER != null && AsyncConfig.SERVER.enableSuperDebug.get()) {
+                StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+                StringBuilder sb = new StringBuilder(message).append("\n");
+                // Skip the first 2 elements (getStackTrace and this method)
+                for (int i = 2; i < stackTrace.length; i++) {
+                    sb.append("\tat ").append(stackTrace[i]).append("\n");
+                }
+                LOGGER.info(sb.toString());
             }
-            LOGGER.debug(sb.toString());
+        } catch (IllegalStateException e) {
+            // Config not loaded yet, skip debug logging
+            LOGGER.trace("Config not loaded yet, skipping stack trace logging");
         }
     }
 
