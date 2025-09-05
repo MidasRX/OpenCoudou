@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.UUID;
-import java.io.RandomAccessFile;
 
 public final class MemoryDevice extends IdentityProxy<ItemStack> implements VMDevice, ItemDevice {
     private static final Logger LOGGER = LogManager.getLogger();
@@ -114,34 +113,16 @@ public final class MemoryDevice extends IdentityProxy<ItemStack> implements VMDe
         }
 
         try {
-            // Ensure we have a valid blob handle
             blobHandle = BlobStorage.validateHandle(blobHandle);
-
-            try {
-                // Try to get or open the blob
-                final MappedByteBuffer buffer = BlobStorage.getOrOpen(blobHandle);
-                if (buffer != null) {
-                    buffer.limit(size);
-                    device = new ByteBufferMemory(size, buffer);
-                    return true;
-                }
-            } catch (final Exception e) {
-                // If we get here, the async operation failed, likely due to executor shutdown
-                LOGGER.warn("Async blob operation failed, falling back to direct file access: {}", e.getMessage());
-
-                // Fallback to using a direct byte buffer since we can't access the blob file directly
-                LOGGER.warn("Using fallback memory allocation for blob: {}", blobHandle);
-                final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocateDirect(size);
-                device = new ByteBufferMemory(size, buffer);
-                return true;
-            }
-        } catch (final Exception e) {
-            LOGGER.error("Failed to allocate memory device", e);
+            final FileChannel channel = BlobStorage.getOrOpen(blobHandle);
+            final MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_WRITE, 0, size);
+            device = new ByteBufferMemory(size, buffer);
+        } catch (final IOException e) {
+            LOGGER.error(e);
+            return false;
         }
 
-        // If we get here, something went wrong
-        closeDevice();
-        return false;
+        return true;
     }
 
     private void closeDevice() {
@@ -150,25 +131,11 @@ public final class MemoryDevice extends IdentityProxy<ItemStack> implements VMDe
         }
 
         try {
-            // Close the device first
             device.close();
-
-            // Release the memory mapping
-            if (blobHandle != null) {
-                try {
-                    BlobStorage.close(blobHandle);
-                } catch (Exception e) {
-                    LOGGER.warn("Failed to close blob storage", e);
-                }
-                blobHandle = null;
-            }
         } catch (final Exception e) {
-            LOGGER.error("Error closing memory device", e);
-        } finally {
-            device = null;
-
-            // Suggest garbage collection to help with memory cleanup
-            System.gc();
+            LOGGER.error(e);
         }
+
+        device = null;
     }
 }

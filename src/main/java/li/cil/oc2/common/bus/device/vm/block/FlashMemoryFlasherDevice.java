@@ -92,11 +92,11 @@ public final class FlashMemoryFlasherDevice<T extends BlockEntity & FlashMemoryF
         blobHandle = BlobStorage.validateHandle(blobHandle);
         return CompletableFuture.supplyAsync(() -> {
             try {
-                final MappedByteBuffer buffer = BlobStorage.getOrOpen(blobHandle);
-                buffer.limit(capacity);
+                final FileChannel channel = BlobStorage.getOrOpen(blobHandle);
+                final MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_WRITE, 0, capacity);
                 return ByteBufferBlockDevice.wrap(buffer, false);
-            } catch (final Exception e) {
-                throw new RuntimeException("Failed to create block device", e);
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
             }
         }, WORKERS);
     }

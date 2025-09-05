@@ -132,8 +132,8 @@ public final class PciCardCageDevice extends IdentityProxy<BlockEntity> implemen
 
     private PciRootPortDevice createPciRootPortDevice() throws IOException {
         blobHandle = BlobStorage.validateHandle(blobHandle);
-        final MappedByteBuffer buffer = BlobStorage.getOrOpen(blobHandle);
-        buffer.limit(WINDOW_SIZE * 2);
+        final FileChannel channel = BlobStorage.getOrOpen(blobHandle);
+        final MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_WRITE, 0, WINDOW_SIZE * 2);
         return new PciRootPortDevice(BUS_COUNT, WINDOW_SIZE, buffer);
     }
 }

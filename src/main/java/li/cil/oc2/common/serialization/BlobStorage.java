@@ -16,11 +16,9 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -39,9 +37,9 @@ public final class BlobStorage {
     ///////////////////////////////////////////////////////////////////
 
     private static final LevelResource BLOBS_FOLDER_NAME = new LevelResource(API.MOD_ID + "-blobs");
-    private static final Map<UUID, MappedByteBuffer> BLOBS = new ConcurrentHashMap<>();
-    private static final Map<UUID, CompletableFuture<MappedByteBuffer>> PENDING_OPERATIONS = new ConcurrentHashMap<>();
-    private static final int MAX_MEMORY_MAPPED_SIZE = 64 * 1024 * 1024; // 64MB max size per blob
+    private static final Map<UUID, FileChannel> BLOBS = new ConcurrentHashMap<>();
+    private static final Map<UUID, CompletableFuture<FileChannel>> PENDING_OPERATIONS = new ConcurrentHashMap<>();
+
     private static volatile Path dataDirectory; // Directory blobs get saved to.
 
     ///////////////////////////////////////////////////////////////////
@@ -79,7 +77,7 @@ public final class BlobStorage {
             // Close all open handles if the directory changes
             close();
             dataDirectory = newDataDir;
-
+            
             try {
                 // Create directories synchronously since this is called during server startup
                 // when the config system might not be fully initialized yet
@@ -95,38 +93,22 @@ public final class BlobStorage {
      * Closes all currently open blobs.
      */
     public static void close() {
-        // Cancel all pending operations with minimal blocking
-        for (final Map.Entry<UUID, CompletableFuture<MappedByteBuffer>> entry : PENDING_OPERATIONS.entrySet()) {
-            try {
-                entry.getValue().cancel(true);
-            } catch (final Exception e) {
-                LOGGER.trace("Error cancelling pending operation", e);
-            }
+        // Cancel all pending operations
+        for (final CompletableFuture<FileChannel> future : PENDING_OPERATIONS.values()) {
+            future.cancel(true);
         }
         PENDING_OPERATIONS.clear();
-
-        // Clean up all mapped buffers
-        Map<UUID, MappedByteBuffer> buffersToClean = new HashMap<>(BLOBS);
-        BLOBS.clear();
-
-        for (final MappedByteBuffer buffer : buffersToClean.values()) {
-            if (buffer != null) {
-                try {
-                    // Clean up the mapped buffer
-                    ((java.nio.Buffer) buffer).clear();
-                } catch (final Exception e) {
-                    LOGGER.trace("Error cleaning up mapped buffer", e);
-                }
+        
+        // Close all open channels
+        for (final FileChannel blob : BLOBS.values()) {
+            try {
+                blob.close();
+            } catch (final IOException e) {
+                LOGGER.error("Error closing blob channel", e);
             }
         }
-
-        // Force cleanup of mapped buffers
-        System.gc();
-        System.runFinalization();
-
-        // Clear any interrupted status that might have been set by cancellation
-        Thread.interrupted();
-
+        BLOBS.clear();
+        
         // Safely check debug config if available
         boolean debug = false;
         try {
@@ -134,13 +116,10 @@ public final class BlobStorage {
         } catch (IllegalStateException ignored) {
             // Config system might be shutting down, continue with debug disabled
         }
-
+        
         if (debug) {
             LOGGER.info("Closed all blob storage resources");
         }
-
-        // Force a GC to help clean up any lingering file handles
-        System.gc();
     }
 
     /**
@@ -174,56 +153,31 @@ public final class BlobStorage {
      * @param handle the handle to obtain the file channel for.
      * @return a CompletableFuture that will complete with the file channel.
      */
-    public static CompletableFuture<MappedByteBuffer> getOrOpenAsync(final UUID handle) {
+    public static CompletableFuture<FileChannel> getOrOpenAsync(final UUID handle) {
         // Check if already open
-        MappedByteBuffer buffer = BLOBS.get(handle);
-        if (buffer != null && buffer.capacity() > 0) {
-            return CompletableFuture.completedFuture(buffer);
-        } else if (buffer != null) {
-            // Remove stale reference
-            BLOBS.remove(handle);
+        final FileChannel existingChannel = BLOBS.get(handle);
+        if (existingChannel != null && existingChannel.isOpen()) {
+            return CompletableFuture.completedFuture(existingChannel);
         }
-
+        
         // Check if there's already a pending operation
         return PENDING_OPERATIONS.computeIfAbsent(handle, h -> {
             return AsyncUtils.runAsync(() -> {
-                if (dataDirectory == null) {
-                    throw new CompletionException("Data directory not initialized. Server not ready?", null);
-                }
-
-                final Path path = dataDirectory.resolve(h.toString());
                 try {
-                    // Ensure parent directory exists
-                    Files.createDirectories(path.getParent());
-
-                    // Use memory-mapped files instead of direct file channel access
-                    try (RandomAccessFile file = new RandomAccessFile(path.toFile(), "rw");
-                         FileChannel channel = file.getChannel()) {
-
-                        // Map the file into memory
-                        MappedByteBuffer mappedBuffer = channel.map(
-                            FileChannel.MapMode.READ_WRITE,
-                            0,
-                            Math.min(channel.size(), MAX_MEMORY_MAPPED_SIZE)
-                        );
-
-                        // Store the mapped buffer
-                        BLOBS.put(h, mappedBuffer);
-                        return mappedBuffer;
-                    } catch (final IOException e) {
-                        LOGGER.error("Failed to open or map blob: " + h, e);
-                        throw new CompletionException("Failed to open or map blob: " + h, e);
-                    } finally {
-                        PENDING_OPERATIONS.remove(h);
-                    }
+                    final Path path = dataDirectory.resolve(h.toString());
+                    final FileChannel channel = new RandomAccessFile(path.toFile(), "rw").getChannel();
+                    BLOBS.put(h, channel);
+                    return channel;
                 } catch (final IOException e) {
-                    LOGGER.error("Failed to open or map blob: " + h, e);
-                    throw new CompletionException("Failed to open or map blob: " + h, e);
+                    LOGGER.error("Failed to open blob: " + h, e);
+                    throw new CompletionException("Failed to open blob: " + h, e);
+                } finally {
+                    PENDING_OPERATIONS.remove(h);
                 }
             }, "Open blob " + h);
         });
     }
-
+    
     /**
      * Get or opens a file channel for the blob with the specified handle.
      * <p>
@@ -235,7 +189,7 @@ public final class BlobStorage {
      * @deprecated Use {@link #getOrOpenAsync(UUID)} for non-blocking access. This method will be removed in 1.21.1.
      */
     @Deprecated(since = "1.21.1", forRemoval = true)
-    public static synchronized MappedByteBuffer getOrOpen(final UUID handle) throws IOException {
+    public static synchronized FileChannel getOrOpen(final UUID handle) throws IOException {
         try {
             return getOrOpenAsync(handle).join();
         } catch (final CompletionException e) {
@@ -253,18 +207,31 @@ public final class BlobStorage {
      * @return a CompletableFuture that completes when the blob is closed.
      */
     public static CompletableFuture<Void> closeAsync(final UUID handle) {
-        return CompletableFuture.runAsync(() -> {
-            final MappedByteBuffer buffer = BLOBS.remove(handle);
-            if (buffer != null) {
-                try {
-                    ((java.nio.Buffer) buffer).clear();
-                } catch (final Exception e) {
-                    LOGGER.trace("Error cleaning up mapped buffer for blob: " + handle, e);
+        // Check debug state before async operation to avoid config access issues
+        boolean debug = false;
+        try {
+            debug = AsyncConfig.SERVER != null && AsyncConfig.SERVER.enableSuperDebug.get();
+        } catch (IllegalStateException ignored) {
+            // Config system might be shutting down, continue with debug disabled
+        }
+        
+        final boolean finalDebug = debug;
+        return AsyncUtils.runAsync(() -> {
+            try {
+                final FileChannel blob = BLOBS.remove(handle);
+                if (blob != null) {
+                    blob.close();
+                    if (finalDebug) {
+                        LOGGER.debug("Closed blob: {}", handle);
+                    }
                 }
+            } catch (final IOException e) {
+                LOGGER.error("Error closing blob: " + handle, e);
+                throw new CompletionException(e);
             }
-        }, AsyncUtils.getAsyncExecutor());
+        }, "Close blob " + handle);
     }
-
+    
     /**
      * Closes the blob with the specified handle.
      *
@@ -272,14 +239,11 @@ public final class BlobStorage {
      * @deprecated Use {@link #closeAsync(UUID)} for non-blocking operation. This method will be removed in 1.21.1.
      */
     @Deprecated(since = "1.21.1", forRemoval = true)
-    public static void close(final UUID handle) {
-        final MappedByteBuffer buffer = BLOBS.remove(handle);
-        if (buffer != null) {
-            try {
-                ((java.nio.Buffer) buffer).clear();
-            } catch (final Exception e) {
-                LOGGER.trace("Error cleaning up mapped buffer for blob: " + handle, e);
-            }
+    public static synchronized void close(final UUID handle) {
+        try {
+            closeAsync(handle).join();
+        } catch (final CompletionException e) {
+            LOGGER.error("Error in close operation for blob: " + handle, e);
         }
     }
 
@@ -290,16 +254,30 @@ public final class BlobStorage {
      * @return a CompletableFuture that completes when the blob is deleted.
      */
     public static CompletableFuture<Void> deleteAsync(final UUID handle) {
-        return closeAsync(handle).thenRunAsync(() -> {
+        // Check debug state before async operation to avoid config access issues
+        boolean debug = false;
+        try {
+            debug = AsyncConfig.SERVER != null && AsyncConfig.SERVER.enableSuperDebug.get();
+        } catch (IllegalStateException ignored) {
+            // Config system might be shutting down, continue with debug disabled
+        }
+        
+        final boolean finalDebug = debug;
+        return AsyncUtils.runAsync(() -> {
             final Path path = getBlobPath(handle);
             try {
-                Files.deleteIfExists(path);
+                final boolean deleted = Files.deleteIfExists(path);
+                if (deleted && finalDebug) {
+                    LOGGER.debug("Deleted blob file: {}", path);
+                }
             } catch (final IOException e) {
-                LOGGER.error("Failed to delete blob: " + handle, e);
+                LOGGER.error("Error deleting blob file: " + path, e);
+                throw new CompletionException(e);
             }
-        }, AsyncUtils.getAsyncExecutor());
+            return null;
+        }, "Deleting blob " + handle);
     }
-
+    
     /**
      * Deletes the blob with the specified handle.
      *
@@ -324,25 +302,6 @@ public final class BlobStorage {
 
     @SubscribeEvent
     public static void handleServerStopped(final ServerStoppedEvent event) {
-        try {
-            // Close all open resources when server stops
-            close();
-        } catch (Exception e) {
-            // Don't let exceptions during shutdown prevent server from stopping
-            LOGGER.error("Error during blob storage shutdown:", e);
-        } finally {
-            // Always clear the data directory reference
-            dataDirectory = null;
-
-            // Force a GC to help clean up any lingering file handles
-            System.gc();
-
-            // Give GC a chance to run
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-        }
+        BlobStorage.close();
     }
 }

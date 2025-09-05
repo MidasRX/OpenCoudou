@@ -24,7 +24,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 
 public final class ByteBufferFlashStorageDevice extends IdentityProxy<ItemStack> implements VMDevice, ItemDevice, FirmwareLoader {
     public static final String DATA_TAG_NAME = "data";
@@ -121,9 +120,7 @@ public final class ByteBufferFlashStorageDevice extends IdentityProxy<ItemStack>
                 data.clear();
                 CompoundTag tag = ItemStackUtils.getModDataTag(identity).getCompound(DATA_TAG_NAME);
                 if (tag.hasUUID("blob")) {
-                    MappedByteBuffer sourceBuffer = BlobStorage.getOrOpen(tag.getUUID("blob"));
-                    sourceBuffer.rewind();
-                    sourceBuffer.get(data.array(), 0, Math.min(sourceBuffer.remaining(), data.remaining()));
+                    BlobStorage.getOrOpen(tag.getUUID("blob")).read(data, 0);
                 }
             } catch(Exception e) {
                 System.out.println("Error message: " + e.getMessage());
