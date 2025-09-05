@@ -54,7 +54,7 @@ public class HardDriveDevice extends AbstractBlockStorageDevice<ByteBufferBlockD
         
         if (useAsync) {
             return BlobStorage.getOrOpenAsync(blobHandle)
-                .thenApplyAsync(buffer -> {
+                .thenApplyAsync(channel -> {
                     try {
                         boolean debug = false;
                         try {
@@ -66,21 +66,21 @@ public class HardDriveDevice extends AbstractBlockStorageDevice<ByteBufferBlockD
                         }
                         
                         if (debug) {
-                            LOGGER.debug("Using buffer for blob: {}", blobHandle);
+                            LOGGER.debug("Mapping buffer for blob: {}", blobHandle);
                         }
                         
-                        buffer.limit(size);
+                        final MappedByteBuffer buffer = channel.map(MapMode.READ_WRITE, 0, size);
                         return ByteBufferBlockDevice.wrap(buffer, readonly);
-                    } catch (final Exception e) {
-                        LOGGER.error("Failed to create block device for blob: " + blobHandle, e);
-                        throw new CompletionException("Failed to create block device", e);
+                    } catch (final IOException e) {
+                        LOGGER.error("Failed to map buffer for blob: " + blobHandle, e);
+                        throw new CompletionException(e);
                     }
                 }, WORKERS);
         } else {
             return CompletableFuture.supplyAsync(() -> {
                 try {
-                    final MappedByteBuffer buffer = BlobStorage.getOrOpen(blobHandle);
-                    buffer.limit(size);
+                    final FileChannel channel = BlobStorage.getOrOpen(blobHandle);
+                    final MappedByteBuffer buffer = channel.map(MapMode.READ_WRITE, 0, size);
                     return ByteBufferBlockDevice.wrap(buffer, readonly);
                 } catch (final IOException e) {
                     LOGGER.error("Failed to create block device", e);

@@ -142,8 +142,8 @@ public final class ProjectorDevice extends IdentityProxy<BlockEntity> implements
 
     private SimpleFramebufferDevice createFrameBufferDevice() throws IOException {
         blobHandle = BlobStorage.validateHandle(blobHandle);
-        final MappedByteBuffer buffer = BlobStorage.getOrOpen(blobHandle);
-        buffer.limit(WIDTH * HEIGHT * SimpleFramebufferDevice.STRIDE);
+        final FileChannel channel = BlobStorage.getOrOpen(blobHandle);
+        final MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_WRITE, 0, WIDTH * HEIGHT * SimpleFramebufferDevice.STRIDE);
         return new SimpleFramebufferDevice(WIDTH, HEIGHT, buffer);
     }
 }
