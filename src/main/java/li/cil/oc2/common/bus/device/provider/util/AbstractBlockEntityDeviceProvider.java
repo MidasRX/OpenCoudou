@@ -35,7 +35,11 @@ public abstract class AbstractBlockEntityDeviceProvider<T extends BlockEntity> e
             return Invalidatable.empty();
         }
 
-        return getBlockDevice(query, (T) blockEntity);
+        try {
+            return getBlockDevice(query, (T) blockEntity);
+        } catch (ClassCastException ignored) {
+            return Invalidatable.empty();
+        }
     }
 
     ///////////////////////////////////////////////////////////////////
