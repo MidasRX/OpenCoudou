@@ -41,7 +41,6 @@ public final class SimpleFramebufferDeviceProvider implements DeviceTreeProvider
             .addProp("height", fb.getHeight())
             .addProp("stride", fb.getWidth() * SimpleFramebufferDevice.STRIDE)
             .addProp("format", "r5g6b5")
-            .addProp("no-map")
             .addProp(DevicePropertyNames.STATUS, "okay");
     }
 }
