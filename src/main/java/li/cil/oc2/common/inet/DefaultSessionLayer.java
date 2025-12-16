@@ -132,7 +132,7 @@ public final class DefaultSessionLayer implements SessionLayer {
         });
     }
 
-    public native byte @Nullable [] sendICMP(byte[] ip, byte[] data, int size, int timeout);
+    public static native byte @Nullable [] sendICMP(byte[] ip, byte[] data, int size, int timeout);
 
     @Override
     public void sendSession(final Session session, @Nullable final ByteBuffer data) {

@@ -3,6 +3,7 @@
 package li.cil.oc2.common;
 
 import dev.architectury.platform.forge.EventBuses;
+import joptsimple.util.InetAddressConverter;
 import li.cil.ceres.Ceres;
 import li.cil.oc2.api.API;
 import li.cil.oc2.client.ClientSetup;
@@ -13,10 +14,12 @@ import li.cil.oc2.common.bus.device.DeviceTypes;
 import li.cil.oc2.common.bus.device.data.BlockDeviceDataRegistry;
 import li.cil.oc2.common.bus.device.data.FirmwareRegistry;
 import li.cil.oc2.common.bus.device.provider.ProviderRegistry;
+import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.config.client.ClientSpec;
 import li.cil.oc2.common.config.common.CommonSpec;
 import li.cil.oc2.common.container.Containers;
 import li.cil.oc2.common.entity.Entities;
+import li.cil.oc2.common.inet.DefaultSessionLayer;
 import li.cil.oc2.common.item.ItemGroup;
 import li.cil.oc2.common.item.Items;
 import li.cil.oc2.common.item.crafting.RecipeSerializers;
@@ -37,10 +40,12 @@ import org.apache.logging.log4j.LogManager;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.Random;
 
 @Mod(API.MOD_ID)
 public final class Main {
@@ -112,6 +117,26 @@ public final class Main {
                 Path tempFile = extractToTemp(resourcePath);
                 System.load(tempFile.toAbsolutePath().toString());
                 LoadedLibrary = true;
+                InetAddress address = new InetAddressConverter().convert("127.0.0.1");
+                Random garbageGenerator = new Random();
+                byte[] dataToSend = new byte[64];
+                for (int i = 0; i < 64; i++)
+                {
+                    dataToSend[i] = (byte) garbageGenerator.nextInt(0, 255);
+                }
+                byte[] data = DefaultSessionLayer.sendICMP(address.getAddress(), dataToSend, 64, Config.defaultEchoRequestTimeoutMs);
+                if (data != null) {
+                    for (int i = 0; i < 64; i++) {
+                        if (data[i] != dataToSend[i]) {
+                            LogManager.getLogger().error("ICMP data does not match, falling back to JVM UDP implementation");
+                            LoadedLibrary = false;
+                        }
+                    }
+                }
+                else {
+                    LoadedLibrary = false;
+                    LogManager.getLogger().error("Loaded native library successfully but ICMP still failed, falling back to JVM UDP implementation");
+                }
             } catch(FileNotFoundException fileNotFoundException) {
                 if (officiallySupported) {
                     LoadedLibrary = false;
