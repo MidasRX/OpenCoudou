@@ -25,7 +25,9 @@ gradle.projectsEvaluated {
             "windows/oc2rnet-x86_64.dll",
             "windows/oc2rnet-arm64.dll",
             "linux/liboc2rnet-linux-x86_64.so",
-            "linux/liboc2rnet-linux-arm64.so"
+            "linux/liboc2rnet-linux-arm64.so",
+            "android/liboc2rnet-android-arm64.so",
+            "android/liboc2rnet-android-x86_64.so"
         ]
 
         targets.each { path ->
@@ -132,7 +134,7 @@ dependencies {
         compileOnly "li.cil.sedna:sedna-buildroot:0.0.40"
     }
     implementation fileTree(dir: 'libs', include: '*.jar')
-//    implementation "curse.maven:sedna-511276:3885542"
+    // implementation "curse.maven:sedna-511276:3885542"
     minecraftLibrary "org.apache.commons:commons-collections4:${apache_commons_version}"
 
     implementation fg.deobf("curse.maven:architectury-api-${architectury_project_id}:${architectury_file_id}")
@@ -168,7 +170,6 @@ dependencies {
         jarJar.pin(it, "")
     }
 
-    // Test Dependencies
     testImplementation "org.mockito:mockito-inline:${mockito_version}"
     testImplementation "org.junit.jupiter:junit-jupiter-api:${jupiter_version}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${jupiter_version}"

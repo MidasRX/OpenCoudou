@@ -14,6 +14,7 @@ import li.cil.oc2.common.bus.device.DeviceTypes;
 import li.cil.oc2.common.bus.device.data.BlockDeviceDataRegistry;
 import li.cil.oc2.common.bus.device.data.FirmwareRegistry;
 import li.cil.oc2.common.bus.device.provider.ProviderRegistry;
+import li.cil.oc2.common.config.AsyncConfig;
 import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.config.client.ClientSpec;
 import li.cil.oc2.common.config.common.CommonSpec;
@@ -60,6 +61,7 @@ public final class Main {
 
         context.registerConfig(ModConfig.Type.COMMON, CommonSpec.CONFIG_SPEC);
         context.registerConfig(ModConfig.Type.CLIENT, ClientSpec.CLIENT_CONFIG_SPEC);
+        context.registerConfig(ModConfig.Type.SERVER, AsyncConfig.SERVER_SPEC);
 
         RegistryUtils.begin();
 
