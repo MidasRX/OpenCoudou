@@ -32,6 +32,7 @@ import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,6 +44,8 @@ import java.util.HashMap;
 
 @Mod(API.MOD_ID)
 public final class Main {
+    public static boolean LoadedLibrary = false;
+
     public Main(FMLJavaModLoadingContext context) {
         EventBuses.registerModEventBus(API.MOD_ID, context.getModEventBus());
         Ceres.initialize();
@@ -101,20 +104,25 @@ public final class Main {
                 case MACOS -> "liboc2rnet-" + arch + ".dylib";
                 case WINDOWS -> "oc2rnet-" + arch + ".dll";
                 case LINUX -> "liboc2rnet-linux-" + arch + ".so";
+                case ANDROID -> "liboc2rnet-android-" + arch + ".so";
             };
 
             String resourcePath = "/natives/" + platform + "/" + libName;
             try {
                 Path tempFile = extractToTemp(resourcePath);
                 System.load(tempFile.toAbsolutePath().toString());
+                LoadedLibrary = true;
             } catch(FileNotFoundException fileNotFoundException) {
                 if (officiallySupported) {
-                    throw new RuntimeException("Failed to load native library, jar file is corrupted or build failed, attempted to load from path: " + resourcePath);
+                    LoadedLibrary = false;
+                    LogManager.getLogger().warn("Failed to load native library, jar file is corrupted or build failed, attempted to load from path: {}", resourcePath);
                 } else {
-                    throw new UnsupportedOperationException("Unsupported architecture: " + arch);
+                    LoadedLibrary = false;
+                    LogManager.getLogger().warn("Unsupported architecture: {}", arch);
                 }
             } catch (IOException e) {
-                throw new RuntimeException("Failed to load native library: " + resourcePath, e);
+                LoadedLibrary = false;
+                LogManager.getLogger().warn("Failed to load native library: {}", resourcePath, e);
             }
         }
 
@@ -138,6 +146,7 @@ public final class Main {
             } else if (os.contains("nux") || os.contains("nix")) {
                 return Platform.LINUX;
             } else {
+                if (System.getProperty("java.vm.vendor").equalsIgnoreCase("the android project")) return Platform.ANDROID;
                 throw new UnsupportedOperationException("Unsupported OS: " + os);
             }
         }
@@ -154,7 +163,8 @@ public final class Main {
         private enum Platform {
             LINUX,
             MACOS,
-            WINDOWS;
+            WINDOWS,
+            ANDROID;
 
             @Override
             public String toString() {
