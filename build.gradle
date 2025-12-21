@@ -308,6 +308,7 @@ curseforge {
         mainArtifact "build/libs/oc2r-${minecraft_version}-${minecraft_sdk}-${version}-all.jar"
         relations {
             requiredDependency "markdownmanual"
+            requiredDependency "packet-fixer"
         }
     }
 }
@@ -322,6 +323,7 @@ modrinth {
     changelog = System.getenv("CHANGELOG") ?: "Changelog not available."
     dependencies {
         required.project "markdownmanual"
+        required.project "packet-fixer"
     }
 }
 
