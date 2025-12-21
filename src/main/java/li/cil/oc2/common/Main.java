@@ -112,6 +112,7 @@ public final class Main {
                 case WINDOWS -> "oc2rnet-" + arch + ".dll";
                 case LINUX -> "liboc2rnet-linux-" + arch + ".so";
                 case ANDROID -> "liboc2rnet-android-" + arch + ".so";
+                case UNSUPPORTED -> "NONE";
             };
 
             String resourcePath = "/natives/" + platform + "/" + libName;
@@ -174,7 +175,8 @@ public final class Main {
                 return Platform.LINUX;
             } else {
                 if (System.getProperty("java.vm.vendor").equalsIgnoreCase("the android project")) return Platform.ANDROID;
-                throw new UnsupportedOperationException("Unsupported OS: " + os);
+                officiallySupported = false;
+                return Platform.UNSUPPORTED;
             }
         }
 
@@ -191,7 +193,8 @@ public final class Main {
             LINUX,
             MACOS,
             WINDOWS,
-            ANDROID;
+            ANDROID,
+            UNSUPPORTED;
 
             @Override
             public String toString() {
