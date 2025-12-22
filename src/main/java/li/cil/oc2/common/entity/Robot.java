@@ -136,6 +136,10 @@ public final class Robot extends Entity implements li.cil.oc2.api.capabilities.R
         this.blocksBuilding = true;
         setNoGravity(true);
 
+        if (world.isClientSide()) {
+            terminal.setDisplayOnly(true);
+        }
+
         final CommonDeviceBusController busController = new CommonDeviceBusController(busElement, Config.robotEnergyPerTick);
         virtualMachine = new RobotVirtualMachine(busController);
         virtualMachine.state.builtinDevices.rtcMinecraft.setLevel(world);
