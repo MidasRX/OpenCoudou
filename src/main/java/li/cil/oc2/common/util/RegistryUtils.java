@@ -9,6 +9,7 @@ import li.cil.oc2.api.bus.device.provider.ItemDeviceProvider;
 import li.cil.oc2.common.bus.device.provider.ProviderRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.IForgeRegistry;
@@ -70,18 +71,18 @@ public abstract class RegistryUtils {
         if(registryEntry == null) {
             return Optional.empty();
         }
-        String providerName = null;
-        if (BlockDeviceProvider.class.isAssignableFrom(registryEntry.getClass())) {
-            providerName = ProviderRegistry.BLOCK_DEVICE_PROVIDER_REGISTRY.get().getRegistryName().toString();
-        } else if (ItemDeviceProvider.class.isAssignableFrom(registryEntry.getClass())) {
-            providerName = ProviderRegistry.ITEM_DEVICE_PROVIDER_REGISTRY.get().getRegistryName().toString();
+        ResourceLocation providerKey = null;
+        if (registryEntry instanceof final BlockDeviceProvider blockDeviceProvider) {
+            providerKey = ProviderRegistry.BLOCK_DEVICE_PROVIDER_REGISTRY.get().getKey(blockDeviceProvider);
+        } else if (registryEntry instanceof final ItemDeviceProvider itemDeviceProvider) {
+            providerKey = ProviderRegistry.ITEM_DEVICE_PROVIDER_REGISTRY.get().getKey(itemDeviceProvider);
         }
 
-        if(providerName == null) {
+        if (providerKey == null) {
             return Optional.empty();
         }
 
-        return Optional.of(providerName);
+        return Optional.of(providerKey.toString());
     }
 
     private RegistryUtils() {
