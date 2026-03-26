@@ -258,6 +258,30 @@ object ModBlockEntities {
             ).build(null)
         }
     
+    val SWITCH: DeferredHolder<BlockEntityType<*>, BlockEntityType<SwitchBlockEntity>> =
+        BLOCK_ENTITIES.register("switch") {
+            BlockEntityType.Builder.of(
+                ::SwitchBlockEntity,
+                ModBlocks.SWITCH.get()
+            ).build(null)
+        }
+    
+    val NET_SPLITTER: DeferredHolder<BlockEntityType<*>, BlockEntityType<NetSplitterBlockEntity>> =
+        BLOCK_ENTITIES.register("net_splitter") {
+            BlockEntityType.Builder.of(
+                ::NetSplitterBlockEntity,
+                ModBlocks.NET_SPLITTER.get()
+            ).build(null)
+        }
+    
+    val ROBOT: DeferredHolder<BlockEntityType<*>, BlockEntityType<RobotBlockEntity>> =
+        BLOCK_ENTITIES.register("robot") {
+            BlockEntityType.Builder.of(
+                ::RobotBlockEntity,
+                ModBlocks.ROBOT.get()
+            ).build(null)
+        }
+    
     // ========================================
     // Registration
     // ========================================

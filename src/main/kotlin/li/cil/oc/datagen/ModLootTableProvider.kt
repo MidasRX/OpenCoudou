@@ -57,8 +57,8 @@ class ModBlockLootSubProvider(
         dropSelf(ModBlocks.POWER_DISTRIBUTOR.get())
         
         dropSelf(ModBlocks.RELAY.get())
-        dropSelf(ModBlocks.SWITCH.get())
         dropSelf(ModBlocks.ACCESS_POINT.get())
+        dropSelf(ModBlocks.SWITCH.get())
         dropSelf(ModBlocks.NET_SPLITTER.get())
         
         dropSelf(ModBlocks.DISK_DRIVE.get())

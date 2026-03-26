@@ -189,6 +189,26 @@ object ModBlocks {
     }
     
     // ========================================
+    // Networking (additional)
+    // ========================================
+    
+    val SWITCH: DeferredBlock<SwitchBlock> = BLOCKS.registerBlock("switch", ::SwitchBlock) {
+        baseProperties().strength(2.0f)
+    }
+    
+    val NET_SPLITTER: DeferredBlock<NetSplitterBlock> = BLOCKS.registerBlock("net_splitter", ::NetSplitterBlock) {
+        baseProperties().strength(2.0f)
+    }
+    
+    // ========================================
+    // Robot (block form when assembled)
+    // ========================================
+    
+    val ROBOT: DeferredBlock<RobotBlock> = BLOCKS.registerBlock("robot", ::RobotBlock) {
+        baseProperties().strength(2.0f).noOcclusion()
+    }
+    
+    // ========================================
     // Helper Methods
     // ========================================
     

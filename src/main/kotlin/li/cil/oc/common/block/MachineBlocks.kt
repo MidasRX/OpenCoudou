@@ -425,3 +425,27 @@ class PrinterBlock(properties: Properties) : Block(properties), EntityBlock {
         super.onRemove(state, level, pos, newState, isMoving)
     }
 }
+
+/**
+ * Robot block - the placed form of an assembled robot.
+ * When placed in the world the robot entity is spawned at this location.
+ */
+class RobotBlock(properties: Properties) : Block(properties), EntityBlock {
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): net.minecraft.world.level.block.entity.BlockEntity =
+        li.cil.oc.common.blockentity.RobotBlockEntity(pos, state)
+
+    override fun getRenderShape(state: BlockState): net.minecraft.world.level.block.RenderShape =
+        net.minecraft.world.level.block.RenderShape.MODEL
+
+    override fun <T : net.minecraft.world.level.block.entity.BlockEntity> getTicker(
+        level: net.minecraft.world.level.Level,
+        state: BlockState,
+        type: net.minecraft.world.level.block.entity.BlockEntityType<T>
+    ): net.minecraft.world.level.block.entity.BlockEntityTicker<T>? {
+        return if (type == li.cil.oc.common.init.ModBlockEntities.ROBOT.get()) {
+            net.minecraft.world.level.block.entity.BlockEntityTicker { lvl, pos, st, be ->
+                (be as? li.cil.oc.common.blockentity.RobotBlockEntity)?.tick(lvl, pos, st)
+            }
+        } else null
+    }
+}

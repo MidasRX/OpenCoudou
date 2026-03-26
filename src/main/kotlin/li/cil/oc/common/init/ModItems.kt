@@ -389,6 +389,150 @@ object ModItems {
     val DEBUG_CARD: DeferredItem<DebugCardItem> = ITEMS.registerItem("debugcard", ::DebugCardItem)
     
     // ========================================
+    // APUs (Accelerated Processing Units)
+    // ========================================
+
+    val APU_TIER1: DeferredItem<APUItem> = ITEMS.registerItem("apu1") { props ->
+        APUItem(0, props)
+    }
+
+    val APU_TIER2: DeferredItem<APUItem> = ITEMS.registerItem("apu2") { props ->
+        APUItem(1, props)
+    }
+
+    // ========================================
+    // Keyboard Components
+    // ========================================
+
+    val ARROW_KEYS: DeferredItem<MaterialItems.ArrowKeysItem> = ITEMS.registerItem("arrowkeys") { props ->
+        MaterialItems.ArrowKeysItem(props)
+    }
+    val BUTTON_GROUP: DeferredItem<MaterialItems.ButtonGroupItem> = ITEMS.registerItem("buttongroup") { props ->
+        MaterialItems.ButtonGroupItem(props)
+    }
+    val NUMPAD: DeferredItem<MaterialItems.NumpadItem> = ITEMS.registerItem("numpad") { props ->
+        MaterialItems.NumpadItem(props)
+    }
+
+    // ========================================
+    // Servers
+    // ========================================
+
+    val SERVER_TIER1: DeferredItem<ServerItem> = ITEMS.registerItem("server1") { props ->
+        ServerItem(props, 1)
+    }
+    val SERVER_TIER2: DeferredItem<ServerItem> = ITEMS.registerItem("server2") { props ->
+        ServerItem(props, 2)
+    }
+    val SERVER_TIER3: DeferredItem<ServerItem> = ITEMS.registerItem("server3") { props ->
+        ServerItem(props, 3)
+    }
+    val SERVER_CREATIVE: DeferredItem<ServerItem> = ITEMS.registerItem("server_creative") { props ->
+        ServerItem(props, 4)
+    }
+
+    // ========================================
+    // Remote Terminal / Terminal Server
+    // ========================================
+
+    val REMOTE_TERMINAL: DeferredItem<RemoteTerminalItem> = ITEMS.registerItem("remoteterminal", ::RemoteTerminalItem)
+    val TERMINAL_SERVER: DeferredItem<TerminalServerItem> = ITEMS.registerItem("terminalserver", ::TerminalServerItem)
+
+    // ========================================
+    // Microcontroller Cases
+    // ========================================
+
+    val MICROCONTROLLER_CASE_TIER1: DeferredItem<MaterialItems.MicrocontrollerCaseItem> = ITEMS.registerItem("microcontrollercase1") { props ->
+        MaterialItems.MicrocontrollerCaseItem(props, 1)
+    }
+    val MICROCONTROLLER_CASE_TIER2: DeferredItem<MaterialItems.MicrocontrollerCaseItem> = ITEMS.registerItem("microcontrollercase2") { props ->
+        MaterialItems.MicrocontrollerCaseItem(props, 2)
+    }
+    val MICROCONTROLLER_CASE_CREATIVE: DeferredItem<MaterialItems.MicrocontrollerCaseItem> = ITEMS.registerItem("microcontrollercase_creative") { props ->
+        MaterialItems.MicrocontrollerCaseItem(props, 3)
+    }
+
+    // ========================================
+    // Tablet Cases
+    // ========================================
+
+    val TABLET_CASE_TIER1: DeferredItem<MaterialItems.TabletCaseItem> = ITEMS.registerItem("tabletcase1") { props ->
+        MaterialItems.TabletCaseItem(props, 1)
+    }
+    val TABLET_CASE_TIER2: DeferredItem<MaterialItems.TabletCaseItem> = ITEMS.registerItem("tabletcase2") { props ->
+        MaterialItems.TabletCaseItem(props, 2)
+    }
+    val TABLET_CASE_CREATIVE: DeferredItem<MaterialItems.TabletCaseItem> = ITEMS.registerItem("tabletcase_creative") { props ->
+        MaterialItems.TabletCaseItem(props, 3)
+    }
+
+    // ========================================
+    // Additional Materials
+    // ========================================
+
+    val INK_CARTRIDGE_COLOR: DeferredItem<Item> = ITEMS.registerSimpleItem("inkcartridge_color")
+
+    // ========================================
+    // Additional Upgrades
+    // ========================================
+
+    val SIGN_IO_UPGRADE: DeferredItem<SignIOUpgradeItem> = ITEMS.registerItem("signio_upgrade", ::SignIOUpgradeItem)
+
+    // ========================================
+    // Aliases for datagen compatibility
+    // ========================================
+
+    // Block item aliases
+    val CABLE get() = CABLE_ITEM
+    val CAPACITOR get() = CAPACITOR_ITEM
+
+    // Item name aliases
+    val FLOPPY_DISK get() = FLOPPY
+    val GRAPHICS_CARD_TIER1 get() = GPU_TIER1
+    val GRAPHICS_CARD_TIER2 get() = GPU_TIER2
+    val GRAPHICS_CARD_TIER3 get() = GPU_TIER3
+    val MEMORY_TIER15 get() = MEMORY_TIER1_5
+    val MEMORY_TIER25 get() = MEMORY_TIER2_5
+    val MEMORY_TIER35 get() = MEMORY_TIER3_5
+    val RAM_TIER1 get() = MEMORY_TIER1
+    val RAM_TIER15 get() = MEMORY_TIER1_5
+    val RAM_TIER2 get() = MEMORY_TIER2
+    val RAM_TIER25 get() = MEMORY_TIER2_5
+    val RAM_TIER3 get() = MEMORY_TIER3
+    val RAM_TIER35 get() = MEMORY_TIER3_5
+
+    // Upgrade aliases
+    val ANGEL_UPGRADE get() = UPGRADE_ANGEL
+    val BATTERY_UPGRADE_TIER1 get() = UPGRADE_BATTERY_TIER1
+    val BATTERY_UPGRADE_TIER2 get() = UPGRADE_BATTERY_TIER2
+    val BATTERY_UPGRADE_TIER3 get() = UPGRADE_BATTERY_TIER3
+    val CHUNKLOADER_UPGRADE get() = UPGRADE_CHUNKLOADER
+    val CRAFTING_UPGRADE get() = UPGRADE_CRAFTING
+    val DATABASE_UPGRADE_TIER1 get() = UPGRADE_DATABASE_TIER1
+    val DATABASE_UPGRADE_TIER2 get() = UPGRADE_DATABASE_TIER2
+    val DATABASE_UPGRADE_TIER3 get() = UPGRADE_DATABASE_TIER3
+    val EXPERIENCE_UPGRADE get() = UPGRADE_EXPERIENCE
+    val GENERATOR_UPGRADE get() = UPGRADE_GENERATOR
+    val HOVER_UPGRADE_TIER1 get() = UPGRADE_HOVER_TIER1
+    val HOVER_UPGRADE_TIER2 get() = UPGRADE_HOVER_TIER2
+    val INVENTORY_UPGRADE get() = UPGRADE_INVENTORY
+    val INVENTORY_CONTROLLER_UPGRADE get() = UPGRADE_INVENTORY_CONTROLLER
+    val LEASH_UPGRADE get() = UPGRADE_LEASH
+    val MFU get() = UPGRADE_MFU
+    val NAVIGATION_UPGRADE get() = UPGRADE_NAVIGATION
+    val PISTON_UPGRADE get() = UPGRADE_PISTON
+    val SIGN_UPGRADE get() = UPGRADE_SIGN
+    val SOLAR_GENERATOR_UPGRADE get() = UPGRADE_SOLAR_GENERATOR
+    val TANK_UPGRADE get() = UPGRADE_TANK
+    val TANK_CONTROLLER_UPGRADE get() = UPGRADE_TANK_CONTROLLER
+    val TRACTOR_BEAM_UPGRADE get() = UPGRADE_TRACTOR_BEAM
+    val TRADING_UPGRADE get() = UPGRADE_TRADING
+
+    // Material aliases
+    val CIRCUIT_BOARD get() = CIRCUIT_TIER1
+    val PRINTED_CIRCUIT_BOARD get() = CIRCUIT_TIER2
+
+    // ========================================
     // Registration
     // ========================================
     

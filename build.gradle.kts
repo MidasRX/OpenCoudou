@@ -30,10 +30,11 @@ kotlin {
 neoForge {
     version = neoVersion
     
-    parchment {
-        mappingsVersion = "2024.11.17"
-        minecraftVersion = "1.21.4"
-    }
+    // parchment mappings disabled (network unavailable - use official names)
+    // parchment {
+    //     mappingsVersion = "2024.11.17"
+    //     minecraftVersion = "1.21.4"
+    // }
     
     runs {
         register("client") {
@@ -73,6 +74,9 @@ repositories {
     mavenCentral()
     maven("https://maven.neoforged.net/releases")
     maven("https://www.cursemaven.com")
+    maven("https://libraries.minecraft.net")
+    maven("https://repo.maven.apache.org/maven2")
+    maven("https://maven.parchmentmc.org")
 }
 
 dependencies {

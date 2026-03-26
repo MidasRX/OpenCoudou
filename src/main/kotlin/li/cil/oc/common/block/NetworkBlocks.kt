@@ -271,3 +271,44 @@ class TransposerBlock(properties: Properties) : Block(properties), EntityBlock {
         } else null
     }
 }
+
+/**
+ * Switch block - routes network messages between up to 6 network segments.
+ */
+class SwitchBlock(properties: Properties) : Block(properties), EntityBlock {
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity =
+        li.cil.oc.common.blockentity.SwitchBlockEntity(pos, state)
+
+    override fun getRenderShape(state: BlockState): RenderShape = RenderShape.MODEL
+
+    override fun <T : BlockEntity> getTicker(
+        level: Level, state: BlockState, type: BlockEntityType<T>
+    ): BlockEntityTicker<T>? {
+        return if (type == ModBlockEntities.SWITCH.get()) {
+            BlockEntityTicker { lvl, pos, st, be ->
+                (be as? li.cil.oc.common.blockentity.SwitchBlockEntity)?.tick(lvl, pos, st)
+            }
+        } else null
+    }
+}
+
+/**
+ * Net splitter block - splits a network into two isolated halves,
+ * controllable via redstone.
+ */
+class NetSplitterBlock(properties: Properties) : Block(properties), EntityBlock {
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity =
+        li.cil.oc.common.blockentity.NetSplitterBlockEntity(pos, state)
+
+    override fun getRenderShape(state: BlockState): RenderShape = RenderShape.MODEL
+
+    override fun <T : BlockEntity> getTicker(
+        level: Level, state: BlockState, type: BlockEntityType<T>
+    ): BlockEntityTicker<T>? {
+        return if (type == ModBlockEntities.NET_SPLITTER.get()) {
+            BlockEntityTicker { lvl, pos, st, be ->
+                (be as? li.cil.oc.common.blockentity.NetSplitterBlockEntity)?.tick(lvl, pos, st)
+            }
+        } else null
+    }
+}
