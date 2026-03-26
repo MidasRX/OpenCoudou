@@ -1,5 +1,5 @@
 {
-  "variants": {
-    "": { "model": "opencomputers:block/geolyzer" }
-  }
+    "variants": {
+        "normal": { "model": "opencomputers:geolyzer" }
+    }
 }

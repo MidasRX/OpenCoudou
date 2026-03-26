@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GNG",
+    "NTN",
+    "GNG"
+  ],
+  "key": {
+    "G": {"item": "minecraft:gold_nugget"},
+    "N": {"item": "minecraft:iron_nugget"},
+    "T": {"item": "opencomputers:transistor"}
+  },
+  "result": {
+    "item": "opencomputers:control_unit"
+  }
+}

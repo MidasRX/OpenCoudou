@@ -1,21 +1,20 @@
 {
-  "parent": "minecraft:block/thin_block",
-  "textures": {
-    "particle": "opencomputers:block/keyboard",
-    "texture": "opencomputers:block/keyboard"
-  },
-  "elements": [
-    {
-      "from": [0, 0, 4],
-      "to": [16, 2, 12],
-      "faces": {
-        "north": {"uv": [0, 14, 16, 16], "texture": "#texture"},
-        "east": {"uv": [4, 14, 12, 16], "texture": "#texture"},
-        "south": {"uv": [0, 14, 16, 16], "texture": "#texture"},
-        "west": {"uv": [4, 14, 12, 16], "texture": "#texture"},
-        "up": {"uv": [0, 4, 16, 12], "texture": "#texture"},
-        "down": {"uv": [0, 4, 16, 12], "texture": "#texture"}
-      }
-    }
-  ]
+    "parent": "block/block",
+    "textures": {
+        "all": "opencomputers:blocks/keyboard",
+        "particle": "opencomputers:blocks/generic_top"
+    },
+    "elements": [
+        {   "from": [ 1, 4, 15 ],
+            "to": [ 15, 12, 16 ],
+            "faces": {
+                "down":  { "uv": [ 1, 15, 15, 16 ], "texture": "#all" },
+                "up":    { "uv": [ 1, 15, 15, 16 ], "texture": "#all" },
+                "north": { "uv": [ 1, 4, 15, 12 ], "texture": "#all" },
+                "south": { "uv": [ 1, 4, 15, 12 ], "texture": "#all" },
+                "west":  { "uv": [ 15, 4, 16, 12 ], "texture": "#all" },
+                "east":  { "uv": [ 15, 4, 16, 12 ], "texture": "#all" }
+            }
+        }
+    ]
 }

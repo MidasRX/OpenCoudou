@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "RNR",
+    "NTN",
+    "RNR"
+  ],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "N": {"item": "minecraft:iron_nugget"},
+    "T": {"item": "opencomputers:transistor"}
+  },
+  "result": {
+    "item": "opencomputers:alu"
+  }
+}

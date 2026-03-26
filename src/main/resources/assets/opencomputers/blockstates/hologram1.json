@@ -1,5 +1,5 @@
 {
-  "variants": {
-    "": { "model": "opencomputers:block/hologram1" }
-  }
+    "variants": {
+        "normal": { "model": "opencomputers:hologram1" }
+    }
 }

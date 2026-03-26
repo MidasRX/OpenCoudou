@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CTN",
+    "CAC",
+    "NCT"
+  ],
+  "key": {
+    "C": {"item": "opencomputers:chip2"},
+    "T": {"item": "opencomputers:transistor"},
+    "N": {"item": "minecraft:gold_nugget"},
+    "A": {"item": "opencomputers:alu"}
+  },
+  "result": {
+    "item": "opencomputers:cpu2"
+  }
+}

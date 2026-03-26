@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CCC",
+    "GGG",
+    "CCC"
+  ],
+  "key": {
+    "C": {"item": "minecraft:clay_ball"},
+    "G": {"item": "minecraft:gold_nugget"}
+  },
+  "result": {
+    "item": "opencomputers:rawcircuitboard",
+    "count": 1
+  }
+}

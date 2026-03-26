@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "RNR",
+    "CTC",
+    "RNR"
+  ],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "N": {"item": "minecraft:iron_nugget"},
+    "C": {"item": "opencomputers:chip1"},
+    "T": {"item": "opencomputers:transistor"}
+  },
+  "result": {
+    "item": "opencomputers:cpu1",
+    "count": 1
+  }
+}

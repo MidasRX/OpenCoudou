@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CTN",
+    "CAC",
+    "NCT"
+  },
+  "key": {
+    "C": {"item": "opencomputers:chip3"},
+    "T": {"item": "opencomputers:transistor"},
+    "N": {"item": "minecraft:diamond"},
+    "A": {"item": "opencomputers:alu"}
+  },
+  "result": {
+    "item": "opencomputers:cpu3"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "RGR",
+    "GDG",
+    "RGR"
+  ],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "G": {"item": "minecraft:gold_nugget"},
+    "D": {"item": "minecraft:diamond"}
+  },
+  "result": {
+    "item": "opencomputers:chamelium",
+    "count": 8
+  }
+}

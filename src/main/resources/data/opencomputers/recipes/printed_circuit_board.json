@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGI",
+    "GCG",
+    "IGI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_nugget"},
+    "G": {"item": "minecraft:gold_nugget"},
+    "C": {"item": "opencomputers:circuitboard"}
+  },
+  "result": {
+    "item": "opencomputers:printedcircuitboard",
+    "count": 1
+  }
+}

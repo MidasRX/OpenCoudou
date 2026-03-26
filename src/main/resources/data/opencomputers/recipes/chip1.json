@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "INI",
+    "RCR",
+    "INI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_nugget"},
+    "N": {"item": "minecraft:gold_nugget"},
+    "R": {"item": "minecraft:redstone"},
+    "C": {"item": "opencomputers:circuitboard"}
+  },
+  "result": {
+    "item": "opencomputers:chip1",
+    "count": 4
+  }
+}

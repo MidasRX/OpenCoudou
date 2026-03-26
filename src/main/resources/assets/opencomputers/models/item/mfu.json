@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "opencomputers:item/mfu"
-  }
+    "parent": "opencomputers:item/flat",
+    "textures": {
+        "layer0": "opencomputers:items/mfu"
+    }
 }

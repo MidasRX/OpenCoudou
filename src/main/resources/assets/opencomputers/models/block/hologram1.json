@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:block/cube_all",
-  "textures": {
-    "all": "opencomputers:block/hologram1"
-  }
+    "parent": "opencomputers:block/hologram",
+    "textures": {
+        "top": "opencomputers:blocks/hologram1_top"
+    }
 }

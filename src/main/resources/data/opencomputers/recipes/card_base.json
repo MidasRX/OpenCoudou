@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "INI",
+    "TPT",
+    "III"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_nugget"},
+    "N": {"item": "minecraft:gold_nugget"},
+    "T": {"item": "opencomputers:transistor"},
+    "P": {"item": "opencomputers:circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:card_base"
+  }
+}

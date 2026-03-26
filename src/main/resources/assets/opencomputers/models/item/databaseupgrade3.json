@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "opencomputers:item/databaseupgrade3"
-  }
+    "parent": "opencomputers:item/flat",
+    "textures": {
+        "layer0": "opencomputers:items/databaseupgrade3"
+    }
 }
