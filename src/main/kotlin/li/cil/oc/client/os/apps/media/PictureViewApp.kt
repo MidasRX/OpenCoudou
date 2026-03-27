@@ -1,0 +1,614 @@
+package li.cil.oc.client.os.apps.media
+
+import li.cil.oc.client.os.core.KotlinOS
+import li.cil.oc.client.os.apps.Application
+import li.cil.oc.client.os.apps.AppInfo
+import li.cil.oc.client.os.apps.AppCategory
+import li.cil.oc.client.os.libs.*
+
+/**
+ * Picture View - Image viewer for OCIF format images.
+ * Features:
+ * - View images in full screen or windowed mode
+ * - Slideshow mode with configurable delay
+ * - Navigate through images in a directory
+ * - Zoom and pan
+ * - Image information overlay
+ */
+
+private val PICTURE_VIEW_INFO = AppInfo(
+    id = "picture_view",
+    name = "Picture View",
+    icon = "🖼",
+    category = AppCategory.MEDIA,
+    description = "Image viewer with slideshow support"
+) { PictureViewApp(it) }
+
+class PictureViewApp(os: KotlinOS) : Application(os, PICTURE_VIEW_INFO) {
+    
+    // Image data
+    private var currentImage: ImageData? = null
+    private var currentImagePath = ""
+    private var imageList = mutableListOf<String>()
+    private var currentImageIndex = 0
+    
+    // Display
+    private var offsetX = 0
+    private var offsetY = 0
+    private var zoom = 1.0f
+    private var fitToScreen = true
+    private var showUI = true
+    private var fullscreen = false
+    
+    // Slideshow
+    private var slideshowActive = false
+    private var slideshowDelay = 5000L // ms
+    private var slideshowLastChange = 0L
+    
+    // UI State
+    private var showInfo = false
+    private var showHelp = false
+    private var showFileBrowser = false
+    private var fileBrowserPath = "/home/wallpapers"
+    private var fileBrowserSelection = 0
+    private var fileBrowserFiles = mutableListOf<String>()
+    
+    data class ImageData(
+        val width: Int,
+        val height: Int,
+        val pixels: Array<IntArray>,
+        val chars: Array<CharArray>? = null
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is ImageData) return false
+            return width == other.width && height == other.height && pixels.contentDeepEquals(other.pixels)
+        }
+        override fun hashCode(): Int = pixels.contentDeepHashCode()
+    }
+    
+    override fun onCreate() {
+        createWindow("Picture View", 2, 1, 95, 30)
+        loadImageList(fileBrowserPath)
+    }
+    
+    override fun onStart() {
+        // If we have arguments, load that image
+        // Otherwise show file browser
+        if (imageList.isEmpty()) {
+            showFileBrowser = true
+            loadFileBrowser()
+        } else if (imageList.isNotEmpty()) {
+            loadImage(imageList[0])
+        }
+    }
+    
+    override fun onResume() {}
+    override fun onPause() {}
+    override fun onStop() {}
+    override fun onDestroy() {}
+    
+    override fun onUpdate() {
+        // Slideshow logic
+        if (slideshowActive && imageList.size > 1) {
+            val now = System.currentTimeMillis()
+            if (now - slideshowLastChange >= slideshowDelay) {
+                nextImage()
+                slideshowLastChange = now
+            }
+        }
+        
+        render()
+    }
+    
+    override fun onKeyDown(keyCode: Int, char: Char) {
+        if (showFileBrowser) {
+            handleFileBrowserInput(keyCode, char)
+            return
+        }
+        
+        when (keyCode) {
+            Keyboard.KEY_ESCAPE -> {
+                when {
+                    showHelp -> showHelp = false
+                    showInfo -> showInfo = false
+                    fullscreen -> { fullscreen = false; showUI = true }
+                    else -> close()
+                }
+            }
+            
+            // Navigation
+            Keyboard.KEY_LEFT, Keyboard.KEY_A -> previousImage()
+            Keyboard.KEY_RIGHT, Keyboard.KEY_D -> nextImage()
+            Keyboard.KEY_HOME -> firstImage()
+            Keyboard.KEY_END -> lastImage()
+            
+            // Panning (when zoomed)
+            Keyboard.KEY_UP, Keyboard.KEY_W -> if (!fitToScreen) offsetY -= 5
+            Keyboard.KEY_DOWN, Keyboard.KEY_S -> if (!fitToScreen) offsetY += 5
+            
+            // Zoom
+            Keyboard.KEY_PLUS, Keyboard.KEY_EQUALS -> {
+                if (zoom < 4.0f) {
+                    zoom += 0.25f
+                    fitToScreen = false
+                }
+            }
+            Keyboard.KEY_MINUS -> {
+                if (zoom > 0.25f) {
+                    zoom -= 0.25f
+                    fitToScreen = false
+                }
+            }
+            Keyboard.KEY_0 -> {
+                zoom = 1.0f
+                fitToScreen = true
+                offsetX = 0
+                offsetY = 0
+            }
+            
+            // Slideshow
+            Keyboard.KEY_SPACE -> {
+                slideshowActive = !slideshowActive
+                slideshowLastChange = System.currentTimeMillis()
+            }
+            Keyboard.KEY_PERIOD -> if (slideshowDelay < 30000) slideshowDelay += 500
+            Keyboard.KEY_COMMA -> if (slideshowDelay > 500) slideshowDelay -= 500
+            
+            // UI toggles
+            Keyboard.KEY_TAB -> showUI = !showUI
+            Keyboard.KEY_I -> showInfo = !showInfo
+            Keyboard.KEY_H -> showHelp = !showHelp
+            Keyboard.KEY_F -> {
+                fullscreen = !fullscreen
+                if (fullscreen) showUI = false else showUI = true
+            }
+            Keyboard.KEY_O -> {
+                showFileBrowser = true
+                loadFileBrowser()
+            }
+            
+            // Edit
+            Keyboard.KEY_E -> {
+                if (currentImagePath.isNotEmpty()) {
+                    // Launch Picture Edit with current image
+                    os.launchApp("picture_edit", listOf(currentImagePath))
+                }
+            }
+        }
+    }
+    
+    private fun handleFileBrowserInput(keyCode: Int, char: Char) {
+        when (keyCode) {
+            Keyboard.KEY_ESCAPE -> {
+                showFileBrowser = false
+                if (currentImage == null && imageList.isEmpty()) close()
+            }
+            Keyboard.KEY_UP -> {
+                if (fileBrowserSelection > 0) fileBrowserSelection--
+            }
+            Keyboard.KEY_DOWN -> {
+                if (fileBrowserSelection < fileBrowserFiles.size - 1) fileBrowserSelection++
+            }
+            Keyboard.KEY_ENTER -> {
+                if (fileBrowserFiles.isNotEmpty()) {
+                    val selected = fileBrowserFiles[fileBrowserSelection]
+                    val fullPath = "$fileBrowserPath/$selected"
+                    
+                    if (selected == "..") {
+                        fileBrowserPath = Paths.parent(fileBrowserPath) ?: "/"
+                        loadFileBrowser()
+                    } else if (os.fileSystem.isDirectory(fullPath)) {
+                        fileBrowserPath = fullPath
+                        loadFileBrowser()
+                    } else if (selected.endsWith(".pic") || selected.endsWith(".ocif")) {
+                        loadImageList(fileBrowserPath)
+                        val idx = imageList.indexOf(fullPath)
+                        if (idx >= 0) currentImageIndex = idx
+                        loadImage(fullPath)
+                        showFileBrowser = false
+                    }
+                }
+            }
+            Keyboard.KEY_BACK -> {
+                fileBrowserPath = Paths.parent(fileBrowserPath) ?: "/"
+                loadFileBrowser()
+            }
+        }
+    }
+    
+    private fun loadFileBrowser() {
+        fileBrowserFiles.clear()
+        fileBrowserSelection = 0
+        
+        // Add parent directory
+        if (fileBrowserPath != "/") {
+            fileBrowserFiles.add("..")
+        }
+        
+        // List directory
+        val fs = os.fileSystem
+        fs.list(fileBrowserPath)?.forEach { name ->
+            val fullPath = "$fileBrowserPath/$name"
+            if (fs.isDirectory(fullPath)) {
+                fileBrowserFiles.add(name)
+            } else if (name.endsWith(".pic") || name.endsWith(".ocif") || name.endsWith(".png") || name.endsWith(".wlp")) {
+                fileBrowserFiles.add(name)
+            }
+        }
+        
+        fileBrowserFiles.sortWith(compareBy({ !it.startsWith(".") }, { !os.fileSystem.isDirectory("$fileBrowserPath/$it") }, { it.lowercase() }))
+    }
+    
+    private fun loadImageList(directory: String) {
+        imageList.clear()
+        currentImageIndex = 0
+        
+        val fs = os.fileSystem
+        fs.list(directory)?.forEach { name ->
+            if (name.endsWith(".pic") || name.endsWith(".ocif")) {
+                imageList.add("$directory/$name")
+            }
+        }
+        
+        imageList.sort()
+    }
+    
+    private fun loadImage(path: String) {
+        val fs = os.fileSystem
+        val data = fs.readText(path) ?: return
+        
+        currentImagePath = path
+        
+        // Parse OCIF format
+        if (data.length >= 8 && data.startsWith("OCIF")) {
+            val width = data[6].code
+            val height = data[7].code
+            
+            if (width > 0 && height > 0) {
+                val pixels = Array(height) { IntArray(width) }
+                val chars = Array(height) { CharArray(width) { ' ' } }
+                
+                var idx = 8
+                for (y in 0 until height) {
+                    for (x in 0 until width) {
+                        if (idx + 4 <= data.length) {
+                            val r = data[idx++].code and 0xFF
+                            val g = data[idx++].code and 0xFF
+                            val b = data[idx++].code and 0xFF
+                            val char = data[idx++]
+                            pixels[y][x] = (r shl 16) or (g shl 8) or b
+                            chars[y][x] = char
+                        }
+                    }
+                }
+                
+                currentImage = ImageData(width, height, pixels, chars)
+                
+                // Reset view
+                fitToScreen = true
+                zoom = 1.0f
+                offsetX = 0
+                offsetY = 0
+            }
+        }
+    }
+    
+    private fun nextImage() {
+        if (imageList.isEmpty()) return
+        currentImageIndex = (currentImageIndex + 1) % imageList.size
+        loadImage(imageList[currentImageIndex])
+    }
+    
+    private fun previousImage() {
+        if (imageList.isEmpty()) return
+        currentImageIndex = (currentImageIndex - 1 + imageList.size) % imageList.size
+        loadImage(imageList[currentImageIndex])
+    }
+    
+    private fun firstImage() {
+        if (imageList.isEmpty()) return
+        currentImageIndex = 0
+        loadImage(imageList[currentImageIndex])
+    }
+    
+    private fun lastImage() {
+        if (imageList.isEmpty()) return
+        currentImageIndex = imageList.size - 1
+        loadImage(imageList[currentImageIndex])
+    }
+    
+    private fun render() {
+        val w = window ?: return
+        
+        if (fullscreen) {
+            renderFullscreen()
+        } else {
+            renderWindowed(w)
+        }
+    }
+    
+    private fun renderWindowed(w: li.cil.oc.client.os.gui.Window) {
+        // Clear
+        Screen.setBackground(0x1A1A1A)
+        Screen.fill(w.x, w.y, w.width, w.height, ' ')
+        
+        // Title bar
+        if (showUI) {
+            Screen.setBackground(0x3C3C3C)
+            Screen.fill(w.x, w.y, w.width, 1, ' ')
+            Screen.setForeground(0xFFFFFF)
+            val title = "🖼 ${if (currentImagePath.isNotEmpty()) Paths.name(currentImagePath) else "Picture View"}"
+            Screen.set(w.x + 2, w.y, title)
+            
+            // Navigation info
+            if (imageList.size > 1) {
+                Screen.setForeground(0x888888)
+                Screen.set(w.x + w.width - 15, w.y, "${currentImageIndex + 1}/${imageList.size}")
+            }
+            
+            // Slideshow indicator
+            if (slideshowActive) {
+                Screen.setForeground(0x55FF55)
+                Screen.set(w.x + w.width - 5, w.y, "▶")
+            }
+        }
+        
+        // Image area
+        val imgStartX = w.x + 1
+        val imgStartY = w.y + (if (showUI) 2 else 1)
+        val imgWidth = w.width - 2
+        val imgHeight = w.height - (if (showUI) 4 else 2)
+        
+        val img = currentImage
+        if (img != null) {
+            renderImage(img, imgStartX, imgStartY, imgWidth, imgHeight)
+        } else {
+            Screen.setForeground(0x666666)
+            Screen.set(imgStartX + imgWidth / 2 - 8, imgStartY + imgHeight / 2, "No image loaded")
+            Screen.set(imgStartX + imgWidth / 2 - 10, imgStartY + imgHeight / 2 + 1, "Press O to open a file")
+        }
+        
+        // Status bar
+        if (showUI) {
+            Screen.setBackground(0x2D2D2D)
+            Screen.fill(w.x, w.y + w.height - 1, w.width, 1, ' ')
+            Screen.setForeground(0x888888)
+            
+            var status = "←→ Navigate | Space Slideshow | F Fullscreen | I Info | H Help"
+            if (img != null) {
+                status = "${img.width}x${img.height} | Zoom: ${(zoom * 100).toInt()}% | $status"
+            }
+            Screen.set(w.x + 2, w.y + w.height - 1, status.take(w.width - 4))
+        }
+        
+        // Info overlay
+        if (showInfo && img != null) {
+            renderInfoOverlay(w, img)
+        }
+        
+        // Help overlay
+        if (showHelp) {
+            renderHelpOverlay(w)
+        }
+        
+        // File browser overlay
+        if (showFileBrowser) {
+            renderFileBrowser(w)
+        }
+    }
+    
+    private fun renderFullscreen() {
+        val screenW = Screen.getWidth()
+        val screenH = Screen.getHeight()
+        
+        Screen.setBackground(0x000000)
+        Screen.fill(1, 1, screenW, screenH, ' ')
+        
+        val img = currentImage
+        if (img != null) {
+            renderImage(img, 1, 1, screenW, screenH)
+        }
+        
+        // Minimal overlay when not showing UI
+        if (!showUI) {
+            // Navigation hint in corner
+            Screen.setBackground(0x000000)
+            Screen.setForeground(0x333333)
+            Screen.set(screenW - 20, screenH, "Tab=Show UI  Esc=Exit")
+        }
+    }
+    
+    private fun renderImage(img: ImageData, startX: Int, startY: Int, areaWidth: Int, areaHeight: Int) {
+        // Calculate display dimensions
+        var displayWidth = img.width
+        var displayHeight = img.height
+        
+        if (fitToScreen) {
+            val scaleX = areaWidth.toFloat() / img.width
+            val scaleY = areaHeight.toFloat() / img.height
+            val scale = minOf(scaleX, scaleY, 1.0f)
+            displayWidth = (img.width * scale).toInt()
+            displayHeight = (img.height * scale).toInt()
+        } else {
+            displayWidth = (img.width * zoom).toInt()
+            displayHeight = (img.height * zoom).toInt()
+        }
+        
+        // Center the image
+        val imgX = startX + (areaWidth - displayWidth) / 2 + offsetX
+        val imgY = startY + (areaHeight - displayHeight) / 2 + offsetY
+        
+        // Draw image (simple nearest neighbor scaling)
+        for (y in 0 until minOf(displayHeight, areaHeight)) {
+            for (x in 0 until minOf(displayWidth, areaWidth)) {
+                val screenX = imgX + x
+                val screenY = imgY + y
+                
+                if (screenX >= startX && screenX < startX + areaWidth &&
+                    screenY >= startY && screenY < startY + areaHeight) {
+                    
+                    val srcX = (x * img.width / displayWidth).coerceIn(0, img.width - 1)
+                    val srcY = (y * img.height / displayHeight).coerceIn(0, img.height - 1)
+                    
+                    Screen.setBackground(img.pixels[srcY][srcX])
+                    val char = img.chars?.get(srcY)?.get(srcX) ?: ' '
+                    if (char != ' ') {
+                        Screen.setForeground(getContrastColor(img.pixels[srcY][srcX]))
+                        Screen.set(screenX, screenY, char.toString())
+                    } else {
+                        Screen.set(screenX, screenY, " ")
+                    }
+                }
+            }
+        }
+    }
+    
+    private fun renderInfoOverlay(w: li.cil.oc.client.os.gui.Window, img: ImageData) {
+        val infoX = w.x + w.width - 35
+        val infoY = w.y + 3
+        val infoW = 32
+        val infoH = 12
+        
+        Screen.setBackground(0x1A1A1A.withAlpha(0xC0))
+        Screen.fill(infoX, infoY, infoW, infoH, ' ')
+        Screen.setForeground(0x3C3C3C)
+        Screen.drawBorder(infoX, infoY, infoW, infoH)
+        
+        Screen.setForeground(0xFFFFFF)
+        Screen.set(infoX + 2, infoY, " Image Info ")
+        
+        val info = listOf(
+            "File: ${Paths.name(currentImagePath)}",
+            "Path: ${Paths.parent(currentImagePath) ?: "/"}",
+            "Size: ${img.width}x${img.height}",
+            "Zoom: ${(zoom * 100).toInt()}%",
+            "Index: ${currentImageIndex + 1}/${imageList.size}",
+            "",
+            "Slideshow: ${if (slideshowActive) "On" else "Off"}",
+            "Delay: ${slideshowDelay / 1000}s"
+        )
+        
+        Screen.setForeground(0xAAAAAA)
+        for ((i, line) in info.withIndex()) {
+            Screen.set(infoX + 2, infoY + 2 + i, line.take(infoW - 4))
+        }
+    }
+    
+    private fun renderHelpOverlay(w: li.cil.oc.client.os.gui.Window) {
+        val helpX = w.x + 10
+        val helpY = w.y + 3
+        val helpW = w.width - 20
+        val helpH = 18
+        
+        Screen.setBackground(0x1A1A1A)
+        Screen.fill(helpX, helpY, helpW, helpH, ' ')
+        Screen.setForeground(0x3C3C3C)
+        Screen.drawBorder(helpX, helpY, helpW, helpH)
+        
+        Screen.setForeground(0xFFFFFF)
+        Screen.set(helpX + 2, helpY, " Help ")
+        
+        val help = listOf(
+            "Navigation:",
+            "  ← →  or A D    Previous/Next image",
+            "  Home / End     First/Last image",
+            "",
+            "View:",
+            "  + -            Zoom in/out",
+            "  0              Reset zoom (fit to screen)",
+            "  ↑ ↓ or W S     Pan when zoomed",
+            "  F              Toggle fullscreen",
+            "  Tab            Toggle UI",
+            "",
+            "Slideshow:",
+            "  Space          Start/Stop slideshow", 
+            "  , .            Decrease/Increase delay",
+            "",
+            "Other:",
+            "  O              Open file browser",
+            "  E              Edit in Picture Edit",
+            "  I              Toggle info panel",
+            "  Esc            Close / Exit fullscreen"
+        )
+        
+        Screen.setForeground(0xAAAAAA)
+        for ((i, line) in help.take(helpH - 2).withIndex()) {
+            Screen.set(helpX + 2, helpY + 1 + i, line)
+        }
+    }
+    
+    private fun renderFileBrowser(w: li.cil.oc.client.os.gui.Window) {
+        val browserX = w.x + 15
+        val browserY = w.y + 3
+        val browserW = w.width - 30
+        val browserH = w.height - 6
+        
+        Screen.setBackground(0x1E1E1E)
+        Screen.fill(browserX, browserY, browserW, browserH, ' ')
+        Screen.setForeground(0x3C3C3C)
+        Screen.drawBorder(browserX, browserY, browserW, browserH)
+        
+        Screen.setForeground(0xFFFFFF)
+        Screen.set(browserX + 2, browserY, " Open Image ")
+        
+        // Current path
+        Screen.setForeground(0x888888)
+        Screen.set(browserX + 2, browserY + 2, "📁 $fileBrowserPath")
+        
+        // File list
+        val listY = browserY + 4
+        val visibleFiles = browserH - 6
+        
+        val startIdx = maxOf(0, fileBrowserSelection - visibleFiles + 3)
+        val endIdx = minOf(fileBrowserFiles.size, startIdx + visibleFiles)
+        
+        for ((displayIdx, fileIdx) in (startIdx until endIdx).withIndex()) {
+            val name = fileBrowserFiles[fileIdx]
+            val fullPath = "$fileBrowserPath/$name"
+            val isSelected = fileIdx == fileBrowserSelection
+            val isDir = name == ".." || os.fileSystem.isDirectory(fullPath)
+            
+            Screen.setBackground(if (isSelected) 0x3399FF else 0x1E1E1E)
+            Screen.fill(browserX + 1, listY + displayIdx, browserW - 2, 1, ' ')
+            
+            val icon = when {
+                name == ".." -> "⬆"
+                isDir -> "📁"
+                name.endsWith(".pic") || name.endsWith(".ocif") -> "🖼"
+                else -> "📄"
+            }
+            
+            Screen.setForeground(if (isSelected) 0xFFFFFF else if (isDir) 0xFFFF55 else 0xAAAAAA)
+            Screen.set(browserX + 2, listY + displayIdx, "$icon $name")
+        }
+        
+        // Scrollbar
+        if (fileBrowserFiles.size > visibleFiles) {
+            val scrollbarY = listY
+            val scrollbarH = visibleFiles
+            val thumbSize = maxOf(1, scrollbarH * visibleFiles / fileBrowserFiles.size)
+            val thumbPos = scrollbarH * startIdx / fileBrowserFiles.size
+            
+            Screen.setBackground(0x333333)
+            Screen.fill(browserX + browserW - 2, scrollbarY, 1, scrollbarH, ' ')
+            Screen.setBackground(0x666666)
+            Screen.fill(browserX + browserW - 2, scrollbarY + thumbPos, 1, thumbSize, ' ')
+        }
+        
+        // Instructions
+        Screen.setBackground(0x1E1E1E)
+        Screen.setForeground(0x666666)
+        Screen.set(browserX + 2, browserY + browserH - 2, "↑↓ Navigate | Enter Open | Backspace Up | Esc Cancel")
+    }
+    
+    private fun getContrastColor(color: Int): Int {
+        val r = (color shr 16) and 0xFF
+        val g = (color shr 8) and 0xFF
+        val b = color and 0xFF
+        val brightness = (r * 299 + g * 587 + b * 114) / 1000
+        return if (brightness > 128) 0x000000 else 0xFFFFFF
+    }
+    
+    private fun Int.withAlpha(alpha: Int): Int = this // Placeholder for alpha blending
+}

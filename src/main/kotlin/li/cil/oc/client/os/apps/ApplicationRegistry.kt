@@ -2,6 +2,13 @@ package li.cil.oc.client.os.apps
 
 import li.cil.oc.client.os.core.KotlinOS
 import li.cil.oc.client.os.gui.Window
+import li.cil.oc.client.os.apps.system.*
+import li.cil.oc.client.os.apps.media.*
+import li.cil.oc.client.os.apps.development.*
+import li.cil.oc.client.os.apps.network.*
+import li.cil.oc.client.os.apps.games.*
+import li.cil.oc.client.os.apps.utilities.*
+import li.cil.oc.client.os.apps.mods.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -32,11 +39,14 @@ enum class AppCategory {
 
 abstract class Application(
     val os: KotlinOS,
-    val info: AppInfo
+    val appInfo: AppInfo
 ) {
     var window: Window? = null
     var running = false
     var processId: Int? = null
+    
+    // For backwards compatibility
+    val info get() = appInfo
     
     // Lifecycle callbacks
     abstract fun onCreate()
@@ -53,9 +63,15 @@ abstract class Application(
     open fun onKeyDown(keyCode: Int, char: Char) {}
     open fun onKeyUp(keyCode: Int) {}
     
+    // Handle mouse input
+    open fun onMouseDown(x: Int, y: Int, button: Int) {}
+    open fun onMouseUp(x: Int, y: Int, button: Int) {}
+    open fun onMouseMove(x: Int, y: Int) {}
+    open fun onMouseScroll(x: Int, y: Int, delta: Int) {}
+    
     // Create the window for this app
     protected fun createWindow(
-        title: String = info.name,
+        title: String = appInfo.name,
         x: Int = 5,
         y: Int = 3,
         width: Int = 60,
@@ -97,7 +113,8 @@ class ApplicationRegistry(private val os: KotlinOS) {
     }
     
     private fun registerBuiltInApps() {
-        // File Manager
+        // ============== SYSTEM APPS ==============
+        register(AppMarketApp.APP_INFO)
         register(AppInfo(
             id = "file_manager",
             name = "Files",
@@ -105,17 +122,6 @@ class ApplicationRegistry(private val os: KotlinOS) {
             category = AppCategory.SYSTEM,
             description = "Browse and manage files"
         ) { FileManagerApp(it) })
-        
-        // Text Editor
-        register(AppInfo(
-            id = "text_editor",
-            name = "Editor",
-            icon = "📝",
-            category = AppCategory.UTILITIES,
-            description = "Edit text files with syntax highlighting"
-        ) { TextEditorApp(it) })
-        
-        // Terminal
         register(AppInfo(
             id = "terminal",
             name = "Terminal",
@@ -123,8 +129,41 @@ class ApplicationRegistry(private val os: KotlinOS) {
             category = AppCategory.SYSTEM,
             description = "Command line interface"
         ) { TerminalApp(it) })
+        register(AppInfo(
+            id = "settings",
+            name = "Settings",
+            icon = "⚙",
+            category = AppCategory.SYSTEM,
+            description = "System configuration"
+        ) { SettingsApp(it) })
+        register(AppInfo(
+            id = "system_monitor",
+            name = "Monitor",
+            icon = "📊",
+            category = AppCategory.SYSTEM,
+            description = "View system resources"
+        ) { SystemMonitorApp(it) })
+        register(ReinstallOSApp.APP_INFO)
         
-        // Web Browser
+        // ============== MEDIA APPS ==============
+        register(PictureEditApp.APP_INFO)
+        register(PictureViewApp.APP_INFO)
+        register(PrintImageApp.APP_INFO)
+        
+        // ============== DEVELOPMENT APPS ==============
+        register(MineCodeIDEApp.APP_INFO)
+        register(Print3DApp.APP_INFO)
+        register(Test3DApp.APP_INFO)
+        register(LuaApp.APP_INFO)
+        register(SampleApp.APP_INFO)
+        
+        // ============== NETWORK APPS ==============
+        register(IRCClientApp.APP_INFO)
+        register(WeatherApp.APP_INFO)
+        register(TranslateApp.APP_INFO)
+        register(FTPClientApp.APP_INFO)
+        register(GraphApp.APP_INFO)
+        register(PioneerApp.APP_INFO)
         register(AppInfo(
             id = "web_browser",
             name = "Browser",
@@ -133,43 +172,29 @@ class ApplicationRegistry(private val os: KotlinOS) {
             description = "Browse the internet"
         ) { WebBrowserApp(it) })
         
-        // Settings
-        register(AppInfo(
-            id = "settings",
-            name = "Settings",
-            icon = "⚙",
-            category = AppCategory.SYSTEM,
-            description = "System configuration"
-        ) { SettingsApp(it) })
+        // ============== GAMES ==============
+        register(ShootingApp.APP_INFO)
+        register(RayWalkApp.APP_INFO)
+        register(SpinnerApp.APP_INFO)
+        register(ChristmasTreeApp.APP_INFO)
         
-        // System Monitor
+        // ============== UTILITIES ==============
+        register(CalculatorApp.APP_INFO)
+        register(CalendarApp.APP_INFO)
+        register(PaletteApp.APP_INFO)
+        register(HEXViewerApp.APP_INFO)
+        register(SymbolsApp.APP_INFO)
+        register(ConsoleApp.APP_INFO)
+        register(EventsApp.APP_INFO)
+        register(FinderApp.APP_INFO)
+        register(RunningStringApp.APP_INFO)
         register(AppInfo(
-            id = "system_monitor",
-            name = "Monitor",
-            icon = "📊",
-            category = AppCategory.SYSTEM,
-            description = "View system resources"
-        ) { SystemMonitorApp(it) })
-        
-        // Lua Interpreter (for compatibility)
-        register(AppInfo(
-            id = "lua",
-            name = "Lua",
-            icon = "🌙",
-            category = AppCategory.DEVELOPMENT,
-            description = "Lua scripting console"
-        ) { LuaConsoleApp(it) })
-        
-        // Calculator
-        register(AppInfo(
-            id = "calculator",
-            name = "Calculator",
-            icon = "🔢",
+            id = "text_editor",
+            name = "Editor",
+            icon = "📝",
             category = AppCategory.UTILITIES,
-            description = "Basic calculator"
-        ) { CalculatorApp(it) })
-        
-        // Notes
+            description = "Edit text files with syntax highlighting"
+        ) { TextEditorApp(it) })
         register(AppInfo(
             id = "notes",
             name = "Notes",
@@ -177,6 +202,15 @@ class ApplicationRegistry(private val os: KotlinOS) {
             category = AppCategory.UTILITIES,
             description = "Quick notes and to-do lists"
         ) { NotesApp(it) })
+        
+        // ============== MOD INTEGRATION ==============
+        register(IC2ReactorsApp.APP_INFO)
+        register(StargateApp.APP_INFO)
+        register(NanomachinesApp.APP_INFO)
+        register(MultiscreenApp.APP_INFO)
+        register(HoloClockApp.APP_INFO)
+        register(CameraApp.APP_INFO)
+        register(ControlApp.APP_INFO)
     }
     
     fun register(info: AppInfo): Boolean {
@@ -234,7 +268,7 @@ class ApplicationRegistry(private val os: KotlinOS) {
 }
 
 // ============================================================
-// Built-in App Stubs (to be implemented in separate files)
+// Built-in App Stubs (minimal implementations for basic apps)
 // ============================================================
 
 // App Info objects defined statically to avoid circular references
@@ -244,14 +278,10 @@ private val TERMINAL_INFO = AppInfo("terminal", "Terminal", "💻", AppCategory.
 private val WEB_BROWSER_INFO = AppInfo("web_browser", "Browser", "🌐", AppCategory.NETWORK) { WebBrowserApp(it) }
 private val SETTINGS_INFO = AppInfo("settings", "Settings", "⚙", AppCategory.SYSTEM) { SettingsApp(it) }
 private val SYSTEM_MONITOR_INFO = AppInfo("system_monitor", "Monitor", "📊", AppCategory.SYSTEM) { SystemMonitorApp(it) }
-private val LUA_INFO = AppInfo("lua", "Lua", "🌙", AppCategory.DEVELOPMENT) { LuaConsoleApp(it) }
-private val CALCULATOR_INFO = AppInfo("calculator", "Calculator", "🔢", AppCategory.UTILITIES) { CalculatorApp(it) }
 private val NOTES_INFO = AppInfo("notes", "Notes", "📋", AppCategory.UTILITIES) { NotesApp(it) }
 
 class FileManagerApp(os: KotlinOS) : Application(os, FILE_MANAGER_INFO) {
-    override fun onCreate() {
-        createWindow("Files", 5, 3, 60, 20)
-    }
+    override fun onCreate() { createWindow("Files", 5, 3, 60, 20) }
     override fun onStart() {}
     override fun onResume() {}
     override fun onPause() {}
@@ -260,9 +290,7 @@ class FileManagerApp(os: KotlinOS) : Application(os, FILE_MANAGER_INFO) {
 }
 
 class TextEditorApp(os: KotlinOS) : Application(os, TEXT_EDITOR_INFO) {
-    override fun onCreate() {
-        createWindow("Editor", 10, 4, 70, 22)
-    }
+    override fun onCreate() { createWindow("Editor", 10, 4, 70, 22) }
     override fun onStart() {}
     override fun onResume() {}
     override fun onPause() {}
@@ -271,9 +299,7 @@ class TextEditorApp(os: KotlinOS) : Application(os, TEXT_EDITOR_INFO) {
 }
 
 class TerminalApp(os: KotlinOS) : Application(os, TERMINAL_INFO) {
-    override fun onCreate() {
-        createWindow("Terminal", 8, 5, 80, 24)
-    }
+    override fun onCreate() { createWindow("Terminal", 8, 5, 80, 24) }
     override fun onStart() {}
     override fun onResume() {}
     override fun onPause() {}
@@ -282,9 +308,7 @@ class TerminalApp(os: KotlinOS) : Application(os, TERMINAL_INFO) {
 }
 
 class WebBrowserApp(os: KotlinOS) : Application(os, WEB_BROWSER_INFO) {
-    override fun onCreate() {
-        createWindow("Browser", 3, 2, 90, 28)
-    }
+    override fun onCreate() { createWindow("Browser", 3, 2, 90, 28) }
     override fun onStart() {}
     override fun onResume() {}
     override fun onPause() {}
@@ -293,9 +317,7 @@ class WebBrowserApp(os: KotlinOS) : Application(os, WEB_BROWSER_INFO) {
 }
 
 class SettingsApp(os: KotlinOS) : Application(os, SETTINGS_INFO) {
-    override fun onCreate() {
-        createWindow("Settings", 15, 5, 50, 18)
-    }
+    override fun onCreate() { createWindow("Settings", 15, 5, 50, 18) }
     override fun onStart() {}
     override fun onResume() {}
     override fun onPause() {}
@@ -304,31 +326,7 @@ class SettingsApp(os: KotlinOS) : Application(os, SETTINGS_INFO) {
 }
 
 class SystemMonitorApp(os: KotlinOS) : Application(os, SYSTEM_MONITOR_INFO) {
-    override fun onCreate() {
-        createWindow("System Monitor", 12, 4, 60, 20)
-    }
-    override fun onStart() {}
-    override fun onResume() {}
-    override fun onPause() {}
-    override fun onStop() {}
-    override fun onDestroy() {}
-}
-
-class LuaConsoleApp(os: KotlinOS) : Application(os, LUA_INFO) {
-    override fun onCreate() {
-        createWindow("Lua", 6, 4, 70, 20)
-    }
-    override fun onStart() {}
-    override fun onResume() {}
-    override fun onPause() {}
-    override fun onStop() {}
-    override fun onDestroy() {}
-}
-
-class CalculatorApp(os: KotlinOS) : Application(os, CALCULATOR_INFO) {
-    override fun onCreate() {
-        createWindow("Calculator", 30, 8, 25, 14)
-    }
+    override fun onCreate() { createWindow("System Monitor", 12, 4, 60, 20) }
     override fun onStart() {}
     override fun onResume() {}
     override fun onPause() {}
@@ -337,9 +335,7 @@ class CalculatorApp(os: KotlinOS) : Application(os, CALCULATOR_INFO) {
 }
 
 class NotesApp(os: KotlinOS) : Application(os, NOTES_INFO) {
-    override fun onCreate() {
-        createWindow("Notes", 20, 6, 40, 18)
-    }
+    override fun onCreate() { createWindow("Notes", 20, 6, 40, 18) }
     override fun onStart() {}
     override fun onResume() {}
     override fun onPause() {}
