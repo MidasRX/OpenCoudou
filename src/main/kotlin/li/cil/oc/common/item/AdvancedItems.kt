@@ -234,7 +234,7 @@ class LinkedCardItem(properties: Properties) : Item(properties) {
         tooltipComponents.add(Component.translatable("tooltip.opencomputers.linked.desc"))
         
         val channel = stack.get(ModDataComponents.CHANNEL.get())
-        if (!channel.isNullOrEmpty()) {
+        if (channel != null) {
             tooltipComponents.add(Component.translatable("tooltip.opencomputers.linked.paired")
                 .withStyle { it.withColor(0x55FF55) })
         } else {
@@ -305,5 +305,115 @@ class WorldSensorCardItem(properties: Properties) : Item(properties) {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
         
         tooltipComponents.add(Component.translatable("tooltip.opencomputers.world_sensor.desc"))
+    }
+}
+
+/**
+ * Container item - holds other items of a specific type.
+ * 
+ * @param containerType The type of container (card, upgrade)
+ * @param tier The tier of the container
+ */
+class ContainerItem(
+    properties: Properties,
+    val containerType: String,
+    tier: Int
+) : TieredItem(properties, tier) {
+    
+    constructor(containerType: String, tier: Int, properties: Properties) : this(properties, containerType, tier)
+    
+    val slotCount: Int = when (tier) {
+        0 -> 1
+        1 -> 2
+        else -> 3
+    }
+    
+    override fun addDetailedTooltip(
+        stack: ItemStack,
+        context: TooltipContext,
+        tooltipComponents: MutableList<Component>
+    ) {
+        tooltipComponents.add(Component.translatable("tooltip.opencomputers.container.slots", slotCount))
+        tooltipComponents.add(Component.translatable("tooltip.opencomputers.container.type.$containerType"))
+    }
+}
+
+/**
+ * Hover boots item - allows player to hover.
+ */
+class HoverBootsItem(properties: Properties) : Item(properties) {
+    
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        tooltipComponents: MutableList<Component>,
+        tooltipFlag: TooltipFlag
+    ) {
+        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
+        tooltipComponents.add(Component.translatable("tooltip.opencomputers.hoverboots.desc"))
+    }
+}
+
+/**
+ * Terminal item - handheld terminal for controlling computers.
+ */
+class TerminalItem(properties: Properties) : Item(properties) {
+    
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        tooltipComponents: MutableList<Component>,
+        tooltipFlag: TooltipFlag
+    ) {
+        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
+        tooltipComponents.add(Component.translatable("tooltip.opencomputers.terminal.desc"))
+    }
+}
+
+/**
+ * Manual item - in-game documentation.
+ */
+class ManualItem(properties: Properties) : Item(properties) {
+    
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        tooltipComponents: MutableList<Component>,
+        tooltipFlag: TooltipFlag
+    ) {
+        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
+        tooltipComponents.add(Component.translatable("tooltip.opencomputers.manual.desc"))
+    }
+}
+
+/**
+ * Laser pointer item - points at things remotely.
+ */
+class LaserPointerItem(properties: Properties) : Item(properties) {
+    
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        tooltipComponents: MutableList<Component>,
+        tooltipFlag: TooltipFlag
+    ) {
+        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
+        tooltipComponents.add(Component.translatable("tooltip.opencomputers.laserpointer.desc"))
+    }
+}
+
+/**
+ * Remote keyboard item - wireless keyboard for screens.
+ */
+class RemoteKeyboardItem(properties: Properties) : Item(properties) {
+    
+    override fun appendHoverText(
+        stack: ItemStack,
+        context: TooltipContext,
+        tooltipComponents: MutableList<Component>,
+        tooltipFlag: TooltipFlag
+    ) {
+        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
+        tooltipComponents.add(Component.translatable("tooltip.opencomputers.remotekeyboard.desc"))
     }
 }

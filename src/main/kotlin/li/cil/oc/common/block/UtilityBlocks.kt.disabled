@@ -18,7 +18,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BooleanProperty
-import net.minecraft.world.level.block.state.properties.DirectionProperty
 import net.minecraft.world.phys.BlockHitResult
 
 /**
@@ -51,7 +50,7 @@ class GeolyzerBlock(properties: Properties) : Block(properties), EntityBlock {
 class MotionSensorBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
     }
     
     init {
@@ -91,7 +90,7 @@ class MotionSensorBlock(properties: Properties) : Block(properties), EntityBlock
 class WaypointBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
     }
     
     init {
@@ -123,7 +122,7 @@ class WaypointBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.WaypointBlockEntity
             blockEntity?.cycleLabel()
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
 }
 
@@ -171,7 +170,7 @@ class HologramBlock(properties: Properties) : Block(properties), EntityBlock {
 class MicrocontrollerBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
         val RUNNING: BooleanProperty = BooleanProperty.create("running")
     }
     
@@ -213,7 +212,7 @@ class MicrocontrollerBlock(properties: Properties) : Block(properties), EntityBl
                 blockEntity?.openGui(player)
             }
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun <T : BlockEntity> getTicker(
@@ -228,7 +227,7 @@ class MicrocontrollerBlock(properties: Properties) : Block(properties), EntityBl
         } else null
     }
     
-    override fun neighborChanged(
+    fun neighborChanged(
         state: BlockState,
         level: Level,
         pos: BlockPos,

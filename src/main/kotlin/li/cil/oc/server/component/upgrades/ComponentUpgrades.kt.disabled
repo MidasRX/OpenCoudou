@@ -4,7 +4,6 @@ import li.cil.oc.api.machine.Arguments
 import li.cil.oc.api.machine.Callback
 import li.cil.oc.api.machine.Context
 import li.cil.oc.api.network.*
-import li.cil.oc.server.component.ManagedEnvironment
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.nbt.CompoundTag
@@ -161,8 +160,8 @@ class DataCardUpgrade(val tier: Int) : ManagedEnvironment {
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -216,8 +215,8 @@ class NavigationUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -295,8 +294,8 @@ class GeolyzerUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -331,11 +330,11 @@ class MotionSensorUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {
+    open fun saveData(tag: CompoundTag) {
         tag.putDouble("sensitivity", sensitivity)
     }
     
-    override fun loadData(tag: CompoundTag) {
+    open fun loadData(tag: CompoundTag) {
         sensitivity = tag.getDouble("sensitivity").takeIf { it > 0 } ?: 0.5
     }
 }
@@ -380,8 +379,8 @@ class TractorBeamUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -446,11 +445,11 @@ class ExperienceUpgrade : ManagedEnvironment {
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {
+    open fun saveData(tag: CompoundTag) {
         tag.putInt("storedXP", storedXP)
     }
     
-    override fun loadData(tag: CompoundTag) {
+    open fun loadData(tag: CompoundTag) {
         storedXP = tag.getInt("storedXP")
     }
 }
@@ -626,7 +625,7 @@ class InventoryControllerUpgrade(
             "damage" to stack.damageValue,
             "maxDamage" to stack.maxDamage,
             "maxStackSize" to stack.maxStackSize,
-            "hasTag" to stack.hasTag()
+            "hasComponents" to !stack.isEmpty
         )
     }
     
@@ -634,8 +633,8 @@ class InventoryControllerUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -676,8 +675,8 @@ class TankControllerUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -738,11 +737,11 @@ class GeneratorUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {
+    open fun saveData(tag: CompoundTag) {
         tag.putInt("fuelTicks", fuelTicks)
     }
     
-    override fun loadData(tag: CompoundTag) {
+    open fun loadData(tag: CompoundTag) {
         fuelTicks = tag.getInt("fuelTicks")
     }
 }
@@ -791,8 +790,8 @@ class SolarGeneratorUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -812,8 +811,8 @@ class CraftingUpgrade : ManagedEnvironment {
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -851,8 +850,8 @@ class PistonUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -868,8 +867,8 @@ class AngelUpgrade : ManagedEnvironment {
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -888,8 +887,8 @@ class HoverUpgrade(val tier: Int) : ManagedEnvironment {
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -922,11 +921,11 @@ class ChunkloaderUpgrade(
     }
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {
+    open fun saveData(tag: CompoundTag) {
         tag.putBoolean("active", active)
     }
     
-    override fun loadData(tag: CompoundTag) {
+    open fun loadData(tag: CompoundTag) {
         active = tag.getBoolean("active")
     }
 }
@@ -971,8 +970,8 @@ class SignUpgrade(
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {}
-    override fun loadData(tag: CompoundTag) {}
+    open fun saveData(tag: CompoundTag) {}
+    open fun loadData(tag: CompoundTag) {}
 }
 
 /**
@@ -1039,21 +1038,23 @@ class DatabaseUpgrade(val tier: Int) : ManagedEnvironment {
     override fun onDisconnect(node: Node) {}
     override fun onMessage(message: Message) {}
     
-    override fun saveData(tag: CompoundTag) {
+    open fun saveData(tag: CompoundTag) {
+        // Save database slots - in 1.21.4 we use saveOptional without registry
         for (i in database.indices) {
             val stack = database[i]
-            if (stack != null) {
-                tag.put("slot$i", stack.save(tag.registryAccess()))
+            if (stack != null && !stack.isEmpty) {
+                val slotTag = CompoundTag()
+                stack.save(slotTag)
+                tag.put("slot$i", slotTag)
             }
         }
     }
     
-    override fun loadData(tag: CompoundTag) {
-        // Would need resource manager context
-        // for (i in database.indices) {
-        //     if (tag.contains("slot$i")) {
-        //         database[i] = ItemStack.parse(...).orElse(null)
-        //     }
-        // }
-    }
-}
+    open fun loadData(tag: CompoundTag) {
+        // Load database slots
+        for (i in database.indices) {
+            if (tag.contains("slot$i")) {
+                val slotTag = tag.getCompound("slot$i")
+                database[i] = ItemStack.parseOptional(slotTag)
+            }
+        }

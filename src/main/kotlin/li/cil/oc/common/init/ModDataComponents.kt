@@ -239,6 +239,46 @@ object ModDataComponents {
         }
     
     // ========================================
+    // Device State Components
+    // ========================================
+    
+    /**
+     * Stores max energy capacity.
+     */
+    val MAX_ENERGY: DeferredHolder<DataComponentType<*>, DataComponentType<Double>> =
+        DATA_COMPONENTS.registerComponentType("max_energy") { builder ->
+            builder.persistent(Codec.DOUBLE)
+                .networkSynchronized(ByteBufCodecs.DOUBLE)
+        }
+    
+    /**
+     * Stores running state (generic).
+     */
+    val RUNNING: DeferredHolder<DataComponentType<*>, DataComponentType<Boolean>> =
+        DATA_COMPONENTS.registerComponentType("running") { builder ->
+            builder.persistent(Codec.BOOL)
+                .networkSynchronized(ByteBufCodecs.BOOL)
+        }
+    
+    /**
+     * Stores bound address for linked components.
+     */
+    val BOUND_ADDRESS: DeferredHolder<DataComponentType<*>, DataComponentType<String>> =
+        DATA_COMPONENTS.registerComponentType("bound_address") { builder ->
+            builder.persistent(Codec.STRING)
+                .networkSynchronized(ByteBufCodecs.STRING_UTF8)
+        }
+    
+    /**
+     * Stores channel number.
+     */
+    val CHANNEL: DeferredHolder<DataComponentType<*>, DataComponentType<Int>> =
+        DATA_COMPONENTS.registerComponentType("channel") { builder ->
+            builder.persistent(Codec.INT)
+                .networkSynchronized(ByteBufCodecs.VAR_INT)
+        }
+    
+    // ========================================
     // Registration
     // ========================================
     

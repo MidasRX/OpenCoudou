@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundEvent
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredRegister
+import java.util.function.Supplier
 
 /**
  * Sound event registration for OpenComputers.
@@ -56,8 +57,9 @@ object ModSounds {
     
     private fun registerSound(name: String): DeferredHolder<SoundEvent, SoundEvent> {
         val location = ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, name)
-        return SOUNDS.register(name.replace(".", "_")) { 
+        val supplier: Supplier<SoundEvent> = Supplier { 
             SoundEvent.createVariableRangeEvent(location) 
         }
+        return SOUNDS.register(name.replace(".", "_"), supplier)
     }
 }

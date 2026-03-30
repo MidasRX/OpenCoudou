@@ -20,7 +20,6 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
-import net.minecraft.world.level.block.state.properties.DirectionProperty
 import net.minecraft.world.level.block.state.properties.IntegerProperty
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.shapes.CollisionContext
@@ -39,7 +38,7 @@ import net.minecraft.world.phys.shapes.VoxelShape
 class WebDisplayBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
         val WIDTH: IntegerProperty = IntegerProperty.create("width", 1, 8)
         val HEIGHT: IntegerProperty = IntegerProperty.create("height", 1, 8)
         
@@ -115,7 +114,7 @@ class WebDisplayBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? WebDisplayBlockEntity
             blockEntity?.openConfigScreen(player as ServerPlayer)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     /**

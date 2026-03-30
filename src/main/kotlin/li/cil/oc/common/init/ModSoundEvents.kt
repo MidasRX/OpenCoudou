@@ -8,6 +8,7 @@ import net.minecraft.sounds.SoundEvent
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.registries.DeferredHolder
 import net.neoforged.neoforge.registries.DeferredRegister
+import java.util.function.Supplier
 
 /**
  * Registration for OpenComputers sound events.
@@ -102,9 +103,10 @@ object ModSoundEvents {
     // ========================================
     
     private fun registerSound(name: String): DeferredHolder<SoundEvent, SoundEvent> {
-        return SOUNDS.register(name.replace(".", "_")) {
+        val supplier: Supplier<SoundEvent> = Supplier {
             SoundEvent.createVariableRangeEvent(Settings.resource(name.replace(".", "/")))
         }
+        return SOUNDS.register(name.replace(".", "_"), supplier)
     }
     
     // ========================================

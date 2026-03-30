@@ -74,6 +74,67 @@ enum class Visibility {
 }
 
 /**
+ * Alias for backward compatibility with code using ComponentVisibility
+ */
+typealias ComponentVisibility = Visibility
+
+/**
+ * Utility object for creating component network nodes.
+ */
+object ComponentNetwork {
+    /**
+     * Creates a new node for a component with the given name.
+     * 
+     * @param host The environment that will host the node
+     * @param componentName The type name of the component (e.g., "gpu", "screen")
+     * @param visibility The visibility settings for the component
+     * @return A new node configured as a component
+     */
+    @JvmStatic
+    fun createNode(host: Environment, componentName: String, visibility: Visibility = Visibility.NEIGHBORS): Node {
+        return Network.newNode(host)
+            .withComponent(componentName, visibility)
+            .create()
+    }
+    
+    /**
+     * Creates a new connector node with power buffer.
+     * 
+     * @param host The environment that will host the node
+     * @param bufferSize The power buffer size
+     * @return A new node configured as a connector
+     */
+    @JvmStatic
+    fun createConnector(host: Environment, bufferSize: Double): Node {
+        return Network.newNode(host)
+            .withConnector(bufferSize)
+            .create()
+    }
+    
+    /**
+     * Creates a new component node with power buffer.
+     * 
+     * @param host The environment that will host the node
+     * @param componentName The type name of the component
+     * @param visibility The visibility settings
+     * @param bufferSize The power buffer size
+     * @return A new node configured as both component and connector
+     */
+    @JvmStatic
+    fun createComponentConnector(
+        host: Environment, 
+        componentName: String, 
+        visibility: Visibility = Visibility.NEIGHBORS,
+        bufferSize: Double
+    ): Node {
+        return Network.newNode(host)
+            .withComponent(componentName, visibility)
+            .withConnector(bufferSize)
+            .create()
+    }
+}
+
+/**
  * Represents a method that can be called on a component.
  */
 interface ComponentMethod {

@@ -1,0 +1,746 @@
+package li.cil.oc.server.fs
+
+import li.cil.oc.api.fs.FileSystem
+import li.cil.oc.api.fs.Handle
+import li.cil.oc.api.fs.Mode
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.Tag
+import java.io.*
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.min
+
+/**
+ * Memory-backed file system - fast but volatile.
+ * Used for tmpfs mounts and RAM disks.
+ */
+class MemoryFileSystem(
+    override var label: String? = null,
+    private val capacity: Long = 1024 * 1024,
+    override val isReadOnly: Boolean = false
+) : FileSystem {
+    
+    private val root = VirtualDirectory("")
+    private var _usedSpace = 0L
+    
+    private val handles = ConcurrentHashMap<Int, MemoryHandle>()
+    private var nextHandleId = 1
+    
+    override val totalSpace: Long = capacity
+    override val usedSpace: Long get() = _usedSpace
+    
+    override fun exists(path: String): Boolean {
+        val normalized = normalizePath(path)
+        return findNode(normalized) != null
+    }
+    
+    override fun isDirectory(path: String): Boolean {
+        val normalized = normalizePath(path)
+        return findNode(normalized) is VirtualDirectory
+    }
+    
+    override fun size(path: String): Long {
+        val normalized = normalizePath(path)
+        val node = findNode(normalized) as? VirtualFile ?: return 0L
+        return node.data.size.toLong()
+    }
+    
+    override fun lastModified(path: String): Long {
+        val normalized = normalizePath(path)
+        val node = findNode(normalized) ?: return 0L
+        return node.lastModified
+    }
+    
+    override fun list(path: String): List<String> {
+        val normalized = normalizePath(path)
+        val dir = findNode(normalized) as? VirtualDirectory ?: return emptyList()
+        return dir.children.keys.map { name ->
+            val child = dir.children[name]
+            if (child is VirtualDirectory) "$name/" else name
+        }
+    }
+    
+    override fun makeDirectory(path: String): Boolean {
+        if (isReadOnly) return false
+        
+        val normalized = normalizePath(path)
+        if (exists(normalized)) return false
+        
+        val parentPath = getParentPath(normalized)
+        val dirName = getFileName(normalized)
+        val parent = findNode(parentPath) as? VirtualDirectory ?: return false
+        
+        parent.children[dirName] = VirtualDirectory(dirName)
+        return true
+    }
+    
+    override fun delete(path: String): Boolean {
+        if (isReadOnly) return false
+        
+        val normalized = normalizePath(path)
+        if (normalized.isEmpty()) return false // Can't delete root
+        
+        val parentPath = getParentPath(normalized)
+        val nodeName = getFileName(normalized)
+        val parent = findNode(parentPath) as? VirtualDirectory ?: return false
+        
+        val node = parent.children[nodeName] ?: return false
+        if (node is VirtualDirectory && node.children.isNotEmpty()) return false
+        
+        if (node is VirtualFile) {
+            _usedSpace -= node.data.size
+        }
+        
+        parent.children.remove(nodeName)
+        return true
+    }
+    
+    override fun rename(from: String, to: String): Boolean {
+        if (isReadOnly) return false
+        
+        val normalizedFrom = normalizePath(from)
+        val normalizedTo = normalizePath(to)
+        
+        if (exists(normalizedTo)) return false
+        
+        val fromParent = findNode(getParentPath(normalizedFrom)) as? VirtualDirectory ?: return false
+        val toParent = findNode(getParentPath(normalizedTo)) as? VirtualDirectory ?: return false
+        
+        val fromName = getFileName(normalizedFrom)
+        val toName = getFileName(normalizedTo)
+        
+        val node = fromParent.children.remove(fromName) ?: return false
+        node.name = toName
+        toParent.children[toName] = node
+        
+        return true
+    }
+    
+    override fun open(path: String, mode: Mode): Handle {
+        val normalized = normalizePath(path)
+        val isWrite = mode == Mode.WRITE || mode == Mode.APPEND || mode == Mode.READ_WRITE
+        
+        if (isWrite && isReadOnly) {
+            throw IOException("Filesystem is read-only")
+        }
+        
+        var node = findNode(normalized)
+        
+        if (node == null && isWrite) {
+            // Create file
+            val parentPath = getParentPath(normalized)
+            val fileName = getFileName(normalized)
+            val parent = findNode(parentPath) as? VirtualDirectory 
+                ?: throw IOException("Parent directory does not exist")
+            
+            node = VirtualFile(fileName)
+            parent.children[fileName] = node
+        }
+        
+        val file = node as? VirtualFile 
+            ?: throw IOException("Not a file: $path")
+        
+        if (mode == Mode.WRITE) {
+            _usedSpace -= file.data.size
+            file.data = ByteArray(0)
+        }
+        
+        val handle = MemoryHandle(
+            fileSystem = this,
+            id = nextHandleId++,
+            file = file,
+            mode = mode
+        )
+        handles[handle.id] = handle
+        return handle
+    }
+    
+    override fun close() {
+        handles.values.forEach { it.close() }
+        handles.clear()
+    }
+    
+    internal fun closeHandle(id: Int) {
+        handles.remove(id)
+    }
+    
+    internal fun updateUsedSpace(delta: Long) {
+        _usedSpace += delta
+    }
+    
+    internal fun checkCapacity(newBytes: Int): Boolean {
+        return _usedSpace + newBytes <= capacity
+    }
+    
+    // NBT save/load for persistence
+    fun save(tag: CompoundTag) {
+        label?.let { tag.putString("label", it) }
+        tag.putLong("used", _usedSpace)
+        tag.put("root", saveDirectory(root))
+    }
+    
+    fun load(tag: CompoundTag) {
+        label = if (tag.contains("label")) tag.getString("label") else null
+        _usedSpace = tag.getLong("used")
+        if (tag.contains("root")) {
+            loadDirectory(root, tag.getCompound("root"))
+        }
+    }
+    
+    private fun saveDirectory(dir: VirtualDirectory): CompoundTag {
+        val tag = CompoundTag()
+        tag.putLong("modified", dir.lastModified)
+        
+        val children = ListTag()
+        dir.children.forEach { (name, node) ->
+            val childTag = CompoundTag()
+            childTag.putString("name", name)
+            childTag.putBoolean("isDir", node is VirtualDirectory)
+            
+            when (node) {
+                is VirtualDirectory -> childTag.put("content", saveDirectory(node))
+                is VirtualFile -> {
+                    childTag.putByteArray("data", node.data)
+                    childTag.putLong("modified", node.lastModified)
+                }
+            }
+            children.add(childTag)
+        }
+        tag.put("children", children)
+        
+        return tag
+    }
+    
+    private fun loadDirectory(dir: VirtualDirectory, tag: CompoundTag) {
+        dir.lastModified = tag.getLong("modified")
+        
+        val children = tag.getList("children", Tag.TAG_COMPOUND.toInt())
+        for (i in 0 until children.size) {
+            val childTag = children.getCompound(i)
+            val name = childTag.getString("name")
+            val isDir = childTag.getBoolean("isDir")
+            
+            if (isDir) {
+                val subDir = VirtualDirectory(name)
+                loadDirectory(subDir, childTag.getCompound("content"))
+                dir.children[name] = subDir
+            } else {
+                val file = VirtualFile(name)
+                file.data = childTag.getByteArray("data")
+                file.lastModified = childTag.getLong("modified")
+                dir.children[name] = file
+            }
+        }
+    }
+    
+    private fun normalizePath(path: String): String {
+        val parts = path.split("/").filter { it.isNotEmpty() && it != "." }
+        val stack = mutableListOf<String>()
+        
+        for (part in parts) {
+            if (part == "..") {
+                if (stack.isNotEmpty()) stack.removeLast()
+            } else {
+                stack.add(part)
+            }
+        }
+        
+        return stack.joinToString("/")
+    }
+    
+    private fun findNode(path: String): VirtualNode? {
+        if (path.isEmpty()) return root
+        
+        val parts = path.split("/")
+        var current: VirtualNode = root
+        
+        for (part in parts) {
+            val dir = current as? VirtualDirectory ?: return null
+            current = dir.children[part] ?: return null
+        }
+        
+        return current
+    }
+    
+    private fun getParentPath(path: String): String {
+        val lastSlash = path.lastIndexOf('/')
+        return if (lastSlash > 0) path.substring(0, lastSlash) else ""
+    }
+    
+    private fun getFileName(path: String): String {
+        val lastSlash = path.lastIndexOf('/')
+        return if (lastSlash >= 0) path.substring(lastSlash + 1) else path
+    }
+}
+
+// Internal node classes
+internal abstract class VirtualNode(var name: String) {
+    var lastModified: Long = System.currentTimeMillis()
+}
+
+internal class VirtualDirectory(name: String) : VirtualNode(name) {
+    val children = mutableMapOf<String, VirtualNode>()
+}
+
+internal class VirtualFile(name: String) : VirtualNode(name) {
+    var data = ByteArray(0)
+}
+
+/**
+ * Handle implementation for memory filesystem
+ */
+internal class MemoryHandle(
+    override val fileSystem: MemoryFileSystem,
+    override val id: Int,
+    private val file: VirtualFile,
+    private val mode: Mode
+) : Handle {
+    
+    override var position: Long = if (mode == Mode.APPEND) file.data.size.toLong() else 0L
+    
+    override val length: Long get() = file.data.size.toLong()
+    
+    private var closed = false
+    
+    override fun read(count: Int): ByteArray? {
+        if (closed) return null
+        if (mode == Mode.WRITE || mode == Mode.APPEND) return null
+        if (position >= file.data.size) return null
+        
+        val available = (file.data.size - position).toInt()
+        val toRead = min(count, available)
+        val result = file.data.copyOfRange(position.toInt(), position.toInt() + toRead)
+        position += toRead
+        
+        return result
+    }
+    
+    override fun write(data: ByteArray): Int {
+        if (closed) return 0
+        if (mode == Mode.READ) return 0
+        
+        val newSize = (position + data.size).toInt()
+        
+        if (newSize > file.data.size) {
+            val spaceDiff = newSize - file.data.size
+            if (!fileSystem.checkCapacity(spaceDiff)) return 0
+            
+            val newData = ByteArray(newSize)
+            file.data.copyInto(newData)
+            file.data = newData
+            fileSystem.updateUsedSpace(spaceDiff.toLong())
+        }
+        
+        data.copyInto(file.data, position.toInt())
+        position += data.size
+        file.lastModified = System.currentTimeMillis()
+        
+        return data.size
+    }
+    
+    override fun seek(whence: String, offset: Long): Long {
+        if (closed) return -1
+        
+        position = when (whence) {
+            "set" -> offset
+            "cur" -> position + offset
+            "end" -> file.data.size + offset
+            else -> return -1
+        }
+        return position
+    }
+    
+    override fun close() {
+        if (!closed) {
+            closed = true
+            fileSystem.closeHandle(id)
+        }
+    }
+}
+
+/**
+ * Disk-backed file system for persistent storage.
+ * Stores files in a directory on the real filesystem.
+ */
+class DiskFileSystem(
+    private val baseDir: File,
+    override var label: String? = null,
+    private val capacity: Long = 1024 * 1024,
+    override val isReadOnly: Boolean = false
+) : FileSystem {
+    
+    private val handles = ConcurrentHashMap<Int, DiskHandle>()
+    private var nextHandleId = 1
+    
+    init {
+        if (!isReadOnly && !baseDir.exists()) {
+            baseDir.mkdirs()
+        }
+    }
+    
+    override val totalSpace: Long = capacity
+    
+    override val usedSpace: Long
+        get() = calculateSize(baseDir)
+    
+    private fun calculateSize(file: File): Long {
+        if (file.isFile) return file.length()
+        return file.listFiles()?.sumOf { calculateSize(it) } ?: 0L
+    }
+    
+    private fun toFile(path: String): File? {
+        val normalized = normalizePath(path)
+        val file = File(baseDir, normalized)
+        
+        // Security check - don't allow escaping base directory
+        return try {
+            if (file.canonicalPath.startsWith(baseDir.canonicalPath)) file else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun exists(path: String): Boolean {
+        return toFile(path)?.exists() == true
+    }
+    
+    override fun isDirectory(path: String): Boolean {
+        return toFile(path)?.isDirectory == true
+    }
+    
+    override fun size(path: String): Long {
+        val file = toFile(path) ?: return 0
+        return if (file.isFile) file.length() else 0
+    }
+    
+    override fun lastModified(path: String): Long {
+        return toFile(path)?.lastModified() ?: 0
+    }
+    
+    override fun list(path: String): List<String> {
+        val dir = toFile(path) ?: return emptyList()
+        if (!dir.isDirectory) return emptyList()
+        
+        return dir.listFiles()?.map { file ->
+            if (file.isDirectory) "${file.name}/" else file.name
+        } ?: emptyList()
+    }
+    
+    override fun makeDirectory(path: String): Boolean {
+        if (isReadOnly) return false
+        val dir = toFile(path) ?: return false
+        return dir.mkdirs()
+    }
+    
+    override fun delete(path: String): Boolean {
+        if (isReadOnly) return false
+        val file = toFile(path) ?: return false
+        return file.delete()
+    }
+    
+    override fun rename(from: String, to: String): Boolean {
+        if (isReadOnly) return false
+        val fromFile = toFile(from) ?: return false
+        val toFile = toFile(to) ?: return false
+        return fromFile.renameTo(toFile)
+    }
+    
+    override fun open(path: String, mode: Mode): Handle {
+        val file = toFile(path) ?: throw IOException("Invalid path: $path")
+        
+        if (mode != Mode.READ && isReadOnly) {
+            throw IOException("Filesystem is read-only")
+        }
+        
+        // Create parent directories if writing
+        if (mode == Mode.WRITE || mode == Mode.APPEND) {
+            file.parentFile?.mkdirs()
+        }
+        
+        val handle = DiskHandle(
+            fileSystem = this,
+            id = nextHandleId++,
+            file = file,
+            mode = mode
+        )
+        handles[handle.id] = handle
+        return handle
+    }
+    
+    override fun close() {
+        handles.values.forEach { it.close() }
+        handles.clear()
+    }
+    
+    internal fun closeHandle(id: Int) {
+        handles.remove(id)
+    }
+    
+    fun save(tag: CompoundTag) {
+        label?.let { tag.putString("label", it) }
+        tag.putString("path", baseDir.absolutePath)
+    }
+    
+    fun load(tag: CompoundTag) {
+        label = if (tag.contains("label")) tag.getString("label") else null
+    }
+    
+    private fun normalizePath(path: String): String {
+        val parts = path.split("/").filter { it.isNotEmpty() && it != "." }
+        val stack = mutableListOf<String>()
+        
+        for (part in parts) {
+            if (part == "..") {
+                if (stack.isNotEmpty()) stack.removeLast()
+            } else {
+                stack.add(part)
+            }
+        }
+        
+        return stack.joinToString(File.separator)
+    }
+}
+
+/**
+ * Handle implementation for disk filesystem
+ */
+internal class DiskHandle(
+    override val fileSystem: DiskFileSystem,
+    override val id: Int,
+    private val file: File,
+    private val mode: Mode
+) : Handle {
+    
+    private var raf: RandomAccessFile? = null
+    private var closed = false
+    
+    init {
+        val rafMode = when (mode) {
+            Mode.READ -> "r"
+            Mode.WRITE, Mode.APPEND, Mode.READ_WRITE -> "rw"
+        }
+        raf = RandomAccessFile(file, rafMode)
+        
+        if (mode == Mode.WRITE) {
+            raf?.setLength(0)
+        } else if (mode == Mode.APPEND) {
+            raf?.seek(raf?.length() ?: 0)
+        }
+    }
+    
+    override var position: Long
+        get() = try { raf?.filePointer ?: 0 } catch (e: Exception) { 0 }
+        set(value) { try { raf?.seek(value) } catch (e: Exception) { } }
+    
+    override val length: Long
+        get() = try { raf?.length() ?: 0 } catch (e: Exception) { 0 }
+    
+    override fun read(count: Int): ByteArray? {
+        if (closed || mode == Mode.WRITE || mode == Mode.APPEND) return null
+        
+        return try {
+            val buffer = ByteArray(count)
+            val bytesRead = raf?.read(buffer) ?: -1
+            when {
+                bytesRead < 0 -> null
+                bytesRead < count -> buffer.copyOf(bytesRead)
+                else -> buffer
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun write(data: ByteArray): Int {
+        if (closed || mode == Mode.READ) return 0
+        
+        return try {
+            raf?.write(data)
+            data.size
+        } catch (e: Exception) {
+            0
+        }
+    }
+    
+    override fun seek(whence: String, offset: Long): Long {
+        if (closed) return -1
+        
+        return try {
+            val newPos = when (whence) {
+                "set" -> offset
+                "cur" -> (raf?.filePointer ?: 0) + offset
+                "end" -> (raf?.length() ?: 0) + offset
+                else -> return -1
+            }
+            raf?.seek(newPos)
+            newPos
+        } catch (e: Exception) {
+            -1
+        }
+    }
+    
+    override fun close() {
+        if (!closed) {
+            closed = true
+            try {
+                raf?.close()
+            } catch (e: Exception) {
+                // Ignore
+            }
+            raf = null
+            fileSystem.closeHandle(id)
+        }
+    }
+}
+
+/**
+ * Read-only filesystem for boot ROMs and archives.
+ */
+class ReadOnlyFileSystem(
+    private val contents: Map<String, ByteArray>,
+    override var label: String? = null
+) : FileSystem {
+    
+    override val isReadOnly: Boolean = true
+    override val totalSpace: Long = contents.values.sumOf { it.size.toLong() }
+    override val usedSpace: Long = totalSpace
+    
+    private val handles = ConcurrentHashMap<Int, ReadOnlyHandle>()
+    private var nextHandleId = 1
+    
+    override fun exists(path: String): Boolean {
+        val normalized = normalizePath(path)
+        return normalized.isEmpty() || 
+               contents.containsKey(normalized) ||
+               contents.keys.any { it.startsWith("$normalized/") }
+    }
+    
+    override fun isDirectory(path: String): Boolean {
+        val normalized = normalizePath(path)
+        if (normalized.isEmpty()) return true
+        return !contents.containsKey(normalized) && 
+               contents.keys.any { it.startsWith("$normalized/") }
+    }
+    
+    override fun size(path: String): Long {
+        val normalized = normalizePath(path)
+        return contents[normalized]?.size?.toLong() ?: 0
+    }
+    
+    override fun lastModified(path: String): Long = 0
+    
+    override fun list(path: String): List<String> {
+        val normalized = normalizePath(path)
+        val prefix = if (normalized.isEmpty()) "" else "$normalized/"
+        
+        val entries = mutableSetOf<String>()
+        for (key in contents.keys) {
+            if (key.startsWith(prefix)) {
+                val rest = key.removePrefix(prefix)
+                val name = rest.substringBefore("/")
+                if (rest.contains("/")) {
+                    entries.add("$name/")
+                } else {
+                    entries.add(name)
+                }
+            }
+        }
+        return entries.toList()
+    }
+    
+    override fun makeDirectory(path: String): Boolean = false
+    override fun delete(path: String): Boolean = false
+    override fun rename(from: String, to: String): Boolean = false
+    
+    override fun open(path: String, mode: Mode): Handle {
+        if (mode != Mode.READ) {
+            throw IOException("Read-only filesystem")
+        }
+        
+        val normalized = normalizePath(path)
+        val data = contents[normalized] 
+            ?: throw IOException("File not found: $path")
+        
+        val handle = ReadOnlyHandle(
+            fileSystem = this,
+            id = nextHandleId++,
+            data = data
+        )
+        handles[handle.id] = handle
+        return handle
+    }
+    
+    override fun close() {
+        handles.values.forEach { it.close() }
+        handles.clear()
+    }
+    
+    internal fun closeHandle(id: Int) {
+        handles.remove(id)
+    }
+    
+    private fun normalizePath(path: String): String {
+        return path.trim('/').split("/")
+            .filter { it.isNotEmpty() && it != "." }
+            .fold(mutableListOf<String>()) { stack, part ->
+                if (part == "..") {
+                    if (stack.isNotEmpty()) stack.removeLast()
+                } else {
+                    stack.add(part)
+                }
+                stack
+            }
+            .joinToString("/")
+    }
+}
+
+internal class ReadOnlyHandle(
+    override val fileSystem: ReadOnlyFileSystem,
+    override val id: Int,
+    private val data: ByteArray
+) : Handle {
+    
+    override var position: Long = 0
+    override val length: Long = data.size.toLong()
+    
+    private var closed = false
+    
+    override fun read(count: Int): ByteArray? {
+        if (closed || position >= data.size) return null
+        
+        val available = (data.size - position).toInt()
+        val toRead = min(count, available)
+        val result = data.copyOfRange(position.toInt(), position.toInt() + toRead)
+        position += toRead
+        
+        return result
+    }
+    
+    override fun write(data: ByteArray): Int = 0
+    
+    override fun seek(whence: String, offset: Long): Long {
+        if (closed) return -1
+        
+        position = when (whence) {
+            "set" -> offset
+            "cur" -> position + offset
+            "end" -> data.size + offset
+            else -> return -1
+        }
+        return position
+    }
+    
+    override fun close() {
+        if (!closed) {
+            closed = true
+            fileSystem.closeHandle(id)
+        }
+    }
+}
+
+// Legacy compatibility interface
+internal interface FileHandle : Closeable {
+    fun read(count: Int): ByteArray?
+    fun write(data: ByteArray): Boolean
+    fun seek(offset: Long, whence: Int): Long
+}

@@ -7,7 +7,6 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
-import net.minecraft.world.ItemInteractionResult
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.context.BlockPlaceContext
@@ -22,7 +21,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BooleanProperty
-import net.minecraft.world.level.block.state.properties.DirectionProperty
 import net.minecraft.world.phys.BlockHitResult
 
 /**
@@ -37,7 +35,7 @@ import net.minecraft.world.phys.BlockHitResult
 class CaseBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
         val RUNNING: BooleanProperty = BooleanProperty.create("running")
     }
     
@@ -96,20 +94,7 @@ class CaseBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? CaseBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
-    }
-    
-    override fun useItemOn(
-        stack: ItemStack,
-        state: BlockState,
-        level: Level,
-        pos: BlockPos,
-        player: Player,
-        hand: InteractionHand,
-        hitResult: BlockHitResult
-    ): ItemInteractionResult {
-        // Handle wrench rotation, etc.
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+        return InteractionResult.SUCCESS
     }
     
     // ========================================
@@ -141,7 +126,7 @@ class CaseBlock(properties: Properties) : Block(properties), EntityBlock {
 class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
     }
     
     init {
@@ -185,7 +170,7 @@ class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.ScreenBlockEntity
             blockEntity?.handleTouch(player, hitResult)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     fun getTier(state: BlockState): Int = ModBlocks.getScreenTier(state.block)
@@ -213,7 +198,7 @@ class KeyboardBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.KeyboardBlockEntity
             blockEntity?.startTyping(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
 }
 
@@ -239,7 +224,7 @@ class RedstoneIOBlock(properties: Properties) : Block(properties), EntityBlock {
         return getSignal(state, level, pos, direction)
     }
     
-    override fun neighborChanged(
+    fun neighborChanged(
         state: BlockState,
         level: Level,
         pos: BlockPos,

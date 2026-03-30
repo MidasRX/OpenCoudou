@@ -18,7 +18,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BooleanProperty
-import net.minecraft.world.level.block.state.properties.DirectionProperty
 import net.minecraft.world.phys.BlockHitResult
 
 /**
@@ -27,7 +26,7 @@ import net.minecraft.world.phys.BlockHitResult
 class DiskDriveBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
         val HAS_DISK: BooleanProperty = BooleanProperty.create("has_disk")
     }
     
@@ -65,7 +64,7 @@ class DiskDriveBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.DiskDriveBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun onRemove(
@@ -89,7 +88,7 @@ class DiskDriveBlock(properties: Properties) : Block(properties), EntityBlock {
 class RaidBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
     }
     
     init {
@@ -121,7 +120,7 @@ class RaidBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.RaidBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun onRemove(
@@ -145,7 +144,7 @@ class RaidBlock(properties: Properties) : Block(properties), EntityBlock {
 class RackBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
     }
     
     init {
@@ -177,7 +176,7 @@ class RackBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.RackBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun <T : BlockEntity> getTicker(
@@ -213,7 +212,7 @@ class RackBlock(properties: Properties) : Block(properties), EntityBlock {
 class AssemblerBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
         val RUNNING: BooleanProperty = BooleanProperty.create("running")
     }
     
@@ -250,7 +249,7 @@ class AssemblerBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.AssemblerBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun <T : BlockEntity> getTicker(
@@ -286,7 +285,7 @@ class AssemblerBlock(properties: Properties) : Block(properties), EntityBlock {
 class DisassemblerBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
         val RUNNING: BooleanProperty = BooleanProperty.create("running")
     }
     
@@ -323,7 +322,7 @@ class DisassemblerBlock(properties: Properties) : Block(properties), EntityBlock
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.DisassemblerBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun <T : BlockEntity> getTicker(
@@ -359,7 +358,7 @@ class DisassemblerBlock(properties: Properties) : Block(properties), EntityBlock
 class PrinterBlock(properties: Properties) : Block(properties), EntityBlock {
     
     companion object {
-        val FACING: DirectionProperty = HorizontalDirectionalBlock.FACING
+        val FACING= HorizontalDirectionalBlock.FACING
         val RUNNING: BooleanProperty = BooleanProperty.create("running")
     }
     
@@ -396,7 +395,7 @@ class PrinterBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.PrinterBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun <T : BlockEntity> getTicker(

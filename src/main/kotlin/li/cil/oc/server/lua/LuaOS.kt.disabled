@@ -1041,12 +1041,12 @@ interface LuaValue : Value {
  */
 class PrimitiveLuaValue(private val value: Any?) : LuaValue {
     override fun toLuaj(): org.luaj.vm2.LuaValue = when (value) {
-        null -> LuaValue.NIL
-        is Boolean -> LuaValue.valueOf(value)
-        is Number -> LuaValue.valueOf(value.toDouble())
-        is String -> LuaValue.valueOf(value)
-        is ByteArray -> LuaValue.valueOf(value)
-        else -> LuaValue.valueOf(value.toString())
+        null -> org.luaj.vm2.LuaValue.NIL
+        is Boolean -> org.luaj.vm2.LuaValue.valueOf(value)
+        is Number -> org.luaj.vm2.LuaValue.valueOf(value.toDouble())
+        is String -> org.luaj.vm2.LuaValue.valueOf(value)
+        is ByteArray -> org.luaj.vm2.LuaValue.valueOf(value)
+        else -> org.luaj.vm2.LuaValue.valueOf(value.toString())
     }
     
     override fun load(nbt: net.minecraft.nbt.CompoundTag) {}

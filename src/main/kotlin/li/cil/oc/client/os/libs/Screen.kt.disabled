@@ -113,6 +113,16 @@ object Screen {
     fun getResolution(): Pair<Int, Int> = width to height
     
     /**
+     * Get screen width.
+     */
+    fun getWidth(): Int = width
+    
+    /**
+     * Get screen height.
+     */
+    fun getHeight(): Int = height
+    
+    /**
      * Set resolution.
      */
     fun setResolution(w: Int, h: Int): Boolean {

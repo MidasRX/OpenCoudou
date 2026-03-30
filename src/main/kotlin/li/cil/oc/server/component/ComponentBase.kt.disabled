@@ -1,0 +1,67 @@
+package li.cil.oc.server.component
+
+import li.cil.oc.api.machine.Context
+import li.cil.oc.api.network.ComponentVisibility
+import li.cil.oc.api.network.Environment
+import li.cil.oc.api.network.Message
+import li.cil.oc.api.network.Node
+import li.cil.oc.api.network.NodeBuilder
+import net.minecraft.nbt.CompoundTag
+
+/**
+ * Base class for all Lua-callable components.
+ */
+abstract class ComponentBase(
+    val componentType: String,
+    val visibility: ComponentVisibility = ComponentVisibility.NEIGHBORS
+) : Environment {
+    
+    open var node: Node? = null
+        protected set
+    
+    fun createNode(host: Any, energy: Double = 0.0): Node {
+        val builder = NodeBuilder.create()
+            .withHost(host)
+            .withComponent(componentType, visibility)
+        
+        if (energy > 0) {
+            builder.withConnector(energy)
+        }
+        
+        node = builder.build()
+        return node!!
+    }
+    
+    // Implement Environment interface
+    override fun node(): Node? = node
+    override fun onConnect(node: Node) {}
+    override fun onDisconnect(node: Node) {}
+    override fun onMessage(message: Message) {}
+    
+    /**
+     * Gets the methods available on this component.
+     */
+    abstract fun methods(): Map<String, (Context, Array<Any?>) -> Array<Any?>>
+    
+    // NBT save/load (not overrides - just base implementations)
+    override fun save(tag: CompoundTag) {
+        // Node save handled by network system
+    }
+    
+    override fun load(tag: CompoundTag) {
+        // Node load handled by network system
+    }
+    
+    // Signal helper
+    protected fun queueSignal(name: String, vararg args: Any?) {
+        node?.host()?.let { host ->
+            if (host is li.cil.oc.api.machine.MachineHost) {
+                host.machine()?.signal(name, *args)
+            }
+        }
+    }
+    
+    // Component address helper
+    val address: String?
+        get() = node?.address()
+}

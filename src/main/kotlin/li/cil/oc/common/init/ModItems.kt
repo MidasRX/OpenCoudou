@@ -2,6 +2,29 @@ package li.cil.oc.common.init
 
 import li.cil.oc.OpenComputers
 import li.cil.oc.common.item.*
+import li.cil.oc.common.item.MaterialItems.CuttingWireItem
+import li.cil.oc.common.item.MaterialItems.AcidItem
+import li.cil.oc.common.item.MaterialItems.RawCircuitBoardItem
+import li.cil.oc.common.item.MaterialItems.CircuitBoardItem
+import li.cil.oc.common.item.MaterialItems.PrintedCircuitBoardItem
+import li.cil.oc.common.item.MaterialItems.CardBaseItem
+import li.cil.oc.common.item.MaterialItems.TransistorItem
+import li.cil.oc.common.item.MaterialItems.MicrochipItem
+import li.cil.oc.common.item.MaterialItems.ALUItem
+import li.cil.oc.common.item.MaterialItems.ControlUnitItem
+import li.cil.oc.common.item.MaterialItems.DiskPlatterItem
+import li.cil.oc.common.item.MaterialItems.InterwebItem
+import li.cil.oc.common.item.MaterialItems.ButtonGroupItem
+import li.cil.oc.common.item.MaterialItems.ArrowKeysItem
+import li.cil.oc.common.item.MaterialItems.NumpadItem
+import li.cil.oc.common.item.MaterialItems.ChameliumItem
+import li.cil.oc.common.item.MaterialItems.InkCartridgeItem
+import li.cil.oc.common.item.MaterialItems.DroneCaseItem
+import li.cil.oc.common.item.MaterialItems.MicrocontrollerCaseItem
+import li.cil.oc.common.item.MaterialItems.TabletCaseItem
+import li.cil.oc.common.item.MaterialItems.NanomachinesItem
+import li.cil.oc.common.item.ToolItems.AnalyzerItem
+import li.cil.oc.common.item.ToolItems.WrenchItem
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.Item
 import net.neoforged.bus.api.IEventBus
@@ -65,15 +88,15 @@ object ModItems {
     // ========================================
     
     val CPU_TIER1: DeferredItem<CPUItem> = ITEMS.registerItem("cpu1") { props ->
-        CPUItem(0, props)
+        CPUItem(props, 0)
     }
     
     val CPU_TIER2: DeferredItem<CPUItem> = ITEMS.registerItem("cpu2") { props ->
-        CPUItem(1, props)
+        CPUItem(props, 1)
     }
     
     val CPU_TIER3: DeferredItem<CPUItem> = ITEMS.registerItem("cpu3") { props ->
-        CPUItem(2, props)
+        CPUItem(props, 2)
     }
     
     // ========================================
@@ -81,27 +104,27 @@ object ModItems {
     // ========================================
     
     val MEMORY_TIER1: DeferredItem<MemoryItem> = ITEMS.registerItem("ram1") { props ->
-        MemoryItem(0, props)
+        MemoryItem(props, 0)
     }
     
     val MEMORY_TIER1_5: DeferredItem<MemoryItem> = ITEMS.registerItem("ram1_5") { props ->
-        MemoryItem(1, props)
+        MemoryItem(props, 1)
     }
     
     val MEMORY_TIER2: DeferredItem<MemoryItem> = ITEMS.registerItem("ram2") { props ->
-        MemoryItem(2, props)
+        MemoryItem(props, 2)
     }
     
     val MEMORY_TIER2_5: DeferredItem<MemoryItem> = ITEMS.registerItem("ram2_5") { props ->
-        MemoryItem(3, props)
+        MemoryItem(props, 3)
     }
     
     val MEMORY_TIER3: DeferredItem<MemoryItem> = ITEMS.registerItem("ram3") { props ->
-        MemoryItem(4, props)
+        MemoryItem(props, 4)
     }
     
     val MEMORY_TIER3_5: DeferredItem<MemoryItem> = ITEMS.registerItem("ram3_5") { props ->
-        MemoryItem(5, props)
+        MemoryItem(props, 5)
     }
     
     // ========================================
@@ -109,15 +132,15 @@ object ModItems {
     // ========================================
     
     val GPU_TIER1: DeferredItem<GPUItem> = ITEMS.registerItem("graphicscard1") { props ->
-        GPUItem(0, props)
+        GPUItem(props, 0)
     }
     
     val GPU_TIER2: DeferredItem<GPUItem> = ITEMS.registerItem("graphicscard2") { props ->
-        GPUItem(1, props)
+        GPUItem(props, 1)
     }
     
     val GPU_TIER3: DeferredItem<GPUItem> = ITEMS.registerItem("graphicscard3") { props ->
-        GPUItem(2, props)
+        GPUItem(props, 2)
     }
     
     // ========================================
@@ -125,15 +148,15 @@ object ModItems {
     // ========================================
     
     val HDD_TIER1: DeferredItem<HDDItem> = ITEMS.registerItem("hdd1") { props ->
-        HDDItem(0, props)
+        HDDItem(props, 0)
     }
     
     val HDD_TIER2: DeferredItem<HDDItem> = ITEMS.registerItem("hdd2") { props ->
-        HDDItem(1, props)
+        HDDItem(props, 1)
     }
     
     val HDD_TIER3: DeferredItem<HDDItem> = ITEMS.registerItem("hdd3") { props ->
-        HDDItem(2, props)
+        HDDItem(props, 2)
     }
     
     val FLOPPY: DeferredItem<FloppyItem> = ITEMS.registerItem("floppy", ::FloppyItem)
@@ -147,11 +170,11 @@ object ModItems {
     val NETWORK_CARD: DeferredItem<NetworkCardItem> = ITEMS.registerItem("lancard", ::NetworkCardItem)
     
     val WIRELESS_CARD_TIER1: DeferredItem<WirelessCardItem> = ITEMS.registerItem("wlancard1") { props ->
-        WirelessCardItem(0, props)
+        WirelessCardItem(props, 0)
     }
     
     val WIRELESS_CARD_TIER2: DeferredItem<WirelessCardItem> = ITEMS.registerItem("wlancard2") { props ->
-        WirelessCardItem(1, props)
+        WirelessCardItem(props, 1)
     }
     
     val INTERNET_CARD: DeferredItem<InternetCardItem> = ITEMS.registerItem("internetcard", ::InternetCardItem)
@@ -163,23 +186,23 @@ object ModItems {
     // ========================================
     
     val REDSTONE_CARD_TIER1: DeferredItem<RedstoneCardItem> = ITEMS.registerItem("redstonecard1") { props ->
-        RedstoneCardItem(0, props)
+        RedstoneCardItem(props, 0)
     }
     
     val REDSTONE_CARD_TIER2: DeferredItem<RedstoneCardItem> = ITEMS.registerItem("redstonecard2") { props ->
-        RedstoneCardItem(1, props)
+        RedstoneCardItem(props, 1)
     }
     
     val DATA_CARD_TIER1: DeferredItem<DataCardItem> = ITEMS.registerItem("datacard1") { props ->
-        DataCardItem(0, props)
+        DataCardItem(props, 0)
     }
     
     val DATA_CARD_TIER2: DeferredItem<DataCardItem> = ITEMS.registerItem("datacard2") { props ->
-        DataCardItem(1, props)
+        DataCardItem(props, 1)
     }
     
     val DATA_CARD_TIER3: DeferredItem<DataCardItem> = ITEMS.registerItem("datacard3") { props ->
-        DataCardItem(2, props)
+        DataCardItem(props, 2)
     }
     
     val WORLD_SENSOR_CARD: DeferredItem<WorldSensorCardItem> = ITEMS.registerItem("worldsensorcard", ::WorldSensorCardItem)
@@ -188,105 +211,71 @@ object ModItems {
     // Upgrades
     // ========================================
     
-    val UPGRADE_ANGEL: DeferredItem<UpgradeItem> = ITEMS.registerItem("angelupgrade") { props ->
-        UpgradeItem("angel", props)
+    val UPGRADE_ANGEL: DeferredItem<AngelUpgradeItem> = ITEMS.registerItem("angelupgrade", ::AngelUpgradeItem)
+    
+    val UPGRADE_BATTERY_TIER1: DeferredItem<BatteryUpgradeItem> = ITEMS.registerItem("batteryupgrade1") { props ->
+        BatteryUpgradeItem(props, 0)
     }
     
-    val UPGRADE_BATTERY_TIER1: DeferredItem<UpgradeItem> = ITEMS.registerItem("batteryupgrade1") { props ->
-        UpgradeItem("battery", 0, props)
+    val UPGRADE_BATTERY_TIER2: DeferredItem<BatteryUpgradeItem> = ITEMS.registerItem("batteryupgrade2") { props ->
+        BatteryUpgradeItem(props, 1)
     }
     
-    val UPGRADE_BATTERY_TIER2: DeferredItem<UpgradeItem> = ITEMS.registerItem("batteryupgrade2") { props ->
-        UpgradeItem("battery", 1, props)
+    val UPGRADE_BATTERY_TIER3: DeferredItem<BatteryUpgradeItem> = ITEMS.registerItem("batteryupgrade3") { props ->
+        BatteryUpgradeItem(props, 2)
     }
     
-    val UPGRADE_BATTERY_TIER3: DeferredItem<UpgradeItem> = ITEMS.registerItem("batteryupgrade3") { props ->
-        UpgradeItem("battery", 2, props)
+    val UPGRADE_CHUNKLOADER: DeferredItem<ChunkloaderUpgradeItem> = ITEMS.registerItem("chunkloaderupgrade", ::ChunkloaderUpgradeItem)
+    
+    val UPGRADE_CRAFTING: DeferredItem<CraftingUpgradeItem> = ITEMS.registerItem("craftingupgrade", ::CraftingUpgradeItem)
+    
+    val UPGRADE_DATABASE_TIER1: DeferredItem<DatabaseUpgradeItem> = ITEMS.registerItem("databaseupgrade1") { props ->
+        DatabaseUpgradeItem(props, 0)
     }
     
-    val UPGRADE_CHUNKLOADER: DeferredItem<UpgradeItem> = ITEMS.registerItem("chunkloaderupgrade") { props ->
-        UpgradeItem("chunkloader", props)
+    val UPGRADE_DATABASE_TIER2: DeferredItem<DatabaseUpgradeItem> = ITEMS.registerItem("databaseupgrade2") { props ->
+        DatabaseUpgradeItem(props, 1)
     }
     
-    val UPGRADE_CRAFTING: DeferredItem<UpgradeItem> = ITEMS.registerItem("craftingupgrade") { props ->
-        UpgradeItem("crafting", props)
+    val UPGRADE_DATABASE_TIER3: DeferredItem<DatabaseUpgradeItem> = ITEMS.registerItem("databaseupgrade3") { props ->
+        DatabaseUpgradeItem(props, 2)
     }
     
-    val UPGRADE_DATABASE_TIER1: DeferredItem<UpgradeItem> = ITEMS.registerItem("databaseupgrade1") { props ->
-        UpgradeItem("database", 0, props)
+    val UPGRADE_EXPERIENCE: DeferredItem<ExperienceUpgradeItem> = ITEMS.registerItem("experienceupgrade", ::ExperienceUpgradeItem)
+    
+    val UPGRADE_GENERATOR: DeferredItem<GeneratorUpgradeItem> = ITEMS.registerItem("generatorupgrade", ::GeneratorUpgradeItem)
+    
+    val UPGRADE_HOVER_TIER1: DeferredItem<HoverUpgradeItem> = ITEMS.registerItem("hoverupgrade1") { props ->
+        HoverUpgradeItem(props, 0)
     }
     
-    val UPGRADE_DATABASE_TIER2: DeferredItem<UpgradeItem> = ITEMS.registerItem("databaseupgrade2") { props ->
-        UpgradeItem("database", 1, props)
+    val UPGRADE_HOVER_TIER2: DeferredItem<HoverUpgradeItem> = ITEMS.registerItem("hoverupgrade2") { props ->
+        HoverUpgradeItem(props, 1)
     }
     
-    val UPGRADE_DATABASE_TIER3: DeferredItem<UpgradeItem> = ITEMS.registerItem("databaseupgrade3") { props ->
-        UpgradeItem("database", 2, props)
-    }
+    val UPGRADE_INVENTORY: DeferredItem<InventoryUpgradeItem> = ITEMS.registerItem("inventoryupgrade", ::InventoryUpgradeItem)
     
-    val UPGRADE_EXPERIENCE: DeferredItem<UpgradeItem> = ITEMS.registerItem("experienceupgrade") { props ->
-        UpgradeItem("experience", props)
-    }
+    val UPGRADE_INVENTORY_CONTROLLER: DeferredItem<InventoryControllerUpgradeItem> = ITEMS.registerItem("inventorycontrollerupgrade", ::InventoryControllerUpgradeItem)
     
-    val UPGRADE_GENERATOR: DeferredItem<UpgradeItem> = ITEMS.registerItem("generatorupgrade") { props ->
-        UpgradeItem("generator", props)
-    }
+    val UPGRADE_LEASH: DeferredItem<LeashUpgradeItem> = ITEMS.registerItem("leashupgrade", ::LeashUpgradeItem)
     
-    val UPGRADE_HOVER_TIER1: DeferredItem<UpgradeItem> = ITEMS.registerItem("hoverupgrade1") { props ->
-        UpgradeItem("hover", 0, props)
-    }
+    val UPGRADE_MFU: DeferredItem<MFUItem> = ITEMS.registerItem("mfu", ::MFUItem)
     
-    val UPGRADE_HOVER_TIER2: DeferredItem<UpgradeItem> = ITEMS.registerItem("hoverupgrade2") { props ->
-        UpgradeItem("hover", 1, props)
-    }
+    val UPGRADE_NAVIGATION: DeferredItem<NavigationUpgradeItem> = ITEMS.registerItem("navigationupgrade", ::NavigationUpgradeItem)
     
-    val UPGRADE_INVENTORY: DeferredItem<UpgradeItem> = ITEMS.registerItem("inventoryupgrade") { props ->
-        UpgradeItem("inventory", props)
-    }
+    val UPGRADE_PISTON: DeferredItem<PistonUpgradeItem> = ITEMS.registerItem("pistonupgrade", ::PistonUpgradeItem)
     
-    val UPGRADE_INVENTORY_CONTROLLER: DeferredItem<UpgradeItem> = ITEMS.registerItem("inventorycontrollerupgrade") { props ->
-        UpgradeItem("inventory_controller", props)
-    }
+    val UPGRADE_SIGN: DeferredItem<SignIOUpgradeItem> = ITEMS.registerItem("signupgrade", ::SignIOUpgradeItem)
     
-    val UPGRADE_LEASH: DeferredItem<UpgradeItem> = ITEMS.registerItem("leashupgrade") { props ->
-        UpgradeItem("leash", props)
-    }
+    val UPGRADE_SOLAR_GENERATOR: DeferredItem<SolarGeneratorUpgradeItem> = ITEMS.registerItem("solargeneratorupgrade", ::SolarGeneratorUpgradeItem)
     
-    val UPGRADE_MFU: DeferredItem<UpgradeItem> = ITEMS.registerItem("mfu") { props ->
-        UpgradeItem("mfu", props)
-    }
+    val UPGRADE_TANK: DeferredItem<TankUpgradeItem> = ITEMS.registerItem("tankupgrade", ::TankUpgradeItem)
     
-    val UPGRADE_NAVIGATION: DeferredItem<UpgradeItem> = ITEMS.registerItem("navigationupgrade") { props ->
-        UpgradeItem("navigation", props)
-    }
+    val UPGRADE_TANK_CONTROLLER: DeferredItem<TankControllerUpgradeItem> = ITEMS.registerItem("tankcontrollerupgrade", ::TankControllerUpgradeItem)
     
-    val UPGRADE_PISTON: DeferredItem<UpgradeItem> = ITEMS.registerItem("pistonupgrade") { props ->
-        UpgradeItem("piston", props)
-    }
+    val UPGRADE_TRACTOR_BEAM: DeferredItem<TractorBeamUpgradeItem> = ITEMS.registerItem("tractorupgrade", ::TractorBeamUpgradeItem)
     
-    val UPGRADE_SIGN: DeferredItem<UpgradeItem> = ITEMS.registerItem("signupgrade") { props ->
-        UpgradeItem("sign", props)
-    }
-    
-    val UPGRADE_SOLAR_GENERATOR: DeferredItem<UpgradeItem> = ITEMS.registerItem("solargeneratorupgrade") { props ->
-        UpgradeItem("solar_generator", props)
-    }
-    
-    val UPGRADE_TANK: DeferredItem<UpgradeItem> = ITEMS.registerItem("tankupgrade") { props ->
-        UpgradeItem("tank", props)
-    }
-    
-    val UPGRADE_TANK_CONTROLLER: DeferredItem<UpgradeItem> = ITEMS.registerItem("tankcontrollerupgrade") { props ->
-        UpgradeItem("tank_controller", props)
-    }
-    
-    val UPGRADE_TRACTOR_BEAM: DeferredItem<UpgradeItem> = ITEMS.registerItem("tractorupgrade") { props ->
-        UpgradeItem("tractor_beam", props)
-    }
-    
-    val UPGRADE_TRADING: DeferredItem<UpgradeItem> = ITEMS.registerItem("tradingupgrade") { props ->
-        UpgradeItem("trading", props)
-    }
+    val UPGRADE_TRADING: DeferredItem<TradingUpgradeItem> = ITEMS.registerItem("tradingupgrade", ::TradingUpgradeItem)
     
     // ========================================
     // Containers
@@ -323,15 +312,15 @@ object ModItems {
     val TABLET: DeferredItem<TabletItem> = ITEMS.registerItem("tablet", ::TabletItem)
     
     val DRONE_CASE_TIER1: DeferredItem<DroneCaseItem> = ITEMS.registerItem("dronecase1") { props ->
-        DroneCaseItem(0, props)
+        DroneCaseItem(props, 0)
     }
     
     val DRONE_CASE_TIER2: DeferredItem<DroneCaseItem> = ITEMS.registerItem("dronecase2") { props ->
-        DroneCaseItem(1, props)
+        DroneCaseItem(props, 1)
     }
     
     val DRONE_CASE_CREATIVE: DeferredItem<DroneCaseItem> = ITEMS.registerItem("dronecase_creative") { props ->
-        DroneCaseItem(2, props)
+        DroneCaseItem(props, 2)
     }
     
     val HOVER_BOOTS: DeferredItem<HoverBootsItem> = ITEMS.registerItem("hoverboots", ::HoverBootsItem)
@@ -402,11 +391,11 @@ object ModItems {
     // ========================================
 
     val APU_TIER1: DeferredItem<APUItem> = ITEMS.registerItem("apu1") { props ->
-        APUItem(0, props)
+        APUItem(props, 0)
     }
 
     val APU_TIER2: DeferredItem<APUItem> = ITEMS.registerItem("apu2") { props ->
-        APUItem(1, props)
+        APUItem(props, 1)
     }
 
     // ========================================
@@ -521,9 +510,7 @@ object ModItems {
     // Additional Upgrades
     // ========================================
     
-    val UPGRADE_STICKY_PISTON: DeferredItem<UpgradeItem> = ITEMS.registerItem("stickypistonupgrade") { props ->
-        UpgradeItem(props, "sticky_piston")
-    }
+    val UPGRADE_STICKY_PISTON: DeferredItem<Item> = ITEMS.registerSimpleItem("stickypistonupgrade")  // TODO: Proper upgrade item
 
     // ========================================
     // Creative/Debug Items

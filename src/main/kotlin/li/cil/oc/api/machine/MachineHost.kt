@@ -26,7 +26,7 @@ interface MachineHost {
      * Gets the position of this host in the world.
      * For entities, this should return the current block position.
      */
-    fun position(): BlockPos
+    fun hostPosition(): BlockPos
     
     /**
      * Gets the node for this host.
@@ -43,7 +43,7 @@ interface MachineHost {
      * Gets all component items currently installed in this host.
      * This includes CPU, memory, cards, etc.
      */
-    fun components(): Iterable<Component>
+    fun machineComponents(): Iterable<Component>
     
     /**
      * Called when the machine state changes.

@@ -267,22 +267,6 @@ class KotlinOS(
         windowManager.handleDrag(x, y, button)
     }
     
-    // ============================================================
-    // Convenience accessors for apps
-    // ============================================================
-    
-    /** Alias for filesystem used by app code. */
-    val fileSystem get() = filesystem
-    
-    /** Close a running application by its app ID. */
-    fun closeApplication(appId: String) {
-        appRegistry.close(appId)
-    }
-    
-    /** Get first available component of named type via the component bus. */
-    fun getComponent(type: String): Any? {
-        return componentBus.getFirstComponent(type)
-    }
 }
 
 /**

@@ -7,8 +7,8 @@ import li.cil.oc.common.init.ModMenus
 import li.cil.oc.common.init.ModCreativeTabs
 import li.cil.oc.common.init.ModDataComponents
 import li.cil.oc.common.init.ModSoundEvents
-import li.cil.oc.common.network.NetworkHandler
-import li.cil.oc.server.machine.MachineRegistry
+// import li.cil.oc.common.network.NetworkHandler  // TODO: Re-enable
+// import li.cil.oc.server.machine.MachineRegistry  // TODO: Re-enable
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.ModContainer
 import net.neoforged.fml.common.Mod
@@ -79,11 +79,11 @@ class OpenComputers(
         LOGGER.info("Common setup starting")
         
         event.enqueueWork {
-            // Initialize network handler
-            NetworkHandler.register()
+            // Network handler is registered via @SubscribeEvent on RegisterPayloadHandlersEvent
             
             // Register default architectures
-            MachineRegistry.registerDefaults()
+            // TODO: Re-enable
+            // MachineRegistry.registerDefaults()
             
             LOGGER.info("Common setup complete")
         }

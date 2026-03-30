@@ -2,7 +2,7 @@ package li.cil.oc.common
 
 import li.cil.oc.OpenComputers
 import li.cil.oc.common.init.*
-import li.cil.oc.common.config.Config
+// import li.cil.oc.common.config.Config  // TODO: Re-enable when config system is ready
 import net.minecraft.resources.ResourceLocation
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.common.Mod
@@ -27,18 +27,18 @@ class CommonSetup(modBus: IEventBus) {
     init {
         LOGGER.info("OpenComputers initializing...")
         
-        // Register config
-        Config.register(ModLoadingContext.get())
+        // Register config - TODO: Re-enable when config system is ready
+        // Config.register(ModLoadingContext.get())
         
         // Register all deferred registers to mod bus
-        ModBlocks.BLOCKS.register(modBus)
-        ModItems.ITEMS.register(modBus)
-        ModBlockEntities.BLOCK_ENTITIES.register(modBus)
-        ModMenus.MENUS.register(modBus)
-        ModCreativeTabs.CREATIVE_TABS.register(modBus)
-        ModDataComponents.DATA_COMPONENTS.register(modBus)
-        ModSounds.SOUNDS.register(modBus)
-        ModEntities.ENTITY_TYPES.register(modBus)
+        ModBlocks.register(modBus)
+        ModItems.register(modBus)
+        ModBlockEntities.register(modBus)
+        ModMenus.register(modBus)
+        ModCreativeTabs.register(modBus)
+        ModDataComponents.register(modBus)
+        ModSoundEvents.register(modBus)
+        ModEntities.register(modBus)
         
         // Register setup event
         modBus.addListener(::onCommonSetup)

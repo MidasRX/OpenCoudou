@@ -94,6 +94,20 @@ object Keyboard {
     private const val SPACE = 57
     const val CAPS_LOCK = 58
     
+    // ==================== Arrow Keys (Private - use KEY_ versions) ====================
+    private const val UP = 200
+    private const val DOWN = 208
+    private const val LEFT = 203
+    private const val RIGHT = 205
+    
+    // ==================== Navigation Keys (Private - use KEY_ versions) ====================
+    private const val INSERT = 210
+    private const val DELETE = 211
+    private const val HOME = 199
+    private const val END = 207
+    private const val PAGE_UP = 201
+    private const val PAGE_DOWN = 209
+    
     // ==================== Aliases for compat ====================
     const val KEY_ESCAPE = ESCAPE
     const val KEY_1 = ONE
@@ -151,20 +165,6 @@ object Keyboard {
     const val KEY_PAGE_DOWN = PAGE_DOWN
     const val KEY_INSERT = INSERT
     const val KEY_DELETE = DELETE
-    
-    // ==================== Arrow Keys (Private - use KEY_ versions) ====================
-    private const val UP = 200
-    private const val DOWN = 208
-    private const val LEFT = 203
-    private const val RIGHT = 205
-    
-    // ==================== Navigation Keys (Private - use KEY_ versions) ====================
-    private const val INSERT = 210
-    private const val DELETE = 211
-    private const val HOME = 199
-    private const val END = 207
-    private const val PAGE_UP = 201
-    private const val PAGE_DOWN = 209
     
     // ==================== Numpad Keys ====================
     const val NUMPAD_0 = 82

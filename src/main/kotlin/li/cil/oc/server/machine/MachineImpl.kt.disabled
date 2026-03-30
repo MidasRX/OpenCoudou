@@ -519,22 +519,23 @@ object MachineRegistry {
      * Registers the default architectures.
      */
     fun registerDefaults() {
+        // TODO: Re-enable when LuaJArchitecture is complete
         // Register Lua 5.4 architecture
-        ArchitectureRegistry.register("lua54", object : ArchitectureFactory {
-            override val name = "Lua 5.4"
-            override val isNative = false
-            override fun create(machine: Machine) = LuaJArchitecture(machine)
-        })
+        // ArchitectureRegistry.register("lua54", object : ArchitectureFactory {
+        //     override val name = "Lua 5.4"
+        //     override val isNative = false
+        //     override fun create(machine: Machine) = LuaJArchitecture(machine)
+        // })
+        //
+        // // Register Lua 5.3 compatibility mode
+        // ArchitectureRegistry.register("lua53", object : ArchitectureFactory {
+        //     override val name = "Lua 5.3 (Compat)"
+        //     override val isNative = false
+        //     override fun create(machine: Machine) = LuaJArchitecture(machine)
+        // })
+        //
+        // ArchitectureRegistry.setDefault("lua54")
         
-        // Register Lua 5.3 compatibility mode
-        ArchitectureRegistry.register("lua53", object : ArchitectureFactory {
-            override val name = "Lua 5.3 (Compat)"
-            override val isNative = false
-            override fun create(machine: Machine) = LuaJArchitecture(machine)
-        })
-        
-        ArchitectureRegistry.setDefault("lua54")
-        
-        OpenComputers.LOGGER.info("Registered default architectures")
+        OpenComputers.LOGGER.info("Architecture registration skipped (LuaJArchitecture not yet complete)")
     }
 }

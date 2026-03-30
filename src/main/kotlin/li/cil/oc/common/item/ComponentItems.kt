@@ -225,17 +225,17 @@ class EEPROMItem(properties: Properties) : Item(properties) {
             }
         }
         
-        val codeSize = stack.get(ModDataComponents.EEPROM_CODE.get())?.length ?: 0
+        val codeSize = stack.get(ModDataComponents.EEPROM_CODE.get())?.size ?: 0
         tooltipComponents.add(Component.literal("$codeSize / $CODE_SIZE bytes")
             .withStyle { it.withColor(0x888888) })
     }
     
     fun getCode(stack: ItemStack): String {
-        return stack.get(ModDataComponents.EEPROM_CODE.get()) ?: ""
+        return stack.get(ModDataComponents.EEPROM_CODE.get())?.decodeToString() ?: ""
     }
     
     fun setCode(stack: ItemStack, code: String) {
-        stack.set(ModDataComponents.EEPROM_CODE.get(), code.take(CODE_SIZE))
+        stack.set(ModDataComponents.EEPROM_CODE.get(), code.take(CODE_SIZE).encodeToByteArray())
     }
     
     fun getData(stack: ItemStack): ByteArray {
@@ -346,3 +346,28 @@ class RedstoneCardItem(properties: Properties, tier: Int) : TieredItem(propertie
         }
     }
 }
+
+/**
+ * Wireless Card item - wireless network communication.
+ */
+class WirelessCardItem(properties: Properties, tier: Int) : TieredItem(properties, tier) {
+    
+    val range: Int = when (tier) {
+        0 -> 16
+        1 -> 32
+        else -> 64
+    }
+    
+    override fun addDetailedTooltip(
+        stack: ItemStack,
+        context: TooltipContext,
+        tooltipComponents: MutableList<Component>
+    ) {
+        tooltipComponents.add(Component.translatable("tooltip.opencomputers.wireless.range", range))
+    }
+}
+
+/**
+ * Type alias for backward compatibility
+ */
+typealias FloppyItem = FloppyDiskItem

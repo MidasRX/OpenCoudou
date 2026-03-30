@@ -219,10 +219,12 @@ interface Machine : Context {
          * 
          * @param host The host that will contain the machine
          * @return The new machine
+         * @throws UnsupportedOperationException if machine implementation not available
          */
         @JvmStatic
         fun create(host: MachineHost): Machine {
-            return li.cil.oc.server.machine.MachineImpl(host)
+            // MachineImpl is in server.machine package - stub for now
+            throw UnsupportedOperationException("Machine.create() requires server.machine.MachineImpl to be enabled")
         }
     }
 }

@@ -68,7 +68,7 @@ class CableBlock(properties: Properties) : Block(properties), EntityBlock {
         return getConnectionState(context.level, context.clickedPos)
     }
     
-    override fun updateShape(
+    fun updateShape(
         state: BlockState,
         direction: Direction,
         neighborState: BlockState,
@@ -156,7 +156,7 @@ class RelayBlock(properties: Properties) : Block(properties), EntityBlock {
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.RelayBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun <T : BlockEntity> getTicker(
@@ -194,7 +194,7 @@ class AccessPointBlock(properties: Properties) : Block(properties), EntityBlock 
             val blockEntity = level.getBlockEntity(pos) as? li.cil.oc.common.blockentity.AccessPointBlockEntity
             blockEntity?.openGui(player)
         }
-        return InteractionResult.sidedSuccess(level.isClientSide)
+        return InteractionResult.SUCCESS
     }
     
     override fun <T : BlockEntity> getTicker(
@@ -221,7 +221,7 @@ class AdapterBlock(properties: Properties) : Block(properties), EntityBlock {
     
     override fun getRenderShape(state: BlockState): RenderShape = RenderShape.MODEL
     
-    override fun neighborChanged(
+    fun neighborChanged(
         state: BlockState,
         level: Level,
         pos: BlockPos,

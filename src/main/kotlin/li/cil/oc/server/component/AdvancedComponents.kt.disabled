@@ -376,14 +376,13 @@ class NavigationComponent(
                 for (z in -searchRange..searchRange) {
                     val checkPos = pos.offset(x, y, z)
                     val be = world.getBlockEntity(checkPos)
-                    // TODO: Re-enable when WaypointBlockEntity is implemented
-                    // if (be is li.cil.oc.common.blockentity.WaypointBlockEntity) {
-                    //     waypoints.add(mapOf(
-                    //         "position" to arrayOf(x, y, z),
-                    //         "label" to be.label,
-                    //         "redstone" to be.outputsRedstone
-                    //     ))
-                    // }
+                    if (be is li.cil.oc.common.blockentity.WaypointBlockEntity) {
+                        waypoints.add(mapOf(
+                            "position" to arrayOf(x, y, z),
+                            "label" to be.label,
+                            "redstone" to be.outputsRedstone
+                        ))
+                    }
                 }
             }
         }

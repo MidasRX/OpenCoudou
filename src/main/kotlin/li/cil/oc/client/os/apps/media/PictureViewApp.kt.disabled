@@ -172,7 +172,8 @@ class PictureViewApp(os: KotlinOS) : Application(os, PICTURE_VIEW_INFO) {
             Keyboard.KEY_E -> {
                 if (currentImagePath.isNotEmpty()) {
                     // Launch Picture Edit with current image
-                    os.launchApp("picture_edit", listOf(currentImagePath))
+                    // TODO: Pass arguments when launchApp supports them
+                    os.launchApp("picture_edit")
                 }
             }
         }
