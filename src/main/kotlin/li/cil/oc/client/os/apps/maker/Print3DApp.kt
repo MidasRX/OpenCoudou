@@ -62,7 +62,7 @@ class Print3DApp(os: KotlinOS) : Application(os, PRINT_3D_INFO) {
     private var printProgress = 0
     private var isPrinting = false
     
-    enum class Tool3D(val icon: String, val name: String) {
+    enum class Tool3D(val icon: String, val displayName: String) {
         PLACE("▣", "Place"),
         REMOVE("□", "Remove"),
         PAINT("🎨", "Paint"),
@@ -71,7 +71,7 @@ class Print3DApp(os: KotlinOS) : Application(os, PRINT_3D_INFO) {
         SHAPE("◇", "Shape")
     }
     
-    enum class ShapeType(val name: String) {
+    enum class ShapeType(val displayName: String) {
         CUBE("Cube"),
         SPHERE("Sphere"),
         CYLINDER("Cylinder"),

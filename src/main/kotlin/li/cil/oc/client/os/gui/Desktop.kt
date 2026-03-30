@@ -2,7 +2,7 @@ package li.cil.oc.client.os.gui
 
 import li.cil.oc.client.os.core.KotlinOS
 import li.cil.oc.client.os.core.FrameBuffer
-import li.cil.oc.client.os.apps.ApplicationInfo
+import li.cil.oc.client.os.apps.AppInfo
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -50,7 +50,7 @@ class Desktop(private val os: KotlinOS) {
     /**
      * Add app to taskbar.
      */
-    fun addToTaskbar(app: ApplicationInfo, windowId: Int) {
+    fun addToTaskbar(app: AppInfo, windowId: Int) {
         runningApps.add(TaskbarItem(app.name, app.icon, windowId))
     }
     

@@ -529,7 +529,7 @@ class MultiscreenApp(os: KotlinOS) : Application(os, APP_INFO) {
         ) { MultiscreenApp(it) }
     }
     
-    private data class Screen(
+    private data class ScreenConfig(
         val id: Int,
         var x: Int,
         var y: Int,
@@ -540,9 +540,9 @@ class MultiscreenApp(os: KotlinOS) : Application(os, APP_INFO) {
     )
     
     private val screens = mutableListOf(
-        Screen(1, 0, 0, 80, 25, primary = true),
-        Screen(2, 80, 0, 80, 25),
-        Screen(3, 0, 25, 80, 25)
+        ScreenConfig(1, 0, 0, 80, 25, primary = true),
+        ScreenConfig(2, 80, 0, 80, 25),
+        ScreenConfig(3, 0, 25, 80, 25)
     )
     
     private var selectedScreen = 0

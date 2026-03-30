@@ -62,12 +62,41 @@ class KotlinOS(
     val componentBus: NativeComponentBus by lazy { NativeComponentBus() }
     val processManager: ProcessManager by lazy { ProcessManager() }
     val scheduler: ProcessScheduler by lazy { ProcessScheduler() }
-    val hal: HardwareAbstractionLayer by lazy { HardwareAbstractionLayer(componentBus) }
+    val hal: HardwareAbstractionLayer by lazy { HardwareAbstractionLayer() }
     val network: NetworkStack by lazy { NetworkStack() }
     val windowManager: WindowManager by lazy { WindowManager(this) }
     val desktop: Desktop by lazy { Desktop(this) }
     val shell: DesktopShell by lazy { DesktopShell(this) }
     val appRegistry: ApplicationRegistry by lazy { ApplicationRegistry(this) }
+    
+    // Aliases for backwards compatibility
+    val fileSystem get() = filesystem
+    
+    /**
+     * Helper to close an app by id (compat with old API).
+     */
+    fun closeApplication(appId: String) {
+        appRegistry.close(appId)
+    }
+    
+    /**
+     * Helper to get time in milliseconds.
+     */
+    fun currentTimeMillis() = System.currentTimeMillis()
+    
+    /**
+     * Get a component proxy by type (compat).
+     */
+    fun getComponent(type: String): Any? {
+        return componentBus.getPrimaryComponent(type)
+    }
+    
+    /**
+     * Launch an app by id.
+     */
+    fun launchApp(appId: String) {
+        appRegistry.launch(appId)
+    }
     
     // Window manager integration (connects windows, apps, processes)
     val wmIntegration: WindowManagerIntegration by lazy {
@@ -132,11 +161,10 @@ class KotlinOS(
             val frameStart = System.nanoTime()
             
             // Execute scheduler for process management
-            scheduler.tick()
+            scheduler.update()
             
             // Update UI
             windowManager.update()
-            desktop.update()
             shell.update()
             
             // Render frame
@@ -168,8 +196,7 @@ class KotlinOS(
         isRunning = false
         osScope.cancel()
         
-        scheduler.shutdown()
-        hal.shutdown()
+        scheduler.stop()
         processManager.killAll()
         windowManager.closeAll()
         network.shutdown()
@@ -196,7 +223,7 @@ class KotlinOS(
         screenWidth = screenWidth,
         screenHeight = screenHeight,
         processCount = processManager.listProcesses().size,
-        schedulerProcessCount = scheduler.getProcessCount(),
+        schedulerProcessCount = scheduler.getRunningCount(),
         memoryUsed = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory(),
         memoryTotal = Runtime.getRuntime().totalMemory()
     )
@@ -238,6 +265,23 @@ class KotlinOS(
      */
     fun handleDrag(x: Int, y: Int, button: Int) {
         windowManager.handleDrag(x, y, button)
+    }
+    
+    // ============================================================
+    // Convenience accessors for apps
+    // ============================================================
+    
+    /** Alias for filesystem used by app code. */
+    val fileSystem get() = filesystem
+    
+    /** Close a running application by its app ID. */
+    fun closeApplication(appId: String) {
+        appRegistry.close(appId)
+    }
+    
+    /** Get first available component of named type via the component bus. */
+    fun getComponent(type: String): Any? {
+        return componentBus.getFirstComponent(type)
     }
 }
 

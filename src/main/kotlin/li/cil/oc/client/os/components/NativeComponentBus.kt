@@ -427,6 +427,16 @@ class NativeComponentBus {
     fun listByType(type: ComponentType): List<String> =
         componentsByType[type]?.map { it.address } ?: emptyList()
     
+    /** Get the first component of the given string type name (for app compatibility). */
+    fun getFirstComponent(typeName: String): Any? {
+        val type = ComponentType.entries.find { it.name.equals(typeName, ignoreCase = true) }
+            ?: return null
+        return componentsByType[type]?.firstOrNull()
+    }
+    
+    /** Alias for getFirstComponent for compatibility. */
+    fun getPrimaryComponent(typeName: String) = getFirstComponent(typeName)
+    
     fun invoke(address: String, method: String, vararg args: Any?): Any? {
         return components[address]?.invoke(method, *args)
     }

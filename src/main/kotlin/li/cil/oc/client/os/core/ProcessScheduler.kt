@@ -25,6 +25,22 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class ProcessScheduler(private val os: KotlinOS) {
     
+    /**
+     * Get number of running processes.
+     */
+    fun getRunningCount(): Int {
+        return processes.size
+    }
+    
+    /**
+     * Scheduler termination callback.
+     */
+    private var processTerminationCallback: ((Int) -> Unit)? = null
+    
+    fun setProcessTerminationCallback(callback: (Int) -> Unit) {
+        processTerminationCallback = callback
+    }
+    
     companion object {
         // Time slice durations (ms)
         const val TIME_SLICE_REALTIME = 2L
@@ -108,6 +124,15 @@ class ProcessScheduler(private val os: KotlinOS) {
             }
             delay(SCHEDULER_TICK_MS)
             schedulerTicks.incrementAndGet()
+        }
+    }
+    
+    /**
+     * Update is called every frame by OS - performs scheduler tick.
+     */
+    fun update() = runBlocking {
+        schedulerLock.withLock {
+            tick()
         }
     }
     

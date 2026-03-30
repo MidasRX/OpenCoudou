@@ -296,6 +296,11 @@ object Screen {
         drawText(x, y, foreground, text)
     }
     
+    /** Alias: draw centered text with current foreground color. */
+    fun drawCentered(y: Int, text: String) {
+        drawCenteredText(y, currentForeground, text)
+    }
+    
     /**
      * Draw a frame/border.
      */
@@ -320,6 +325,11 @@ object Screen {
             set(x, y + i, chars[5].toString())
             set(x + w - 1, y + i, chars[5].toString())
         }
+    }
+    
+    /** Alias for drawFrame used by apps. */
+    fun drawBorder(x: Int, y: Int, w: Int, h: Int, single: Boolean = true) {
+        drawFrame(x, y, w, h, single)
     }
     
     // ==================== Buffer Management ====================

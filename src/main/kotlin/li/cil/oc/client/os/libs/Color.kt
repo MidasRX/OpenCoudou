@@ -104,8 +104,10 @@ object Color {
     
     /**
      * Create color from HSV.
-     */
-    fun fromHSV(h: Float, s: Float, v: Float): Int {
+     */    fun fromHSV(h: Double, s: Double, v: Double): Int {
+        return fromHSV(h.toFloat(), s.toFloat(), v.toFloat())
+    }
+        fun fromHSV(h: Float, s: Float, v: Float): Int {
         val c = v * s
         val x = c * (1 - abs((h / 60) % 2 - 1))
         val m = v - c
@@ -124,6 +126,11 @@ object Color {
             ((gf + m) * 255).toInt(),
             ((bf + m) * 255).toInt()
         )
+    }
+    
+    /** Overload for Double parameters. */
+    fun fromHSV(h: Double, s: Double, v: Double): Int {
+        return fromHSV(h.toFloat(), s.toFloat(), v.toFloat())
     }
     
     /**

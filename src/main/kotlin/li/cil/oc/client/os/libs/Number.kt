@@ -43,6 +43,9 @@ object Number {
     /**
      * Format number with SI prefix (k, M, G, etc.)
      */
+    fun formatSI(value: Long, decimals: Int = 2): String = formatSI(value.toDouble(), decimals)
+    fun formatSI(value: Int, decimals: Int = 2): String = formatSI(value.toDouble(), decimals)
+    
     fun formatSI(value: Double, decimals: Int = 2): String {
         if (value == 0.0) return "0"
         

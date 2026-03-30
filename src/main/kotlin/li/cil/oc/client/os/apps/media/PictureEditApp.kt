@@ -69,7 +69,7 @@ class PictureEditApp(os: KotlinOS) : Application(os, PICTURE_EDIT_INFO) {
     private var viewOffsetY = 0
     private var zoom = 1
     
-    enum class Tool(val icon: String, val name: String) {
+    enum class Tool(val icon: String, val displayName: String) {
         BRUSH("🖌", "Brush"),
         ERASER("⌫", "Eraser"),
         LINE("╱", "Line"),

@@ -300,6 +300,12 @@ class ApplicationRegistry(private val os: KotlinOS) {
     fun getRunningInstances(id: String): List<Application> =
         runningApps[id] ?: emptyList()
     
+    /** Alias for launch() for compatibility. */
+    fun launchApp(id: String) = launch(id)
+    
+    /** Alias for getAllApps() for compatibility. */
+    fun getInstalledApps() = getAllApps()
+    
     fun closeAll() {
         runningApps.values.flatten().forEach { it.close() }
         runningApps.clear()
@@ -308,6 +314,14 @@ class ApplicationRegistry(private val os: KotlinOS) {
     fun closeApp(app: Application) {
         app.close()
         runningApps[app.info.id]?.remove(app)
+    }
+    
+    /** Close all running instances of an app by ID (for KotlinOS.closeApplication). */
+    fun close(id: String) {
+        runningApps[id]?.toList()?.forEach { app ->
+            app.close()
+        }
+        runningApps.remove(id)
     }
 }
 

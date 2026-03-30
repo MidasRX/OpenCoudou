@@ -31,33 +31,33 @@ object Keyboard {
     const val NINE = 10
     const val ZERO = 11
     
-    // ==================== Letter Keys ====================
-    const val A = 30
-    const val B = 48
-    const val C = 46
-    const val D = 32
-    const val E = 18
-    const val F = 33
-    const val G = 34
-    const val H = 35
-    const val I = 23
-    const val J = 36
-    const val K = 37
-    const val L = 38
-    const val M = 50
-    const val N = 49
-    const val O = 24
-    const val P = 25
-    const val Q = 16
-    const val R = 19
-    const val S = 31
-    const val T = 20
-    const val U = 22
-    const val V = 47
-    const val W = 17
-    const val X = 45
-    const val Y = 21
-    const val Z = 44
+    // ==================== Letter Keys (Private - use KEY_ versions) ====================
+    private const val A = 30
+    private const val B = 48
+    private const val C = 46
+    private const val D = 32
+    private const val E = 18
+    private const val F = 33
+    private const val G = 34
+    private const val H = 35
+    private const val I = 23
+    private const val J = 36
+    private const val K = 37
+    private const val L = 38
+    private const val M = 50
+    private const val N = 49
+    private const val O = 24
+    private const val P = 25
+    private const val Q = 16
+    private const val R = 19
+    private const val S = 31
+    private const val T = 20
+    private const val U = 22
+    private const val V = 47
+    private const val W = 17
+    private const val X = 45
+    private const val Y = 21
+    private const val Z = 44
     
     // ==================== Function Keys ====================
     const val F1 = 59
@@ -73,40 +73,98 @@ object Keyboard {
     const val F11 = 87
     const val F12 = 88
     
-    // ==================== Misc Keys ====================
-    const val ESCAPE = 1
-    const val MINUS = 12
-    const val PLUS = 13
-    const val EQUALS = 13
-    const val BACKSPACE = 14
-    const val TAB = 15
-    const val OPEN_BRACKET = 26
-    const val CLOSE_BRACKET = 27
-    const val ENTER = 28
+    // ==================== Misc Keys (Private - use KEY_ versions) ====================
+    private const val ESCAPE = 1
+    private const val MINUS = 12
+    private const val PLUS = 13
+    private const val EQUALS = 13
+    private const val BACKSPACE = 14
+    private const val TAB = 15
+    private const val OPEN_BRACKET = 26
+    private const val CLOSE_BRACKET = 27
+    private const val ENTER = 28
     const val SEMICOLON = 39
     const val QUOTE = 40
     const val BACK_QUOTE = 41
     const val BACKSLASH = 43
-    const val COMMA = 51
-    const val PERIOD = 52
-    const val DOT = 52
-    const val SLASH = 53
-    const val SPACE = 57
+    private const val COMMA = 51
+    private const val PERIOD = 52
+    private const val DOT = 52
+    private const val SLASH = 53
+    private const val SPACE = 57
     const val CAPS_LOCK = 58
     
-    // ==================== Arrow Keys ====================
-    const val UP = 200
-    const val DOWN = 208
-    const val LEFT = 203
-    const val RIGHT = 205
+    // ==================== Aliases for compat ====================
+    const val KEY_ESCAPE = ESCAPE
+    const val KEY_1 = ONE
+    const val KEY_2 = TWO
+    const val KEY_3 = THREE
+    const val KEY_4 = FOUR
+    const val KEY_5 = FIVE
+    const val KEY_6 = SIX
+    const val KEY_7 = SEVEN
+    const val KEY_8 = EIGHT
+    const val KEY_9 = NINE
+    const val KEY_0 = ZERO
+    const val KEY_MINUS = MINUS
+    const val KEY_EQUALS = EQUALS
+    const val KEY_PLUS = PLUS
+    const val KEY_BACK = BACKSPACE
+    const val KEY_TAB = TAB
+    const val KEY_Q = Q
+    const val KEY_W = W
+    const val KEY_E = E
+    const val KEY_R = R
+    const val KEY_T = T
+    const val KEY_Y = Y
+    const val KEY_U = U
+    const val KEY_I = I
+    const val KEY_O = O
+    const val KEY_P = P
+    const val KEY_ENTER = ENTER
+    const val KEY_A = A
+    const val KEY_S = S
+    const val KEY_D = D
+    const val KEY_F = F
+    const val KEY_G = G
+    const val KEY_H = H
+    const val KEY_J = J
+    const val KEY_K = K
+    const val KEY_L = L
+    const val KEY_Z = Z
+    const val KEY_X = X
+    const val KEY_C = C
+    const val KEY_V = V
+    const val KEY_B = B
+    const val KEY_N = N
+    const val KEY_M = M
+    const val KEY_COMMA = COMMA
+    const val KEY_PERIOD = PERIOD
+    const val KEY_SPACE = SPACE
+    const val KEY_UP = UP
+    const val KEY_DOWN = DOWN
+    const val KEY_LEFT = LEFT
+    const val KEY_RIGHT = RIGHT
+    const val KEY_HOME = HOME
+    const val KEY_END = END
+    const val KEY_PAGE_UP = PAGE_UP
+    const val KEY_PAGE_DOWN = PAGE_DOWN
+    const val KEY_INSERT = INSERT
+    const val KEY_DELETE = DELETE
     
-    // ==================== Navigation Keys ====================
-    const val INSERT = 210
-    const val DELETE = 211
-    const val HOME = 199
-    const val END = 207
-    const val PAGE_UP = 201
-    const val PAGE_DOWN = 209
+    // ==================== Arrow Keys (Private - use KEY_ versions) ====================
+    private const val UP = 200
+    private const val DOWN = 208
+    private const val LEFT = 203
+    private const val RIGHT = 205
+    
+    // ==================== Navigation Keys (Private - use KEY_ versions) ====================
+    private const val INSERT = 210
+    private const val DELETE = 211
+    private const val HOME = 199
+    private const val END = 207
+    private const val PAGE_UP = 201
+    private const val PAGE_DOWN = 209
     
     // ==================== Numpad Keys ====================
     const val NUMPAD_0 = 82
@@ -158,6 +216,9 @@ object Keyboard {
     fun isControlDown(): Boolean {
         return isKeyDown(LEFT_CONTROL) || isKeyDown(RIGHT_CONTROL)
     }
+    
+    /** Alias for isControlDown() used by apps. */
+    fun isCtrlDown(): Boolean = isControlDown()
     
     /**
      * Check if Shift is pressed.
