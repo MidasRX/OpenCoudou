@@ -1,23 +1,21 @@
 package li.cil.oc.common.init
 
 import li.cil.oc.OpenComputers
+import li.cil.oc.common.block.CaseBlock
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockBehaviour
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.neoforge.registries.DeferredBlock
 import net.neoforged.neoforge.registries.DeferredRegister
 
-/**
- * Stub registration for blocks - to be expanded.
- */
 object ModBlocks {
     private val BLOCKS: DeferredRegister.Blocks = DeferredRegister.createBlocks(OpenComputers.MOD_ID)
     
-    // Stub blocks - these will be expanded later
-    val CASE_TIER1: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("case1", BlockBehaviour.Properties.of())
-    val CASE_TIER2: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("case2", BlockBehaviour.Properties.of())
-    val CASE_TIER3: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("case3", BlockBehaviour.Properties.of())
-    val CASE_CREATIVE: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("case_creative", BlockBehaviour.Properties.of())
+    // Case blocks with GUI interaction
+    val CASE_TIER1: DeferredBlock<Block> = BLOCKS.registerBlock("case1", { props -> CaseBlock(1, props) }, BlockBehaviour.Properties.of())
+    val CASE_TIER2: DeferredBlock<Block> = BLOCKS.registerBlock("case2", { props -> CaseBlock(2, props) }, BlockBehaviour.Properties.of())
+    val CASE_TIER3: DeferredBlock<Block> = BLOCKS.registerBlock("case3", { props -> CaseBlock(3, props) }, BlockBehaviour.Properties.of())
+    val CASE_CREATIVE: DeferredBlock<Block> = BLOCKS.registerBlock("case_creative", { props -> CaseBlock(4, props) }, BlockBehaviour.Properties.of())
     
     val SCREEN_TIER1: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("screen1", BlockBehaviour.Properties.of())
     val SCREEN_TIER2: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("screen2", BlockBehaviour.Properties.of())

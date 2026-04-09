@@ -91,9 +91,6 @@ class OpenComputers(
         LOGGER.info("Client setup starting")
         
         event.enqueueWork {
-            // Register client-side renderers
-            // This will be handled by the client module
-            
             LOGGER.info("Client setup complete")
         }
     }
