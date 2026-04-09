@@ -1,6 +1,1 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "opencomputers:item/signio_upgrade"
-  }
-}
+{"parent":"opencomputers:item/flat","textures":{"layer0":"opencomputers:item/signio_upgrade"}}

@@ -1,7 +1,7 @@
 {
     "parent": "opencomputers:item/flat",
     "textures": {
-        "layer0": "opencomputers:items/hoverboots",
-        "layer1": "opencomputers:items/hoverbootslight"
+        "layer0": "opencomputers:item/hoverboots",
+        "layer1": "opencomputers:item/hoverbootslight"
     }
 }

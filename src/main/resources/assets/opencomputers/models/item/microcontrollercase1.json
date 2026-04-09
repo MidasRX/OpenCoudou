@@ -1,6 +1,6 @@
 {
     "parent": "opencomputers:item/flat",
     "textures": {
-        "layer0": "opencomputers:items/microcontrollercase1"
+        "layer0": "opencomputers:item/microcontrollercase1"
     }
 }

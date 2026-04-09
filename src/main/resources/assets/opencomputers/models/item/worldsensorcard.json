@@ -1,6 +1,6 @@
 {
     "parent": "opencomputers:item/flat",
     "textures": {
-        "layer0": "opencomputers:items/worldsensorcard"
+        "layer0": "opencomputers:item/worldsensorcard"
     }
 }

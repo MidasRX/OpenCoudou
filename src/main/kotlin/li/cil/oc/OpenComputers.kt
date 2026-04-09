@@ -7,6 +7,7 @@ import li.cil.oc.common.init.ModMenus
 import li.cil.oc.common.init.ModCreativeTabs
 import li.cil.oc.common.init.ModDataComponents
 import li.cil.oc.common.init.ModSoundEvents
+import li.cil.oc.common.init.ModEntities
 // import li.cil.oc.common.network.NetworkHandler  // TODO: Re-enable
 // import li.cil.oc.server.machine.MachineRegistry  // TODO: Re-enable
 import net.neoforged.bus.api.IEventBus
@@ -14,7 +15,6 @@ import net.neoforged.fml.ModContainer
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
-import net.neoforged.neoforge.common.NeoForge
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -64,13 +64,11 @@ class OpenComputers(
         ModCreativeTabs.register(modBus)
         ModDataComponents.register(modBus)
         ModSoundEvents.register(modBus)
+        ModEntities.register(modBus)
         
         // Register event handlers
         modBus.addListener(this::commonSetup)
         modBus.addListener(this::clientSetup)
-        
-        // Register game event handlers
-        NeoForge.EVENT_BUS.register(this)
         
         LOGGER.info("$MOD_NAME initialization complete")
     }

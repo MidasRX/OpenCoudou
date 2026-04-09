@@ -23,6 +23,7 @@ import java.util.UUID
 @EventBusSubscriber(modid = OpenComputers.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 object ModPackets {
     
+    @JvmStatic
     @SubscribeEvent
     fun registerPayloads(event: RegisterPayloadHandlersEvent) {
         val registrar = event.registrar(OpenComputers.MOD_ID)

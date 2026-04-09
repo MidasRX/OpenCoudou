@@ -1,8 +1,8 @@
 {
   "parent": "minecraft:block/orientable",
   "textures": {
-    "top": "opencomputers:block/disk_drive_top",
-    "front": "opencomputers:block/disk_drive_front",
-    "side": "opencomputers:block/disk_drive_side"
+    "top": "opencomputers:block/generic_top",
+    "front": "opencomputers:block/diskdrive_front",
+    "side": "opencomputers:block/diskdrive_side"
   }
 }

@@ -2,8 +2,9 @@ plugins {
     id("java")
     id("idea")
     id("eclipse")
-    kotlin("jvm") version "1.9.22"
+    kotlin("jvm") version "2.1.0"
     id("net.neoforged.moddev") version "2.0.28-beta"
+    id("com.gradleup.shadow") version "8.3.0"
 }
 
 val modId = "opencomputers"
@@ -86,8 +87,33 @@ dependencies {
     // Kotlin coroutines for async Lua execution
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     
+    // Kotlin reflection for architecture registry
+    implementation(kotlin("reflect"))
+    
+    // Kotlin stdlib (bundled in JAR)
+    shadow(kotlin("stdlib"))
+    shadow(kotlin("reflect"))
+    shadow("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    shadow("org.luaj:luaj-jse:3.0.1")
+    
     // JSON handling
     implementation("com.google.code.gson:gson:2.10.1")
+}
+
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+    archiveClassifier.set("")
+    configurations = listOf(project.configurations.getByName("shadow"))
+    
+    // Don't relocate - NeoForge handles class isolation
+    mergeServiceFiles()
+}
+
+tasks.named("jar") {
+    finalizedBy("shadowJar")
+}
+
+tasks.named("build") {
+    dependsOn("shadowJar")
 }
 
 tasks.withType<ProcessResources>().configureEach {
@@ -112,9 +138,9 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    kotlinOptions {
-        jvmTarget = "21"
-        freeCompilerArgs = listOf("-Xjvm-default=all")
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        freeCompilerArgs.add("-Xjvm-default=all")
     }
 }
 

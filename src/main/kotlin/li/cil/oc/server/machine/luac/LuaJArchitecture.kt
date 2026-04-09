@@ -92,11 +92,11 @@ class LuaJArchitecture(override val machine: Machine) : Architecture {
                 // Check first return value - use arg1() method to avoid Kotlin invoke conflicts
                 val nargs = result.narg()
                 if (nargs == 0) {
-                    ExecutionResult.Shutdown(false)
+                    ExecutionResult.Shutdown
                 } else {
                     val firstValue: LuaValue = result.arg1()
                     if (firstValue.isnil()) {
-                        ExecutionResult.Shutdown(false)
+                        ExecutionResult.Shutdown
                     } else {
                         // Thread returned a value, treat as error message
                         ExecutionResult.Error(firstValue.tojstring())

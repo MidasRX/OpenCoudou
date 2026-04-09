@@ -5,7 +5,6 @@ import li.cil.oc.common.init.*
 // import li.cil.oc.common.config.Config  // TODO: Re-enable when config system is ready
 import net.minecraft.resources.ResourceLocation
 import net.neoforged.bus.api.IEventBus
-import net.neoforged.fml.common.Mod
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.fml.ModLoadingContext
 import org.apache.logging.log4j.LogManager
@@ -13,40 +12,16 @@ import org.apache.logging.log4j.LogManager
 /**
  * Common mod setup for OpenComputers.
  * Handles registration and initialization shared between client and server.
+ * NOTE: Registration is handled by the main OpenComputers class.
  */
-@Mod(OpenComputers.MOD_ID)
-class CommonSetup(modBus: IEventBus) {
+object CommonSetup {
     
-    companion object {
-        private val LOGGER = LogManager.getLogger("OpenComputers")
-        
-        fun id(path: String): ResourceLocation = 
-            ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, path)
-    }
+    private val LOGGER = LogManager.getLogger("OpenComputers")
     
-    init {
-        LOGGER.info("OpenComputers initializing...")
-        
-        // Register config - TODO: Re-enable when config system is ready
-        // Config.register(ModLoadingContext.get())
-        
-        // Register all deferred registers to mod bus
-        ModBlocks.register(modBus)
-        ModItems.register(modBus)
-        ModBlockEntities.register(modBus)
-        ModMenus.register(modBus)
-        ModCreativeTabs.register(modBus)
-        ModDataComponents.register(modBus)
-        ModSoundEvents.register(modBus)
-        ModEntities.register(modBus)
-        
-        // Register setup event
-        modBus.addListener(::onCommonSetup)
-        
-        LOGGER.info("OpenComputers registration complete")
-    }
+    fun id(path: String): ResourceLocation = 
+        ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, path)
     
-    private fun onCommonSetup(event: FMLCommonSetupEvent) {
+    fun onCommonSetup(event: FMLCommonSetupEvent) {
         event.enqueueWork {
             LOGGER.info("OpenComputers common setup...")
             

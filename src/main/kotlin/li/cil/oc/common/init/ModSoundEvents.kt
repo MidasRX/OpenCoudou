@@ -104,7 +104,7 @@ object ModSoundEvents {
     
     private fun registerSound(name: String): DeferredHolder<SoundEvent, SoundEvent> {
         val supplier: Supplier<SoundEvent> = Supplier {
-            SoundEvent.createVariableRangeEvent(Settings.resource(name.replace(".", "/")))
+            SoundEvent.createVariableRangeEvent(Settings.resource(name))
         }
         return SOUNDS.register(name.replace(".", "_"), supplier)
     }
