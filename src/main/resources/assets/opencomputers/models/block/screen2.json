@@ -1,6 +1,9 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "minecraft:block/orientable_with_bottom",
   "textures": {
-    "all": "opencomputers:block/generic_side"
+    "front": "opencomputers:block/screen/f",
+    "side": "opencomputers:block/screen/b",
+    "top": "opencomputers:block/generic_top",
+    "bottom": "opencomputers:block/generic_top"
   }
 }

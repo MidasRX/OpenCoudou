@@ -1,5 +1,8 @@
 {
     "variants": {
-        "": { "model": "opencomputers:block/screen3" }
+        "facing=north": { "model": "opencomputers:block/screen3" },
+        "facing=south": { "model": "opencomputers:block/screen3", "y": 180 },
+        "facing=west":  { "model": "opencomputers:block/screen3", "y": 270 },
+        "facing=east":  { "model": "opencomputers:block/screen3", "y": 90 }
     }
 }

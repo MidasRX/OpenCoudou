@@ -1,5 +1,6 @@
 package li.cil.oc.common.container
 
+import li.cil.oc.common.blockentity.CaseBlockEntity
 import li.cil.oc.common.init.ModMenus
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.world.entity.player.Inventory
@@ -17,30 +18,28 @@ class CaseMenu(
     private val playerInventory: Inventory,
     private val levelAccess: ContainerLevelAccess,
     private val caseInventory: IItemHandler,
-    private val tier: Int
+    val tier: Int
 ) : AbstractContainerMenu(ModMenus.CASE.get(), containerId) {
 
+    val slotDefs: List<CaseSlotConfig.SlotDef> = CaseSlotConfig.getSlots(tier)
     private var componentSlotCount = 0
 
     init {
-        // Component slots (2 columns x 6 rows)
-        val slotCount = caseInventory.slots.coerceAtMost(12)
-        for (i in 0 until slotCount) {
-            val col = i / 6
-            val row = i % 6
-            addSlot(SlotItemHandler(caseInventory, i, 8 + col * 18, 18 + row * 18))
+        // Component slots positioned per tier config
+        for ((i, def) in slotDefs.withIndex()) {
+            addSlot(SlotItemHandler(caseInventory, i, def.x, def.y))
         }
-        componentSlotCount = slotCount
+        componentSlotCount = slotDefs.size
 
         // Player inventory (3 rows of 9)
         for (row in 0 until 3) {
             for (col in 0 until 9) {
-                addSlot(Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, 140 + row * 18))
+                addSlot(Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, 84 + row * 18))
             }
         }
         // Player hotbar
         for (col in 0 until 9) {
-            addSlot(Slot(playerInventory, col, 8 + col * 18, 198))
+            addSlot(Slot(playerInventory, col, 8 + col * 18, 142))
         }
     }
 
@@ -66,10 +65,24 @@ class CaseMenu(
         }, true)
     }
 
+    override fun clickMenuButton(player: Player, id: Int): Boolean {
+        if (id == 0) {
+            // Power toggle
+            levelAccess.execute { level, pos ->
+                val be = level.getBlockEntity(pos) as? CaseBlockEntity ?: return@execute
+                be.isPowered = !be.isPowered
+                be.setChanged()
+            }
+            return true
+        }
+        return super.clickMenuButton(player, id)
+    }
+
     companion object {
         fun fromNetwork(containerId: Int, playerInventory: Inventory, buf: FriendlyByteBuf): CaseMenu {
             val tier = buf.readVarInt()
-            return CaseMenu(containerId, playerInventory, ContainerLevelAccess.NULL, ItemStackHandler(12), tier)
+            val slotCount = CaseSlotConfig.getSlots(tier).size
+            return CaseMenu(containerId, playerInventory, ContainerLevelAccess.NULL, ItemStackHandler(slotCount), tier)
         }
     }
 }

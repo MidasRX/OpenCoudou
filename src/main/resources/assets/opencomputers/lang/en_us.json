@@ -51,6 +51,7 @@
   "item.opencomputers.cpu1": "CPU (Tier 1)",
   "item.opencomputers.cpu2": "CPU (Tier 2)",
   "item.opencomputers.cpu3": "CPU (Tier 3)",
+  "item.opencomputers.cpu_creative": "CPU (Creative)",
   
   "item.opencomputers.ram1": "Memory (Tier 1)",
   "item.opencomputers.ram1_5": "Memory (Tier 1.5)",
@@ -249,6 +250,16 @@
   "item.opencomputers.terminalserver": "Terminal Server",
   "item.opencomputers.luabios": "Lua BIOS",
   "item.opencomputers.openos": "OpenOS Floppy",
+  "item.opencomputers.loot_network": "Network (Network Stack)",
+  "item.opencomputers.loot_plan9k": "Plan9k (Operating System)",
+  "item.opencomputers.loot_irc": "OpenIRC (IRC Client)",
+  "item.opencomputers.loot_openloader": "OpenLoader (Boot Loader)",
+  "item.opencomputers.loot_oppm": "OPPM (Package Manager)",
+  "item.opencomputers.loot_builder": "Builder",
+  "item.opencomputers.loot_dig": "Digger",
+  "item.opencomputers.loot_maze": "Mazer",
+  "item.opencomputers.loot_data": "Data Card Software",
+  "item.opencomputers.loot_generator": "Generator Upgrade Software",
   "item.opencomputers.drone": "Drone",
   "item.opencomputers.abstractbuscard": "Abstract Bus Card",
   "item.opencomputers.debugger": "Debugger",
@@ -259,5 +270,6 @@
   "item.opencomputers.lootdisk": "Loot Disk",
 
   "tooltip.opencomputers.terminal.bound": "Bound to terminal server",
-  "tooltip.opencomputers.terminal.unbound": "Not bound to any terminal server"
+  "tooltip.opencomputers.terminal.unbound": "Not bound to any terminal server",
+  "message.opencomputers.screen.no_keyboard": "No keyboard attached to this screen"
 }

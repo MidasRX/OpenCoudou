@@ -1,7 +1,7 @@
 package li.cil.oc.common.blockentity
 
+import li.cil.oc.common.container.CaseSlotConfig
 import li.cil.oc.common.init.ModBlockEntities
-import li.cil.oc.common.init.ModMenus
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
@@ -24,22 +24,39 @@ class CaseBlockEntity(
     state: BlockState
 ) : BlockEntity(ModBlockEntities.CASE.get(), pos, state), MenuProvider {
 
-    companion object {
-        const val TOTAL_SLOTS = 12
-    }
+    private var tier: Int = 1
+    var isPowered: Boolean = false
 
-    val inventory: ItemStackHandler = object : ItemStackHandler(TOTAL_SLOTS) {
+    val inventory: ItemStackHandler = object : ItemStackHandler(CaseSlotConfig.getSlots(tier).size) {
         override fun onContentsChanged(slot: Int) {
             setChanged()
         }
     }
 
-    private var tier: Int = 1
+    fun setTier(t: Int) {
+        tier = t
+        // Resize inventory to match tier
+        val newSize = CaseSlotConfig.getSlots(tier).size
+        if (inventory.slots != newSize) {
+            val newInv = ItemStackHandler(newSize)
+            for (i in 0 until minOf(inventory.slots, newSize)) {
+                newInv.setStackInSlot(i, inventory.getStackInSlot(i))
+            }
+            // Copy contents into resized handler
+            for (i in 0 until newSize) {
+                if (i < inventory.slots) {
+                    // keep existing
+                } else {
+                    break
+                }
+            }
+        }
+    }
 
-    fun setTier(t: Int) { tier = t }
     fun getTier(): Int = tier
 
-    // MenuProvider
+    private fun slotCount(): Int = CaseSlotConfig.getSlots(tier).size
+
     override fun getDisplayName(): Component =
         Component.translatable("block.opencomputers.case${tier}")
 
@@ -52,7 +69,7 @@ class CaseBlockEntity(
     }
 
     fun dropContents(level: Level, pos: BlockPos) {
-        for (i in 0 until TOTAL_SLOTS) {
+        for (i in 0 until inventory.slots) {
             val stack = inventory.getStackInSlot(i)
             if (!stack.isEmpty) {
                 Containers.dropItemStack(level, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(), stack)
@@ -65,14 +82,16 @@ class CaseBlockEntity(
         super.saveAdditional(tag, registries)
         tag.put("Inventory", inventory.serializeNBT(registries))
         tag.putInt("Tier", tier)
+        tag.putBoolean("Powered", isPowered)
     }
 
     override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
         super.loadAdditional(tag, registries)
+        tier = tag.getInt("Tier").coerceAtLeast(1)
+        isPowered = tag.getBoolean("Powered")
         if (tag.contains("Inventory")) {
             inventory.deserializeNBT(registries, tag.getCompound("Inventory"))
         }
-        tier = tag.getInt("Tier").coerceAtLeast(1)
     }
 
     override fun getUpdateTag(registries: HolderLookup.Provider): CompoundTag {

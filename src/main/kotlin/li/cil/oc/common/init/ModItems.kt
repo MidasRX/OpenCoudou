@@ -99,6 +99,10 @@ object ModItems {
         CPUItem(props, 2)
     }
     
+    val CPU_CREATIVE: DeferredItem<CPUItem> = ITEMS.registerItem("cpu_creative") { props ->
+        CPUItem(props, 3)
+    }
+    
     // ========================================
     // Memory
     // ========================================
@@ -495,6 +499,18 @@ object ModItems {
     val LUA_BIOS: DeferredItem<EEPROMItem> = ITEMS.registerItem("luabios", ::EEPROMItem)
     
     val OPENOS: DeferredItem<FloppyItem> = ITEMS.registerItem("openos", ::FloppyItem)
+    
+    // Loot disks (from original OC)
+    val LOOT_NETWORK: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_network", ::FloppyItem)
+    val LOOT_PLAN9K: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_plan9k", ::FloppyItem)
+    val LOOT_IRC: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_irc", ::FloppyItem)
+    val LOOT_OPENLOADER: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_openloader", ::FloppyItem)
+    val LOOT_OPPM: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_oppm", ::FloppyItem)
+    val LOOT_BUILDER: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_builder", ::FloppyItem)
+    val LOOT_DIG: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_dig", ::FloppyItem)
+    val LOOT_MAZE: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_maze", ::FloppyItem)
+    val LOOT_DATA: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_data", ::FloppyItem)
+    val LOOT_GENERATOR: DeferredItem<FloppyItem> = ITEMS.registerItem("loot_generator", ::FloppyItem)
     
     val DISK: DeferredItem<HDDItem> = ITEMS.registerItem("disk") { props ->
         HDDItem(props, 1) // Managed disk

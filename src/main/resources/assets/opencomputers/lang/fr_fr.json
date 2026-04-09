@@ -50,6 +50,7 @@
   "item.opencomputers.cpu1": "CPU (Niveau 1)",
   "item.opencomputers.cpu2": "CPU (Niveau 2)",
   "item.opencomputers.cpu3": "CPU (Niveau 3)",
+  "item.opencomputers.cpu_creative": "CPU (Créatif)",
   
   "item.opencomputers.memory1": "Mémoire (Niveau 1)",
   "item.opencomputers.memory2": "Mémoire (Niveau 2)",
@@ -96,5 +97,18 @@
   "message.opencomputers.computer.running": "Ordinateur en marche",
   "message.opencomputers.computer.stopped": "Ordinateur arrêté",
   "message.opencomputers.computer.turned_on": "Ordinateur allumé",
-  "message.opencomputers.computer.turned_off": "Ordinateur éteint"
+  "message.opencomputers.computer.turned_off": "Ordinateur éteint",
+
+  "item.opencomputers.openos": "Disquette OpenOS",
+  "item.opencomputers.loot_network": "Réseau (Pile réseau)",
+  "item.opencomputers.loot_plan9k": "Plan9k (Système d'exploitation)",
+  "item.opencomputers.loot_irc": "OpenIRC (Client IRC)",
+  "item.opencomputers.loot_openloader": "OpenLoader (Chargeur de démarrage)",
+  "item.opencomputers.loot_oppm": "OPPM (Gestionnaire de paquets)",
+  "item.opencomputers.loot_builder": "Constructeur",
+  "item.opencomputers.loot_dig": "Mineur",
+  "item.opencomputers.loot_maze": "Labyrinthe",
+  "item.opencomputers.loot_data": "Logiciel carte de données",
+  "item.opencomputers.loot_generator": "Logiciel générateur",
+  "message.opencomputers.screen.no_keyboard": "Aucun clavier connecté à cet écran"
 }

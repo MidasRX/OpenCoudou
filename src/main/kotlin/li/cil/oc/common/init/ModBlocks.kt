@@ -2,6 +2,8 @@ package li.cil.oc.common.init
 
 import li.cil.oc.OpenComputers
 import li.cil.oc.common.block.CaseBlock
+import li.cil.oc.common.block.KeyboardBlock
+import li.cil.oc.common.block.ScreenBlock
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockBehaviour
 import net.neoforged.bus.api.IEventBus
@@ -17,11 +19,11 @@ object ModBlocks {
     val CASE_TIER3: DeferredBlock<Block> = BLOCKS.registerBlock("case3", { props -> CaseBlock(3, props) }, BlockBehaviour.Properties.of())
     val CASE_CREATIVE: DeferredBlock<Block> = BLOCKS.registerBlock("case_creative", { props -> CaseBlock(4, props) }, BlockBehaviour.Properties.of())
     
-    val SCREEN_TIER1: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("screen1", BlockBehaviour.Properties.of())
-    val SCREEN_TIER2: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("screen2", BlockBehaviour.Properties.of())
-    val SCREEN_TIER3: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("screen3", BlockBehaviour.Properties.of())
+    val SCREEN_TIER1: DeferredBlock<Block> = BLOCKS.registerBlock("screen1", { props -> ScreenBlock(props) }, BlockBehaviour.Properties.of())
+    val SCREEN_TIER2: DeferredBlock<Block> = BLOCKS.registerBlock("screen2", { props -> ScreenBlock(props) }, BlockBehaviour.Properties.of())
+    val SCREEN_TIER3: DeferredBlock<Block> = BLOCKS.registerBlock("screen3", { props -> ScreenBlock(props) }, BlockBehaviour.Properties.of())
     
-    val KEYBOARD: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("keyboard", BlockBehaviour.Properties.of())
+    val KEYBOARD: DeferredBlock<Block> = BLOCKS.registerBlock("keyboard", { props -> KeyboardBlock(props) }, BlockBehaviour.Properties.of().noOcclusion())
     val REDSTONE_IO: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("redstone_io", BlockBehaviour.Properties.of())
     
     val CABLE: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("cable", BlockBehaviour.Properties.of())
