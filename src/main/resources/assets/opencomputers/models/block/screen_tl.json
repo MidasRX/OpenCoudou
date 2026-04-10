@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "opencomputers:block/screen/btl",
+    "down": "opencomputers:block/screen/b",
+    "up": "opencomputers:block/screen/b",
+    "north": "opencomputers:block/screen/ftl",
+    "south": "opencomputers:block/screen/btl",
+    "east": "opencomputers:block/screen/b2",
+    "west": "opencomputers:block/screen/b2"
+  }
+}

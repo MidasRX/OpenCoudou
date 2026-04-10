@@ -1,102 +1,39 @@
 {
-  "computer.running": {
+  "computer_running": {
     "category": "block",
     "sounds": [
-      {
-        "name": "opencomputers:computer_running",
-        "stream": true
-      }
+      {"name": "opencomputers:computer_running", "stream": true}
     ]
   },
-  "computer.startup": {
-    "category": "block",
-    "sounds": ["opencomputers:computer_startup"]
-  },
-  "computer.shutdown": {
-    "category": "block", 
-    "sounds": ["opencomputers:computer_shutdown"]
-  },
-  "computer.beep": {
-    "category": "block",
-    "sounds": ["opencomputers:computer_beep"]
-  },
-  "robot.move": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_move"]
-  },
-  "robot.turn": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_turn"]
-  },
-  "robot.swing": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_swing"]
-  },
-  "drone.fly": {
-    "category": "neutral",
-    "sounds": [
-      {
-        "name": "opencomputers:drone_fly",
-        "stream": true
-      }
-    ]
-  },
-  "disk.insert": {
-    "category": "block",
-    "sounds": ["opencomputers:disk_insert"]
-  },
-  "disk.eject": {
-    "category": "block",
-    "sounds": ["opencomputers:disk_eject"]
-  },
-  "keyboard.press": {
+  "floppy_access": {
     "category": "block",
     "sounds": [
-      "opencomputers:keyboard_press1",
-      "opencomputers:keyboard_press2",
-      "opencomputers:keyboard_press3"
+      "opencomputers:floppy_access1",
+      "opencomputers:floppy_access2",
+      "opencomputers:floppy_access3",
+      "opencomputers:floppy_access4",
+      "opencomputers:floppy_access5",
+      "opencomputers:floppy_access6"
     ]
   },
-  "keyboard.release": {
+  "floppy_eject": {
     "category": "block",
-    "sounds": ["opencomputers:keyboard_release"]
+    "sounds": ["opencomputers:floppy_eject"]
   },
-  "printer.working": {
+  "floppy_insert": {
+    "category": "block",
+    "sounds": ["opencomputers:floppy_insert"]
+  },
+  "hdd_access": {
     "category": "block",
     "sounds": [
-      {
-        "name": "opencomputers:printer_working",
-        "stream": true
-      }
+      "opencomputers:hdd_access1",
+      "opencomputers:hdd_access2",
+      "opencomputers:hdd_access3",
+      "opencomputers:hdd_access4",
+      "opencomputers:hdd_access5",
+      "opencomputers:hdd_access6",
+      "opencomputers:hdd_access7"
     ]
-  },
-  "printer.done": {
-    "category": "block",
-    "sounds": ["opencomputers:printer_done"]
-  },
-  "assembler.working": {
-    "category": "block",
-    "sounds": [
-      {
-        "name": "opencomputers:assembler_working",
-        "stream": true
-      }
-    ]
-  },
-  "assembler.done": {
-    "category": "block",
-    "sounds": ["opencomputers:assembler_done"]
-  },
-  "disassembler.working": {
-    "category": "block",
-    "sounds": ["opencomputers:disassembler_working"]
-  },
-  "network.activity": {
-    "category": "block",
-    "sounds": ["opencomputers:network_activity"]
-  },
-  "hologram.update": {
-    "category": "block",
-    "sounds": ["opencomputers:hologram_update"]
   }
 }

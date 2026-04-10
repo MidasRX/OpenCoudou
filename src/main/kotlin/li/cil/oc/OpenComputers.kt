@@ -8,6 +8,7 @@ import li.cil.oc.common.init.ModCreativeTabs
 import li.cil.oc.common.init.ModDataComponents
 import li.cil.oc.common.init.ModSoundEvents
 import li.cil.oc.common.init.ModEntities
+import li.cil.oc.util.OCLogger
 // import li.cil.oc.common.network.NetworkHandler  // TODO: Re-enable
 // import li.cil.oc.server.machine.MachineRegistry  // TODO: Re-enable
 import net.neoforged.bus.api.IEventBus
@@ -77,6 +78,10 @@ class OpenComputers(
         LOGGER.info("Common setup starting")
         
         event.enqueueWork {
+            // Initialize OpenComputers logging system
+            OCLogger.init()
+            OCLogger.info("OpenComputers common setup")
+            
             // Network handler is registered via @SubscribeEvent on RegisterPayloadHandlersEvent
             
             // Register default architectures

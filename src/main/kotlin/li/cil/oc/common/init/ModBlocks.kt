@@ -1,8 +1,14 @@
 package li.cil.oc.common.init
 
 import li.cil.oc.OpenComputers
+import li.cil.oc.common.block.AdapterBlock
+import li.cil.oc.common.block.CableBlock
 import li.cil.oc.common.block.CaseBlock
+import li.cil.oc.common.block.DiskDriveBlock
+import li.cil.oc.common.block.GeolyzerBlock
+import li.cil.oc.common.block.HologramBlock
 import li.cil.oc.common.block.KeyboardBlock
+import li.cil.oc.common.block.PrinterBlock
 import li.cil.oc.common.block.ScreenBlock
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockBehaviour
@@ -26,7 +32,7 @@ object ModBlocks {
     val KEYBOARD: DeferredBlock<Block> = BLOCKS.registerBlock("keyboard", { props -> KeyboardBlock(props) }, BlockBehaviour.Properties.of().noOcclusion())
     val REDSTONE_IO: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("redstone_io", BlockBehaviour.Properties.of())
     
-    val CABLE: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("cable", BlockBehaviour.Properties.of())
+    val CABLE: DeferredBlock<Block> = BLOCKS.registerBlock("cable", { props -> CableBlock(props) }, BlockBehaviour.Properties.of().noOcclusion())
     val RELAY: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("relay", BlockBehaviour.Properties.of())
     val ACCESS_POINT: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("access_point", BlockBehaviour.Properties.of())
     
@@ -37,15 +43,15 @@ object ModBlocks {
     
     val ASSEMBLER: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("assembler", BlockBehaviour.Properties.of())
     val DISASSEMBLER: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("disassembler", BlockBehaviour.Properties.of())
-    val PRINTER: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("printer", BlockBehaviour.Properties.of())
+    val PRINTER: DeferredBlock<Block> = BLOCKS.registerBlock("printer", { props -> PrinterBlock(props) }, BlockBehaviour.Properties.of())
     val RAID: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("raid", BlockBehaviour.Properties.of())
     
-    val ADAPTER: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("adapter", BlockBehaviour.Properties.of())
-    val HOLOGRAM_TIER1: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("hologram1", BlockBehaviour.Properties.of())
-    val HOLOGRAM_TIER2: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("hologram2", BlockBehaviour.Properties.of())
-    val DISK_DRIVE: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("disk_drive", BlockBehaviour.Properties.of())
+    val ADAPTER: DeferredBlock<Block> = BLOCKS.registerBlock("adapter", { props -> AdapterBlock(props) }, BlockBehaviour.Properties.of())
+    val HOLOGRAM_TIER1: DeferredBlock<Block> = BLOCKS.registerBlock("hologram1", { props -> HologramBlock(1, props) }, BlockBehaviour.Properties.of().noOcclusion())
+    val HOLOGRAM_TIER2: DeferredBlock<Block> = BLOCKS.registerBlock("hologram2", { props -> HologramBlock(2, props) }, BlockBehaviour.Properties.of().noOcclusion())
+    val DISK_DRIVE: DeferredBlock<Block> = BLOCKS.registerBlock("disk_drive", { props -> DiskDriveBlock(props) }, BlockBehaviour.Properties.of())
     
-    val GEOLYZER: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("geolyzer", BlockBehaviour.Properties.of())
+    val GEOLYZER: DeferredBlock<Block> = BLOCKS.registerBlock("geolyzer", { props -> GeolyzerBlock(props) }, BlockBehaviour.Properties.of())
     val MOTION_SENSOR: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("motion_sensor", BlockBehaviour.Properties.of())
     val TRANSPOSER: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("transposer", BlockBehaviour.Properties.of())
     val WAYPOINT: DeferredBlock<Block> = BLOCKS.registerSimpleBlock("waypoint", BlockBehaviour.Properties.of())

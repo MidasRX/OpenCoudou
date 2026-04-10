@@ -9,8 +9,8 @@ plugins {
 
 val modId = "opencomputers"
 val modVersion = "3.0.0"
-val minecraftVersion = "1.21.4"
-val neoVersion = "21.4.0-beta"
+val minecraftVersion = "1.21.1"
+val neoVersion = "21.1.42"
 
 version = modVersion
 group = "li.cil.oc"

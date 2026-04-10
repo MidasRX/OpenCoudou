@@ -1,0 +1,18 @@
+{
+  "textures": {
+    "cable": "opencomputers:block/cable"
+  },
+  "elements": [
+    {
+      "from": [5, 0, 5],
+      "to": [11, 5, 11],
+      "faces": {
+        "north": { "texture": "#cable" },
+        "south": { "texture": "#cable" },
+        "east": { "texture": "#cable" },
+        "west": { "texture": "#cable" },
+        "down": { "texture": "#cable" }
+      }
+    }
+  ]
+}

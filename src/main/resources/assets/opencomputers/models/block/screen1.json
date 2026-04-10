@@ -1,9 +1,12 @@
 {
-  "parent": "minecraft:block/orientable_with_bottom",
+  "parent": "minecraft:block/cube",
   "textures": {
-    "front": "opencomputers:block/screen/f",
-    "side": "opencomputers:block/screen/b",
-    "top": "opencomputers:block/generic_top",
-    "bottom": "opencomputers:block/generic_top"
+    "particle": "opencomputers:block/screen/b2",
+    "down": "opencomputers:block/screen/b",
+    "up": "opencomputers:block/screen/b",
+    "north": "opencomputers:block/screen/f2",
+    "south": "opencomputers:block/screen/b2",
+    "east": "opencomputers:block/screen/b2",
+    "west": "opencomputers:block/screen/b2"
   }
 }

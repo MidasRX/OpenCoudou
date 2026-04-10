@@ -66,6 +66,12 @@ object ModCreativeTabs {
                 output.accept(ModItems.CPU_TIER1.get())
                 output.accept(ModItems.CPU_TIER2.get())
                 output.accept(ModItems.CPU_TIER3.get())
+                output.accept(ModItems.CPU_CREATIVE.get())
+                
+                // APUs (combined CPU+GPU)
+                output.accept(ModItems.APU_TIER1.get())
+                output.accept(ModItems.APU_TIER2.get())
+                output.accept(ModItems.APU_CREATIVE.get())
                 
                 // Memory
                 output.accept(ModItems.MEMORY_TIER1.get())
@@ -91,6 +97,9 @@ object ModCreativeTabs {
                 output.accept(ModItems.WIRELESS_CARD_TIER2.get())
                 output.accept(ModItems.LINKED_CARD.get())
                 output.accept(ModItems.INTERNET_CARD.get())
+                
+                // Creative/Debug Cards
+                output.accept(ModItems.DEBUG_CARD.get())
                 
                 // Other Cards
                 output.accept(ModItems.REDSTONE_CARD_TIER1.get())
@@ -139,6 +148,13 @@ object ModCreativeTabs {
                 output.accept(ModItems.TABLET_CASE_TIER1.get())
                 output.accept(ModItems.TABLET_CASE_TIER2.get())
                 output.accept(ModItems.TABLET_CASE_CREATIVE.get())
+                
+                // Servers
+                output.accept(ModItems.SERVER_TIER1.get())
+                output.accept(ModItems.SERVER_TIER2.get())
+                output.accept(ModItems.SERVER_TIER3.get())
+                output.accept(ModItems.SERVER_CREATIVE.get())
+                
                 output.accept(ModItems.NANOMACHINES.get())
             }
             .build()

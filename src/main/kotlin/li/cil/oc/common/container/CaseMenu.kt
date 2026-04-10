@@ -70,8 +70,10 @@ class CaseMenu(
             // Power toggle
             levelAccess.execute { level, pos ->
                 val be = level.getBlockEntity(pos) as? CaseBlockEntity ?: return@execute
-                be.isPowered = !be.isPowered
-                be.setChanged()
+                val error = be.togglePower()
+                if (error != null && player is net.minecraft.server.level.ServerPlayer) {
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable(error), true)
+                }
             }
             return true
         }
@@ -81,8 +83,8 @@ class CaseMenu(
     companion object {
         fun fromNetwork(containerId: Int, playerInventory: Inventory, buf: FriendlyByteBuf): CaseMenu {
             val tier = buf.readVarInt()
-            val slotCount = CaseSlotConfig.getSlots(tier).size
-            return CaseMenu(containerId, playerInventory, ContainerLevelAccess.NULL, ItemStackHandler(slotCount), tier)
+            // Use max slot count (10) to match server's inventory size
+            return CaseMenu(containerId, playerInventory, ContainerLevelAccess.NULL, ItemStackHandler(10), tier)
         }
     }
 }

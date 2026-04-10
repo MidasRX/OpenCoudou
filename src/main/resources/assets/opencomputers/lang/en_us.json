@@ -271,5 +271,25 @@
 
   "tooltip.opencomputers.terminal.bound": "Bound to terminal server",
   "tooltip.opencomputers.terminal.unbound": "Not bound to any terminal server",
-  "message.opencomputers.screen.no_keyboard": "No keyboard attached to this screen"
+  
+  "tooltip.opencomputers.apu.combined": "Combined CPU and GPU",
+  "tooltip.opencomputers.apu.resolution": "Max Resolution: %s",
+  "tooltip.opencomputers.apu.components": "Max Components: %d",
+  
+  "tooltip.opencomputers.debug.creative": "Creative-only",
+  "tooltip.opencomputers.debug.desc": "Powerful debugging and world manipulation",
+  
+  "tooltip.opencomputers.linked.desc": "Quantum-entangled network card",
+  "tooltip.opencomputers.linked.paired": "Paired",
+  "tooltip.opencomputers.linked.unpaired": "Not paired",
+  
+  "message.opencomputers.screen.no_keyboard": "No keyboard attached to this screen",
+  "message.opencomputers.screen.not_connected": "Screen not connected to a computer",
+  "message.opencomputers.screen.ready": "Screen ready for input",
+  "message.opencomputers.computer.no_cpu": "No CPU installed",
+  "message.opencomputers.computer.no_ram": "No RAM installed",
+  "message.opencomputers.computer.no_eeprom": "No EEPROM installed",
+  "message.opencomputers.computer.no_energy": "Not enough energy",
+  "message.opencomputers.computer.booting": "Booting...",
+  "message.opencomputers.computer.running": "Computer is running"
 }

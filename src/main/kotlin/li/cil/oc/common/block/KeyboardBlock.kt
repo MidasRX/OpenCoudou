@@ -17,11 +17,11 @@ class KeyboardBlock(properties: Properties) : Block(properties) {
     companion object {
         val FACING = HorizontalDirectionalBlock.FACING
 
-        // Thin keyboard shape per facing direction (2px tall, 14px wide, 8px deep)
-        private val SHAPE_NORTH = box(1.0, 0.0, 4.0, 15.0, 2.0, 12.0)
-        private val SHAPE_SOUTH = box(1.0, 0.0, 4.0, 15.0, 2.0, 12.0)
-        private val SHAPE_EAST  = box(4.0, 0.0, 1.0, 12.0, 2.0, 15.0)
-        private val SHAPE_WEST  = box(4.0, 0.0, 1.0, 12.0, 2.0, 15.0)
+        // Thin keyboard shape per facing direction (1px tall, 14px wide, 8px deep)
+        private val SHAPE_NORTH = box(1.0, 0.0, 4.0, 15.0, 1.0, 12.0)
+        private val SHAPE_SOUTH = box(1.0, 0.0, 4.0, 15.0, 1.0, 12.0)
+        private val SHAPE_EAST  = box(4.0, 0.0, 1.0, 12.0, 1.0, 15.0)
+        private val SHAPE_WEST  = box(4.0, 0.0, 1.0, 12.0, 1.0, 15.0)
     }
 
     init {

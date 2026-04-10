@@ -63,11 +63,14 @@ class CaseScreen(
     override fun renderBg(guiGraphics: GuiGraphics, partialTick: Float, mouseX: Int, mouseY: Int) {
         guiGraphics.blit(RenderType::guiTextured, BACKGROUND, leftPos, topPos, 0f, 0f, imageWidth, imageHeight, 256, 256)
 
-        // Power button
+        // Power button — texture is 36x36: top 18x18 = normal, bottom 18x18 = hovered
         val btnTex = if (isPowered) BUTTON_RUN else BUTTON_POWER
+        val hovered = mouseX >= leftPos + POWER_BTN_X && mouseX < leftPos + POWER_BTN_X + POWER_BTN_W
+                   && mouseY >= topPos + POWER_BTN_Y && mouseY < topPos + POWER_BTN_Y + POWER_BTN_H
+        val vOffset = if (hovered) 18f else 0f
         guiGraphics.blit(RenderType::guiTextured, btnTex,
             leftPos + POWER_BTN_X, topPos + POWER_BTN_Y,
-            0f, 0f, POWER_BTN_W, POWER_BTN_H, POWER_BTN_W, POWER_BTN_H)
+            0f, vOffset, POWER_BTN_W, POWER_BTN_H, 36, 36)
 
         // Draw slot backgrounds and ghost icons for component slots
         for ((i, def) in menu.slotDefs.withIndex()) {

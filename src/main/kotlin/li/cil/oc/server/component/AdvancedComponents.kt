@@ -492,8 +492,9 @@ class DatabaseComponent(
 
 /**
  * Data card component - provides hashing, encryption, and data utilities.
+ * NOTE: This is the legacy ComponentBase version, use DataCardComponent from DataCardImpl.kt instead.
  */
-class DataCardComponent(
+class DataCardComponentLegacy(
     val tier: Int
 ) : ComponentBase("data") {
     

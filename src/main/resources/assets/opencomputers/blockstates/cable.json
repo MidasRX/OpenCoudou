@@ -1,5 +1,31 @@
 {
-  "variants": {
-    "": { "model": "opencomputers:block/cable" }
-  }
+  "multipart": [
+    {
+      "apply": { "model": "opencomputers:block/cable_core" }
+    },
+    {
+      "when": { "north": "true" },
+      "apply": { "model": "opencomputers:block/cable_arm", "y": 0 }
+    },
+    {
+      "when": { "east": "true" },
+      "apply": { "model": "opencomputers:block/cable_arm", "y": 90 }
+    },
+    {
+      "when": { "south": "true" },
+      "apply": { "model": "opencomputers:block/cable_arm", "y": 180 }
+    },
+    {
+      "when": { "west": "true" },
+      "apply": { "model": "opencomputers:block/cable_arm", "y": 270 }
+    },
+    {
+      "when": { "up": "true" },
+      "apply": { "model": "opencomputers:block/cable_arm_vertical", "x": 180 }
+    },
+    {
+      "when": { "down": "true" },
+      "apply": { "model": "opencomputers:block/cable_arm_vertical" }
+    }
+  ]
 }
