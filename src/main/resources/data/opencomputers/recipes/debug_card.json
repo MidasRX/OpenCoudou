@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "NNN",
+    "NCN",
+    " B "
+  ],
+  "key": {
+    "N": {"item": "minecraft:nether_star"},
+    "C": {"item": "opencomputers:chip3"},
+    "B": {"item": "opencomputers:card_base"}
+  },
+  "result": {
+    "id": "opencomputers:debug_card",
+    "count": 1
+  }
+}

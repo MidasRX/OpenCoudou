@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "FLF",
+    "WCW",
+    "IFI"
+  ],
+  "key": {
+    "F": {"item": "minecraft:feather"},
+    "L": {"item": "minecraft:leather"},
+    "W": {"item": "minecraft:white_wool"},
+    "C": {"item": "opencomputers:chip1"},
+    "I": {"item": "minecraft:iron_ingot"}
+  },
+  "result": {
+    "id": "opencomputers:hoverupgrade1",
+    "count": 1
+  }
+}

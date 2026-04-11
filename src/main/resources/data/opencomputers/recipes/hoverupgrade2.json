@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "FEF",
+    "WCW",
+    "HFH"
+  ],
+  "key": {
+    "F": {"item": "minecraft:feather"},
+    "E": {"item": "minecraft:ender_pearl"},
+    "W": {"item": "minecraft:white_wool"},
+    "C": {"item": "opencomputers:chip2"},
+    "H": {"item": "opencomputers:hoverupgrade1"}
+  },
+  "result": {
+    "id": "opencomputers:hoverupgrade2",
+    "count": 1
+  }
+}

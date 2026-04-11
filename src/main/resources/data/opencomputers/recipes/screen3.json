@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "OOO",
+    "OCO",
+    "DPD"
+  ],
+  "key": {
+    "O": {"item": "minecraft:obsidian"},
+    "D": {"item": "minecraft:diamond"},
+    "C": {"item": "opencomputers:chip3"},
+    "P": {"item": "opencomputers:transistor"}
+  },
+  "result": {
+    "item": "opencomputers:screen3",
+    "count": 1
+  }
+}

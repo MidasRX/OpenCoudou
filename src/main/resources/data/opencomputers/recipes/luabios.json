@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "opencomputers:floppy"},
+    {"item": "minecraft:gold_ingot"}
+  ],
+  "result": {
+    "id": "opencomputers:luabios",
+    "count": 1
+  }
+}

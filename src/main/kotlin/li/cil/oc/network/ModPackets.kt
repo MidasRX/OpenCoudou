@@ -53,6 +53,12 @@ object ModPackets {
             ::handleRobotMove
         )
         
+        registrar.playToServer(
+            ScreenTouchPacket.TYPE,
+            ScreenTouchPacket.CODEC,
+            ::handleScreenTouch
+        )
+        
         // Server to Client packets
         registrar.playToClient(
             ScreenUpdatePacket.TYPE,
@@ -102,9 +108,40 @@ object ModPackets {
             val player = context.player()
             val level = player.level() as? net.minecraft.server.level.ServerLevel ?: return@enqueueWork
             
-            // Forward keyboard input to the appropriate screen/computer
+            // Forward keyboard input to the screen's connected computer
             val blockEntity = level.getBlockEntity(packet.screenPos)
-            // Send key event to connected computer
+            if (blockEntity is li.cil.oc.common.blockentity.ScreenBlockEntity) {
+                val connAddr = blockEntity.connectedComputer
+                val kbAddr = blockEntity.keyboardAddress ?: ""
+                if (connAddr != null) {
+                    // Find the CaseBlockEntity that owns this computer
+                    val searchRadius = 16
+                    for (x in -searchRadius..searchRadius) {
+                        for (y in -searchRadius..searchRadius) {
+                            for (z in -searchRadius..searchRadius) {
+                                val checkPos = packet.screenPos.offset(x, y, z)
+                                val be = level.getBlockEntity(checkPos)
+                                if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
+                                    val machine = be.machine
+                                    if (machine != null && machine.address == connAddr) {
+                                        if (packet.code == -1) {
+                                            // Clipboard paste: code=-1, char=clipboardText encoded
+                                            // The clipboard text follows as a separate field
+                                            // We stored the text length in char, actual text comes from clipboardText
+                                            machine.pushSignal("clipboard", kbAddr, packet.clipboardText, player.name.string)
+                                        } else {
+                                            // Original OC format: key_down(keyboardAddress, char, code, playerName)
+                                            val signalName = if (packet.isPressed) "key_down" else "key_up"
+                                            machine.pushSignal(signalName, kbAddr, packet.char, packet.code, player.name.string)
+                                        }
+                                        return@enqueueWork
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -120,6 +157,42 @@ object ModPackets {
     private fun handleRobotMove(packet: RobotMovePacket, context: IPayloadContext) {
         context.enqueueWork {
             // Handle robot movement command
+        }
+    }
+    
+    private fun handleScreenTouch(packet: ScreenTouchPacket, context: IPayloadContext) {
+        context.enqueueWork {
+            val player = context.player()
+            val level = player.level() as? net.minecraft.server.level.ServerLevel ?: return@enqueueWork
+            
+            val blockEntity = level.getBlockEntity(packet.screenPos)
+            if (blockEntity is li.cil.oc.common.blockentity.ScreenBlockEntity) {
+                val connAddr = blockEntity.connectedComputer ?: return@enqueueWork
+                val screenAddr = blockEntity.screen.address
+                
+                // Find the connected case
+                val searchRadius = 16
+                for (x in -searchRadius..searchRadius) {
+                    for (y in -searchRadius..searchRadius) {
+                        for (z in -searchRadius..searchRadius) {
+                            val checkPos = packet.screenPos.offset(x, y, z)
+                            val be = level.getBlockEntity(checkPos)
+                            if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
+                                val machine = be.machine
+                                if (machine != null && machine.address == connAddr) {
+                                    // Use normalized coordinates sent from client (1-indexed)
+                                    val charX = packet.x.toInt().coerceIn(1, blockEntity.buffer.width)
+                                    val charY = packet.y.toInt().coerceIn(1, blockEntity.buffer.height)
+                                    
+                                    // Original OC format: touch/drag/drop(screenAddr, x, y, button, playerName)
+                                    machine.pushSignal(packet.eventType, screenAddr, charX, charY, packet.button, player.name.string)
+                                    return@enqueueWork
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -216,7 +289,8 @@ data class KeyboardInputPacket(
     val char: Int,
     val code: Int,
     val isPressed: Boolean,
-    val player: UUID
+    val player: UUID,
+    val clipboardText: String = ""
 ) : CustomPacketPayload {
     
     companion object {
@@ -231,6 +305,7 @@ data class KeyboardInputPacket(
                 buf.writeInt(packet.code)
                 buf.writeBoolean(packet.isPressed)
                 buf.writeUUID(packet.player)
+                buf.writeUtf(packet.clipboardText)
             },
             { buf ->
                 KeyboardInputPacket(
@@ -238,7 +313,8 @@ data class KeyboardInputPacket(
                     buf.readInt(),
                     buf.readInt(),
                     buf.readBoolean(),
-                    buf.readUUID()
+                    buf.readUUID(),
+                    buf.readUtf()
                 )
             }
         )
@@ -317,6 +393,45 @@ data class RobotMovePacket(
                 RobotMovePacket(
                     buf.readInt(),
                     buf.readInt()
+                )
+            }
+        )
+    }
+    
+    override fun type(): CustomPacketPayload.Type<out CustomPacketPayload> = TYPE
+}
+
+/**
+ * Client -> Server: Screen touch/drag/drop/scroll event
+ */
+data class ScreenTouchPacket(
+    val screenPos: BlockPos,
+    val x: Double,
+    val y: Double,
+    val button: Int,
+    val eventType: String  // "touch", "drag", "drop", "scroll"
+) : CustomPacketPayload {
+    
+    companion object {
+        val TYPE = CustomPacketPayload.Type<ScreenTouchPacket>(
+            ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "screen_touch")
+        )
+        
+        val CODEC: StreamCodec<RegistryFriendlyByteBuf, ScreenTouchPacket> = StreamCodec.of(
+            { buf, packet ->
+                buf.writeBlockPos(packet.screenPos)
+                buf.writeDouble(packet.x)
+                buf.writeDouble(packet.y)
+                buf.writeInt(packet.button)
+                buf.writeUtf(packet.eventType)
+            },
+            { buf ->
+                ScreenTouchPacket(
+                    buf.readBlockPos(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readInt(),
+                    buf.readUtf()
                 )
             }
         )

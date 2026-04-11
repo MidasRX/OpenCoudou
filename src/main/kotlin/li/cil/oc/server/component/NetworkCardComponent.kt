@@ -1,6 +1,9 @@
 package li.cil.oc.server.component
 
+import li.cil.oc.server.machine.Machine
+import li.cil.oc.server.network.NetworkRegistry
 import li.cil.oc.util.OCLogger
+import net.minecraft.core.BlockPos
 import java.util.UUID
 
 /**
@@ -20,6 +23,9 @@ class NetworkCardComponent(
         else -> 0
     }
     
+    // Current signal strength (up to maxWirelessRange)
+    private var signalStrength: Double = maxWirelessRange.toDouble()
+    
     // Whether this is a wireless card
     val isWireless = maxWirelessRange > 0
     
@@ -28,6 +34,40 @@ class NetworkCardComponent(
     
     // Open ports for listening
     private val openPorts = mutableSetOf<Int>()
+    
+    // Reference to owning machine (set when registered)
+    var machine: Machine? = null
+        private set
+    
+    // World position for distance calculation
+    var worldPos: BlockPos? = null
+    
+    /**
+     * Register this card with a machine for message delivery.
+     */
+    fun registerWithMachine(machine: Machine, pos: BlockPos? = null) {
+        this.machine = machine
+        this.worldPos = pos
+        NetworkRegistry.register(this, machine, pos)
+    }
+    
+    /**
+     * Unregister this card when removed from machine.
+     */
+    fun unregister() {
+        NetworkRegistry.unregister(this)
+        this.machine = null
+    }
+    
+    /**
+     * Check if a port is open for receiving.
+     */
+    fun isPortOpen(port: Int): Boolean = openPorts.contains(port)
+    
+    /**
+     * Get current signal strength (wireless range).
+     */
+    fun getSignalStrength(): Double = signalStrength
     
     init {
         registerMethod("isWireless", true, "isWireless():boolean -- Whether this is a wireless card") { _ ->
@@ -88,23 +128,25 @@ class NetworkCardComponent(
                 ?: return@registerMethod arrayOf(false, "invalid port")
             
             // Build data array from remaining args
-            val data = args.drop(2)
+            val data = args.drop(2).toTypedArray()
             
-            // In real implementation, this would queue the message for delivery
-            // For now, just log it
-            OCLogger.network("SEND", "To $targetAddr:$port - ${data.size} values")
-            
-            // Would need to find target computer and push modem_message signal
-            arrayOf(true)
+            // Send via NetworkRegistry
+            val success = NetworkRegistry.send(this, targetAddr, port, *data)
+            if (!success) {
+                OCLogger.network("SEND", "Failed to deliver to $targetAddr:$port")
+            }
+            arrayOf(success)
         }
         
         registerMethod("broadcast", false, "broadcast(port:number,...):boolean -- Broadcast to all on port") { args ->
             val port = (args.getOrNull(0) as? Number)?.toInt()
                 ?: return@registerMethod arrayOf(false, "invalid port")
             
-            val data = args.drop(1)
+            val data = args.drop(1).toTypedArray()
             
-            OCLogger.network("BROADCAST", "Port $port - ${data.size} values")
+            // Broadcast via NetworkRegistry
+            val count = NetworkRegistry.broadcast(this, port, *data)
+            OCLogger.network("BROADCAST", "Sent to $count receivers on port $port")
             arrayOf(true)
         }
         
@@ -115,12 +157,13 @@ class NetworkCardComponent(
             
             val strength = (args.getOrNull(0) as? Number)?.toDouble() ?: 0.0
             // Clamp to max range
-            val clamped = strength.coerceIn(0.0, maxWirelessRange.toDouble())
-            arrayOf(clamped)
+            val old = signalStrength
+            signalStrength = strength.coerceIn(0.0, maxWirelessRange.toDouble())
+            arrayOf(old)
         }
         
         registerMethod("getStrength", true, "getStrength():number -- Get current wireless strength") { _ ->
-            arrayOf(if (isWireless) maxWirelessRange else 0)
+            arrayOf(if (isWireless) signalStrength else 0.0)
         }
         
         registerMethod("getWakeMessage", true, "getWakeMessage():string -- Get wake-on-LAN message") { _ ->
@@ -132,25 +175,5 @@ class NetworkCardComponent(
             wakeMessage = args.getOrNull(0)?.toString() ?: ""
             arrayOf(old)
         }
-    }
-    
-    /**
-     * Called when a network message is received for this card.
-     * Pushes a modem_message signal to the connected machine.
-     */
-    fun receiveMessage(
-        senderAddress: String,
-        port: Int,
-        distance: Double,
-        vararg data: Any?
-    ): Boolean {
-        if (!openPorts.contains(port)) {
-            return false
-        }
-        
-        // Would need to push signal to machine
-        // pushSignal("modem_message", localAddress, senderAddress, port, distance, *data)
-        OCLogger.network("RECV", "From $senderAddress:$port distance=$distance")
-        return true
     }
 }

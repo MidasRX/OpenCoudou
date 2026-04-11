@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " L ",
+    "PCP",
+    " B "
+  ],
+  "key": {
+    "L": {"item": "minecraft:ender_eye"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "C": {"item": "opencomputers:chip3"},
+    "B": {"item": "opencomputers:card_base"}
+  },
+  "result": {
+    "id": "opencomputers:drone_case2",
+    "count": 1
+  }
+}

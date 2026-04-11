@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GCG",
+    "PEP",
+    " B "
+  ],
+  "key": {
+    "G": {"item": "minecraft:gold_ingot"},
+    "C": {"item": "opencomputers:chip2"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "E": {"item": "minecraft:ender_eye"},
+    "B": {"item": "opencomputers:card_base"}
+  },
+  "result": {
+    "id": "opencomputers:wireless_network_card2",
+    "count": 1
+  }
+}

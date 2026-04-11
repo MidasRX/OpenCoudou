@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DAD",
+    "TCT",
+    "DAD"
+  ],
+  "key": {
+    "D": {"item": "minecraft:diamond"},
+    "A": {"item": "opencomputers:alu"},
+    "T": {"item": "opencomputers:control_unit"},
+    "C": {"item": "opencomputers:chip3"}
+  },
+  "result": {
+    "item": "opencomputers:gpu3",
+    "count": 1
+  }
+}

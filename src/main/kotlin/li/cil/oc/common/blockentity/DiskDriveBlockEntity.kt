@@ -3,6 +3,7 @@ package li.cil.oc.common.blockentity
 import li.cil.oc.common.init.ModBlockEntities
 import li.cil.oc.common.init.ModItems
 import li.cil.oc.server.component.FilesystemComponent
+import li.cil.oc.server.machine.Machine
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.component.DataComponents
@@ -34,19 +35,43 @@ class DiskDriveBlockEntity(pos: BlockPos, state: BlockState)
     private var filesystem: FilesystemComponent? = null
     private var floppyUUID: UUID? = null
     
+    // Connected machines that should receive disk signals
+    private val connectedMachines = mutableSetOf<Machine>()
+    
+    /**
+     * Register a machine to receive disk insert/eject signals
+     */
+    fun registerMachine(machine: Machine) {
+        connectedMachines.add(machine)
+    }
+    
+    /**
+     * Unregister a machine from receiving signals
+     */
+    fun unregisterMachine(machine: Machine) {
+        connectedMachines.remove(machine)
+    }
+    
     fun getDisk(): ItemStack = diskStack.copy()
     
     fun setDisk(stack: ItemStack) {
         val oldDisk = diskStack
+        val hadDisk = !oldDisk.isEmpty
+        val oldFs = filesystem
+        
         diskStack = if (stack.isEmpty) ItemStack.EMPTY else stack.copyWithCount(1)
         
-        // Clear old filesystem
-        if (!oldDisk.isEmpty) {
+        // Clear old filesystem and fire removal signal
+        if (hadDisk && oldFs != null) {
+            // Fire disk_removed signal to all connected machines
+            for (machine in connectedMachines) {
+                machine.pushSignal("component_removed", oldFs.address, "filesystem")
+            }
             filesystem = null
             floppyUUID = null
         }
         
-        // Create new filesystem for the floppy
+        // Create new filesystem for the floppy and fire insertion signal
         if (!diskStack.isEmpty) {
             // Get or create UUID for this floppy
             val customData = diskStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY)
@@ -62,6 +87,16 @@ class DiskDriveBlockEntity(pos: BlockPos, state: BlockState)
             }
             
             filesystem = createFilesystemForFloppy()
+            
+            // Fire disk_inserted signal (component_added) to all connected machines
+            val newFs = filesystem
+            if (newFs != null) {
+                for (machine in connectedMachines) {
+                    // Add the new filesystem to the machine's network
+                    machine.network.add(newFs)
+                    machine.pushSignal("component_added", newFs.address, "filesystem")
+                }
+            }
         }
         
         setChanged()
@@ -101,43 +136,108 @@ class DiskDriveBlockEntity(pos: BlockPos, state: BlockState)
     }
     
     private fun initializeFloppyContent(fs: FilesystemComponent) {
-        // For OpenOS, we'd load the OpenOS files here
-        // For now, just create a basic structure
+        // For OpenOS, initialize with a bootable system
         val item = diskStack.item
         if (item == ModItems.OPENOS.get()) {
-            // OpenOS boot disk - would load actual OpenOS files
+            // Create directory structure
             fs.makeDirectory("boot")
             fs.makeDirectory("lib")
             fs.makeDirectory("bin")
             fs.makeDirectory("etc")
             fs.makeDirectory("usr")
+            fs.makeDirectory("tmp")
+            fs.makeDirectory("home")
             
-            // Create minimal boot loader
+            // Create minimal boot loader that works with our machine
             fs.writeFile("init.lua", """
-                -- OpenOS Boot Loader
-                local component = require("component")
-                local computer = require("computer")
-                
-                print("OpenOS Loading...")
-                
-                -- Basic shell
-                while true do
-                    io.write("> ")
-                    local line = io.read()
-                    if line then
-                        local fn, err = load(line)
-                        if fn then
-                            local ok, result = pcall(fn)
-                            if ok then
-                                if result ~= nil then print(result) end
-                            else
-                                print("Error: " .. tostring(result))
-                            end
-                        else
-                            print("Syntax error: " .. err)
-                        end
-                    end
+-- OpenOS Mini Boot Loader
+-- Minimal implementation for OpenComputers NeoForge
+
+local gpu = component.proxy(component.list("gpu")())
+local screen = component.list("screen")()
+if gpu and screen then gpu.bind(screen) end
+
+local w, h = gpu and gpu.getResolution() or 50, 16
+
+local function clear()
+    if gpu then gpu.fill(1, 1, w, h, " ") end
+end
+
+local function print(msg)
+    if not gpu then return end
+    -- Simple print at bottom of screen
+    gpu.copy(1, 2, w, h - 1, 0, -1)
+    gpu.fill(1, h, w, 1, " ")
+    gpu.set(1, h, tostring(msg))
+end
+
+clear()
+gpu.set(1, 1, "OpenOS Mini Shell v1.0")
+gpu.set(1, 2, "Type 'help' for commands")
+gpu.set(1, 3, "")
+
+local cursor = 4
+local input = ""
+
+local function prompt()
+    gpu.set(1, cursor, "> " .. input .. "_")
+end
+
+prompt()
+
+while true do
+    local sig, addr, char, code, player = computer.pullSignal(0.5)
+    
+    if sig == "key_down" then
+        if code == 28 then -- Enter
+            gpu.set(1, cursor, "> " .. input .. " ")
+            cursor = cursor + 1
+            
+            if input == "help" then
+                print("Commands: help, exit, list, clear")
+            elseif input == "exit" then
+                computer.shutdown()
+            elseif input == "list" then
+                for addr, type in component.list() do
+                    print(type .. ": " .. addr:sub(1, 8))
                 end
+            elseif input == "clear" then
+                clear()
+                cursor = 1
+            elseif #input > 0 then
+                local fn, err = load(input)
+                if fn then
+                    local ok, result = pcall(fn)
+                    if ok then
+                        if result ~= nil then print(tostring(result)) end
+                    else
+                        print("Error: " .. tostring(result))
+                    end
+                else
+                    print("Syntax: " .. tostring(err))
+                end
+            end
+            
+            input = ""
+            if cursor > h then
+                gpu.copy(1, 2, w, h - 1, 0, -1)
+                gpu.fill(1, h, w, 1, " ")
+                cursor = h
+            end
+            prompt()
+        elseif code == 14 then -- Backspace
+            if #input > 0 then
+                input = input:sub(1, -2)
+                gpu.fill(1, cursor, w, 1, " ")
+                prompt()
+            end
+        elseif char and char > 31 and char < 127 then
+            input = input .. unicode.char(char)
+            gpu.fill(1, cursor, w, 1, " ")
+            prompt()
+        end
+    end
+end
             """.trimIndent())
         }
     }

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "MCM",
+    "RPR"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:chip1"},
+    "M": {"item": "opencomputers:transistor"},
+    "R": {"item": "minecraft:redstone"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:robot_case1",
+    "count": 1
+  }
+}

@@ -1,5 +1,6 @@
 package li.cil.oc.server.component
 
+import li.cil.oc.util.OCLogger
 import li.cil.oc.util.TextBuffer
 
 /**
@@ -26,12 +27,23 @@ class ScreenComponent(private var tier: Int = 1) : AbstractComponent("screen") {
     // Precise mode (sub-character rendering)
     var preciseMode = false
     
+    // Touch mode inversion (swaps touch and drop signals)
+    var touchModeInverted = false
+    
+    // Connected keyboard addresses
+    val keyboards = mutableListOf<String>()
+    
     // Callback for when screen content changes (for syncing)
     var onBufferChanged: (() -> Unit)? = null
     
     // Mark screen as needing sync
     fun markDirty() {
-        onBufferChanged?.invoke()
+        val callback = onBufferChanged
+        if (callback != null) {
+            callback.invoke()
+        } else {
+            OCLogger.debug("[SCREEN] markDirty called but no callback set!")
+        }
     }
     
     init {
@@ -59,8 +71,7 @@ class ScreenComponent(private var tier: Int = 1) : AbstractComponent("screen") {
         }
         
         registerMethod("getKeyboards", doc = "getKeyboards():table -- Get connected keyboards") { _ ->
-            // Would return list of keyboard addresses
-            arrayOf(emptyArray<String>())
+            arrayOf(keyboards.toTypedArray())
         }
         
         registerMethod("setPrecise", doc = "setPrecise(precise:boolean):boolean -- Set precise mode") { args ->
@@ -72,6 +83,17 @@ class ScreenComponent(private var tier: Int = 1) : AbstractComponent("screen") {
         
         registerMethod("isPrecise", doc = "isPrecise():boolean -- Check precise mode") { _ ->
             arrayOf(preciseMode)
+        }
+        
+        registerMethod("isTouchModeInverted", doc = "isTouchModeInverted():boolean -- Whether touch mode is inverted") { _ ->
+            arrayOf(touchModeInverted)
+        }
+        
+        registerMethod("setTouchModeInverted", doc = "setTouchModeInverted(inverted:boolean):boolean -- Set touch mode inversion") { args ->
+            val inverted = args.getOrNull(0) as? Boolean ?: false
+            val old = touchModeInverted
+            touchModeInverted = inverted
+            arrayOf(old)
         }
     }
     

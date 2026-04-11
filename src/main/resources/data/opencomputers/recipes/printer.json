@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "PDP",
+    "IBI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:chip2"},
+    "P": {"item": "minecraft:piston"},
+    "D": {"item": "minecraft:dye"},
+    "B": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:printer",
+    "count": 1
+  }
+}

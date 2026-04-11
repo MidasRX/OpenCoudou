@@ -8,15 +8,28 @@ class TextBuffer(var width: Int, var height: Int) {
     
     // Character data (one int per cell - Unicode codepoint) - flat array for serialization
     var charData = IntArray(width * height) { ' '.code }
-        private set
     
     // Foreground colors (packed RGB) - flat array
     var fgData = IntArray(width * height) { 0xFFFFFF }
-        private set
     
     // Background colors (packed RGB) - flat array
     var bgData = IntArray(width * height) { 0x000000 }
-        private set
+    
+    /**
+     * Copy raw buffer data (used for network sync).
+     */
+    fun setRawData(chars: IntArray, fg: IntArray, bg: IntArray) {
+        if (chars.size == width * height) {
+            chars.copyInto(charData)
+        }
+        if (fg.size == width * height) {
+            fg.copyInto(fgData)
+        }
+        if (bg.size == width * height) {
+            bg.copyInto(bgData)
+        }
+        dirty = true
+    }
     
     // Current cursor position
     var cursorX = 0
@@ -115,6 +128,16 @@ class TextBuffer(var width: Int, var height: Int) {
     }
     
     /**
+     * Set just the character at position (for bitblt).
+     */
+    fun setChar(x: Int, y: Int, char: Int) {
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            charData[idx(x, y)] = char
+            dirty = true
+        }
+    }
+    
+    /**
      * Get foreground color at position.
      */
     fun getForeground(x: Int, y: Int): Int {
@@ -123,11 +146,31 @@ class TextBuffer(var width: Int, var height: Int) {
     }
     
     /**
+     * Set just the foreground color at position (for bitblt).
+     */
+    fun setForeground(x: Int, y: Int, color: Int) {
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            fgData[idx(x, y)] = color
+            dirty = true
+        }
+    }
+    
+    /**
      * Get background color at position.
      */
     fun getBackground(x: Int, y: Int): Int {
         if (x < 0 || x >= width || y < 0 || y >= height) return background
         return bgData[idx(x, y)]
+    }
+    
+    /**
+     * Set just the background color at position (for bitblt).
+     */
+    fun setBackground(x: Int, y: Int, color: Int) {
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            bgData[idx(x, y)] = color
+            dirty = true
+        }
     }
     
     /**

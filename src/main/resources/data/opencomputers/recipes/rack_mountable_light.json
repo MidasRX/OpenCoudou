@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " T ",
+    "ICI",
+    "IPI"
+  ],
+  "key": {
+    "T": {"item": "minecraft:torch"},
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:chip1"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "id": "opencomputers:rack_mountable_light",
+    "count": 1
+  }
+}

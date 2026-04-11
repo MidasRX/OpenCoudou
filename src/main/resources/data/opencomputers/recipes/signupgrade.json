@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "SIS",
+    "ICI",
+    "SIS"
+  ],
+  "key": {
+    "S": {"item": "minecraft:oak_sign"},
+    "I": {"item": "minecraft:ink_sac"},
+    "C": {"item": "opencomputers:chip1"}
+  },
+  "result": {
+    "id": "opencomputers:signupgrade",
+    "count": 1
+  }
+}

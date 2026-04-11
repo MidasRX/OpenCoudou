@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "WPW",
+    "PCP",
+    "WPW"
+  ],
+  "key": {
+    "W": {"item": "minecraft:oak_planks"},
+    "P": {"item": "minecraft:piston"},
+    "C": {"item": "opencomputers:chip1"}
+  },
+  "result": {
+    "id": "opencomputers:inventoryupgrade",
+    "count": 1
+  }
+}

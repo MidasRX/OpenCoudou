@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BBB",
+    "NAN",
+    "BBB"
+  ],
+  "key": {
+    "B": {"item": "minecraft:stone_button"},
+    "N": {"item": "minecraft:iron_nugget"},
+    "A": {"item": "opencomputers:alu"}
+  },
+  "result": {
+    "item": "opencomputers:keyboard",
+    "count": 1
+  }
+}

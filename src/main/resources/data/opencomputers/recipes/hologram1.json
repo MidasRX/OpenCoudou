@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IPI",
+    "GCG",
+    "IDI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "P": {"item": "minecraft:ender_pearl"},
+    "G": {"item": "minecraft:glowstone_dust"},
+    "C": {"item": "opencomputers:chip2"},
+    "D": {"item": "opencomputers:disk_platter"}
+  },
+  "result": {
+    "item": "opencomputers:hologram1",
+    "count": 1
+  }
+}

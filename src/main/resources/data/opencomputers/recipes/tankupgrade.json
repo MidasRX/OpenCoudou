@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IFI",
+    "PCP",
+    "IDI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "F": {"item": "minecraft:iron_bars"},
+    "P": {"item": "minecraft:piston"},
+    "C": {"item": "opencomputers:chip1"},
+    "D": {"item": "minecraft:dispenser"}
+  },
+  "result": {
+    "id": "opencomputers:tankupgrade",
+    "count": 1
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "PMP",
+    " B "
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:chip1"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "M": {"item": "minecraft:map"},
+    "B": {"item": "opencomputers:card_base"}
+  },
+  "result": {
+    "id": "opencomputers:data_card1",
+    "count": 1
+  }
+}

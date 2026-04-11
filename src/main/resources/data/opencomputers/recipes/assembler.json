@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IPI",
+    "RCR",
+    "IBI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "P": {"item": "minecraft:piston"},
+    "R": {"item": "minecraft:redstone"},
+    "C": {"item": "opencomputers:chip2"},
+    "B": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:assembler",
+    "count": 1
+  }
+}

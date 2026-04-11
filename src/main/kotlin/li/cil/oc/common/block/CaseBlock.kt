@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.entity.BlockEntityTicker
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.level.redstone.Orientation
 import net.minecraft.world.phys.BlockHitResult
 
 class CaseBlock(private val tier: Int, properties: Properties) : Block(properties), EntityBlock {
@@ -59,13 +60,27 @@ class CaseBlock(private val tier: Int, properties: Properties) : Block(propertie
         }
         return InteractionResult.SUCCESS
     }
+    
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun neighborChanged(
+        state: BlockState, level: Level, pos: BlockPos,
+        block: Block, orientation: Orientation?, isMoving: Boolean
+    ) {
+        super.neighborChanged(state, level, pos, block, orientation, isMoving)
+        if (!level.isClientSide) {
+            val be = level.getBlockEntity(pos) as? CaseBlockEntity
+            be?.onRedstoneNeighborChanged()
+        }
+    }
 
     override fun onRemove(
         state: BlockState, level: Level, pos: BlockPos,
         newState: BlockState, isMoving: Boolean
     ) {
         if (!state.`is`(newState.block)) {
-            (level.getBlockEntity(pos) as? CaseBlockEntity)?.dropContents(level, pos)
+            val be = level.getBlockEntity(pos) as? CaseBlockEntity
+            be?.shutdown()
+            be?.dropContents(level, pos)
         }
         super.onRemove(state, level, pos, newState, isMoving)
     }

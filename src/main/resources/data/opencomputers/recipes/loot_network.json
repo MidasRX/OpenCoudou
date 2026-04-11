@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "opencomputers:floppy"},
+    {"item": "minecraft:ender_pearl"}
+  ],
+  "result": {
+    "id": "opencomputers:loot_network",
+    "count": 1
+  }
+}

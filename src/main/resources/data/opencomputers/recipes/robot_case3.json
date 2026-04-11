@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DCD",
+    "MCM",
+    "RPR"
+  ],
+  "key": {
+    "D": {"item": "minecraft:diamond"},
+    "C": {"item": "opencomputers:chip3"},
+    "M": {"item": "opencomputers:control_unit"},
+    "R": {"item": "minecraft:redstone"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:robot_case3",
+    "count": 1
+  }
+}

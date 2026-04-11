@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CCC",
+    "CPC",
+    "CCC"
+  ],
+  "key": {
+    "C": {"item": "opencomputers:chamelium"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "id": "opencomputers:print",
+    "count": 1
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "L L",
+    "ICE",
+    " B "
+  ],
+  "key": {
+    "L": {"item": "minecraft:lead"},
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:card_base"},
+    "E": {"item": "minecraft:ender_pearl"},
+    "B": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "id": "opencomputers:mfu",
+    "count": 1
+  }
+}

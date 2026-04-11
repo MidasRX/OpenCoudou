@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "PDM",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:chip1"},
+    "P": {"item": "minecraft:piston"},
+    "D": {"item": "opencomputers:disk_platter"},
+    "M": {"item": "opencomputers:transistor"}
+  },
+  "result": {
+    "item": "opencomputers:hdd1",
+    "count": 1
+  }
+}

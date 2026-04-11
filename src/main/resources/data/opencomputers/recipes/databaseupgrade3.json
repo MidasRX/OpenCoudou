@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "ICM",
+    " B "
+  ],
+  "key": {
+    "B": {"item": "minecraft:bookshelf"},
+    "I": {"item": "opencomputers:chip3"},
+    "C": {"item": "opencomputers:databaseupgrade2"},
+    "M": {"item": "opencomputers:chip3"}
+  },
+  "result": {
+    "id": "opencomputers:databaseupgrade3",
+    "count": 1
+  }
+}

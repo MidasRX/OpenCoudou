@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "I I",
+    "PCP",
+    "IBI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "C": {"item": "opencomputers:chip1"},
+    "B": {"item": "opencomputers:card_base"}
+  },
+  "result": {
+    "id": "opencomputers:microcontroller_case1",
+    "count": 1
+  }
+}

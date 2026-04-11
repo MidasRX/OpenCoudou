@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CCC",
+    "DMD",
+    "PPP"
+  ],
+  "key": {
+    "C": {"item": "opencomputers:chip3"},
+    "D": {"item": "minecraft:diamond"},
+    "M": {"item": "opencomputers:control_unit"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:memory3",
+    "count": 1
+  }
+}

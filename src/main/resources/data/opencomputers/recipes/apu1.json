@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGI",
+    "VCV",
+    "IGI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "G": {"item": "opencomputers:graphicscard1"},
+    "V": {"item": "opencomputers:cpu1"},
+    "C": {"item": "opencomputers:chip2"}
+  },
+  "result": {
+    "id": "opencomputers:apu1",
+    "count": 1
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "PCP",
+    "IBI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "C": {"item": "minecraft:clock"},
+    "B": {"item": "opencomputers:capacitor"}
+  },
+  "result": {
+    "id": "opencomputers:net_splitter",
+    "count": 1
+  }
+}

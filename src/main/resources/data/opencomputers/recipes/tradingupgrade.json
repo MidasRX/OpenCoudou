@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "EGE",
+    "ECE",
+    "EGE"
+  ],
+  "key": {
+    "E": {"item": "minecraft:emerald"},
+    "G": {"item": "minecraft:gold_ingot"},
+    "C": {"item": "opencomputers:chip2"}
+  },
+  "result": {
+    "id": "opencomputers:tradingupgrade",
+    "count": 1
+  }
+}

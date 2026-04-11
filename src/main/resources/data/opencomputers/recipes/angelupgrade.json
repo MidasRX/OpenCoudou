@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " F ",
+    "FEF",
+    "FCF"
+  ],
+  "key": {
+    "F": {"item": "minecraft:feather"},
+    "E": {"item": "minecraft:ender_pearl"},
+    "C": {"item": "opencomputers:chip2"}
+  },
+  "result": {
+    "id": "opencomputers:angelupgrade",
+    "count": 1
+  }
+}

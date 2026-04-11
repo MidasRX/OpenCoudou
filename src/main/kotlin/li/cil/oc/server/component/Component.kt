@@ -32,11 +32,7 @@ data class ComponentMethod(
 abstract class AbstractComponent(
     override val componentType: String
 ) : Component {
-    override val address: String = UUID.randomUUID().toString().replace("-", "").take(8) + 
-                                   "-" + UUID.randomUUID().toString().replace("-", "").take(4) +
-                                   "-" + UUID.randomUUID().toString().replace("-", "").take(4) +
-                                   "-" + UUID.randomUUID().toString().replace("-", "").take(4) +
-                                   "-" + UUID.randomUUID().toString().replace("-", "").take(12)
+    override val address: String = UUID.randomUUID().toString()
     
     private val methodMap = mutableMapOf<String, ComponentMethod>()
     

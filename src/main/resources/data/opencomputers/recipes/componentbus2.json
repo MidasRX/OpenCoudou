@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "PBP",
+    "ICI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:gold_ingot"},
+    "C": {"item": "opencomputers:chip2"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "B": {"item": "opencomputers:card_base"}
+  },
+  "result": {
+    "id": "opencomputers:componentbus2",
+    "count": 1
+  }
+}

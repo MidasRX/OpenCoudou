@@ -35,5 +35,71 @@
       "opencomputers:hdd_access6",
       "opencomputers:hdd_access7"
     ]
+  },
+  "beep": {
+    "category": "block",
+    "sounds": ["opencomputers:beep"]
+  },
+  "robot_start": {
+    "category": "neutral",
+    "sounds": ["opencomputers:robot_start"]
+  },
+  "robot_stop": {
+    "category": "neutral",
+    "sounds": ["opencomputers:robot_stop"]
+  },
+  "robot_move": {
+    "category": "neutral",
+    "sounds": ["opencomputers:robot_move"]
+  },
+  "robot_turn": {
+    "category": "neutral",
+    "sounds": ["opencomputers:robot_turn"]
+  },
+  "robot_swing": {
+    "category": "neutral",
+    "sounds": ["opencomputers:robot_swing"]
+  },
+  "robot_use": {
+    "category": "neutral",
+    "sounds": ["opencomputers:robot_use"]
+  },
+  "drone_hover": {
+    "category": "neutral",
+    "sounds": [
+      {"name": "opencomputers:drone_hover", "stream": true}
+    ]
+  },
+  "drone_move": {
+    "category": "neutral",
+    "sounds": ["opencomputers:drone_move"]
+  },
+  "printer_print": {
+    "category": "block",
+    "sounds": ["opencomputers:printer_print"]
+  },
+  "printer_complete": {
+    "category": "block",
+    "sounds": ["opencomputers:printer_complete"]
+  },
+  "assembler_start": {
+    "category": "block",
+    "sounds": ["opencomputers:assembler_start"]
+  },
+  "assembler_complete": {
+    "category": "block",
+    "sounds": ["opencomputers:assembler_complete"]
+  },
+  "click": {
+    "category": "block",
+    "sounds": ["opencomputers:click"]
+  },
+  "power_on": {
+    "category": "block",
+    "sounds": ["opencomputers:power_on"]
+  },
+  "power_off": {
+    "category": "block",
+    "sounds": ["opencomputers:power_off"]
   }
 }

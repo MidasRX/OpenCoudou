@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " T ",
+    "RCR",
+    " B "
+  ],
+  "key": {
+    "T": {"item": "minecraft:redstone_block"},
+    "R": {"item": "minecraft:redstone"},
+    "C": {"item": "opencomputers:chip2"},
+    "B": {"item": "opencomputers:card_base"}
+  },
+  "result": {
+    "item": "opencomputers:redstone_card2",
+    "count": 1
+  }
+}

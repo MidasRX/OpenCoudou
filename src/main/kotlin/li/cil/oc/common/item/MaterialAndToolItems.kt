@@ -224,6 +224,30 @@ object MaterialItems {
     }
     
     /**
+     * Robot Case - for robot assembly.
+     */
+    class RobotCaseItem(properties: Properties, val tier: Int) : MaterialItem(properties) {
+        override fun appendHoverText(
+            stack: ItemStack,
+            context: TooltipContext,
+            tooltipComponents: MutableList<Component>,
+            tooltipFlag: TooltipFlag
+        ) {
+            super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
+            tooltipComponents.add(Component.literal("Tier $tier")
+                .withStyle { it.withColor(getTierColor()) })
+        }
+        
+        private fun getTierColor(): Int = when (tier) {
+            1 -> 0xB4B4B4
+            2 -> 0xFFFF55
+            3 -> 0x55FFFF
+            4 -> 0xFF55FF
+            else -> 0xFFFFFF
+        }
+    }
+    
+    /**
      * Tablet Case - for tablet assembly.
      */
     class TabletCaseItem(properties: Properties, val tier: Int) : MaterialItem(properties) {

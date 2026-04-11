@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IC ",
+    "CR ",
+    "IC "
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:capacitor"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "result": {
+    "id": "opencomputers:batteryupgrade1",
+    "count": 1
+  }
+}

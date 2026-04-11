@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CGC",
+    "MCM",
+    "RPR"
+  ],
+  "key": {
+    "C": {"item": "opencomputers:chip2"},
+    "G": {"item": "minecraft:gold_ingot"},
+    "M": {"item": "opencomputers:transistor"},
+    "R": {"item": "minecraft:redstone"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:tablet_case2",
+    "count": 1
+  }
+}

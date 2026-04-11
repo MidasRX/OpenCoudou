@@ -1,7 +1,7 @@
 package li.cil.oc.client
 
 import li.cil.oc.OpenComputers
-import li.cil.oc.client.gui.CaseScreen
+import li.cil.oc.client.gui.*
 import li.cil.oc.client.renderer.ScreenRenderer
 import li.cil.oc.common.init.ModBlockEntities
 import li.cil.oc.common.init.ModMenus
@@ -17,6 +17,12 @@ object ClientSetup {
     @JvmStatic
     fun registerMenuScreens(event: RegisterMenuScreensEvent) {
         event.register(ModMenus.CASE.get(), ::CaseScreen)
+        event.register(ModMenus.ASSEMBLER.get(), ::AssemblerScreen)
+        event.register(ModMenus.DISASSEMBLER.get(), ::DisassemblerScreen)
+        event.register(ModMenus.RAID.get(), ::RaidScreen)
+        event.register(ModMenus.CHARGER.get(), ::ChargerScreen)
+        event.register(ModMenus.DISK_DRIVE.get(), ::DiskDriveScreen)
+        event.register(ModMenus.PRINTER.get(), ::PrinterScreen)
     }
 
     @SubscribeEvent

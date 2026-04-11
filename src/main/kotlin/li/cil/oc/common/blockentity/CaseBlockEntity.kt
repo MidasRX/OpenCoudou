@@ -11,6 +11,7 @@ import li.cil.oc.server.component.EEPROMComponent
 import li.cil.oc.server.component.FilesystemComponent
 import li.cil.oc.server.component.GPUComponent
 import li.cil.oc.server.component.InternetCardComponent
+import li.cil.oc.server.component.KeyboardComponent
 import li.cil.oc.server.component.LinkedCardComponent
 import li.cil.oc.server.component.NetworkCardComponent
 import li.cil.oc.server.component.RedstoneCardComponent
@@ -43,10 +44,36 @@ class CaseBlockEntity(
     private var tier: Int = 1
     var isPowered: Boolean = false
     var bootError: String? = null
+    
+    // Flag to trigger restart after world load
+    private var needsRestart: Boolean = false
 
     // The Lua VM machine
     var machine: Machine? = null
         private set
+    
+    /**
+     * Called when the block entity is loaded into a level.
+     * Used to auto-restart computers that were running when world was saved.
+     */
+    override fun setLevel(level: Level) {
+        super.setLevel(level)
+        
+        // On server side, if computer was running before, restart it
+        if (!level.isClientSide && needsRestart && machine == null) {
+            needsRestart = false
+            OCLogger.boot("RESTORE", "Restarting computer at $blockPos after world load")
+            // Delay the start slightly to ensure everything is initialized
+            level.server?.execute {
+                if (hasCPU() && hasRAM() && hasEEPROM()) {
+                    tryStart()
+                } else {
+                    isPowered = false
+                    OCLogger.boot("RESTORE", "Cannot restart - missing components")
+                }
+            }
+        }
+    }
 
     // Use max slot count (tier 4/creative = 10 slots) to avoid resizing issues
     val inventory: ItemStackHandler = object : ItemStackHandler(10) {
@@ -190,10 +217,41 @@ class CaseBlockEntity(
             // Create machine
             machine = Machine()
             
+            // Initialize world time for os.time()
+            level?.let { lvl ->
+                machine!!.worldTime = lvl.dayTime
+            }
+            
             // Set creative mode if tier 4 (creative) case
             machine!!.isCreative = tier >= 4
             if (machine!!.isCreative) {
                 OCLogger.boot("MODE", "Creative mode enabled - unlimited energy")
+            }
+            
+            // Set up reboot callback
+            machine!!.onReboot = {
+                OCLogger.computer("REBOOT", "Rebooting computer at $blockPos")
+                // Schedule reboot on server thread
+                level?.let { lvl ->
+                    if (!lvl.isClientSide) {
+                        shutdown()
+                        // Re-start after shutdown
+                        tryStart()
+                    }
+                }
+            }
+            
+            // Set up beep callback
+            machine!!.onBeep = { freq, duration ->
+                // Convert frequency to pitch (note block style)
+                // Note block has 25 notes, 2 octaves (F#3 to F#5)
+                // Pitch 0.5 = F#3 (185 Hz), Pitch 1.0 = F#4 (370 Hz), Pitch 2.0 = F#5 (740 Hz)
+                val pitch = (freq / 440.0).toFloat().coerceIn(0.5f, 2.0f)
+                level?.let { lvl ->
+                    lvl.playSound(null, blockPos, 
+                        net.minecraft.sounds.SoundEvents.NOTE_BLOCK_HARP.value(),
+                        SoundSource.BLOCKS, 0.8f, pitch)
+                }
             }
             
             // Add internal components
@@ -370,14 +428,17 @@ class CaseBlockEntity(
                     // Check for network cards
                     if (item == ModItems.NETWORK_CARD.get()) {
                         val networkCard = NetworkCardComponent(tier = 1)
+                        networkCard.registerWithMachine(machine!!, blockPos)
                         machine!!.network.add(networkCard)
                         OCLogger.boot("COMPONENT", "Added Network Card: ${networkCard.address}")
                     } else if (item == ModItems.WIRELESS_CARD_TIER1.get()) {
                         val networkCard = NetworkCardComponent(tier = 1)
+                        networkCard.registerWithMachine(machine!!, blockPos)
                         machine!!.network.add(networkCard)
                         OCLogger.boot("COMPONENT", "Added Wireless Network Card T1: ${networkCard.address}")
                     } else if (item == ModItems.WIRELESS_CARD_TIER2.get()) {
                         val networkCard = NetworkCardComponent(tier = 2)
+                        networkCard.registerWithMachine(machine!!, blockPos)
                         machine!!.network.add(networkCard)
                         OCLogger.boot("COMPONENT", "Added Wireless Network Card T2: ${networkCard.address}")
                     }
@@ -443,6 +504,9 @@ class CaseBlockEntity(
             val checkPos = blockPos.relative(dir)
             val be = level!!.getBlockEntity(checkPos)
             if (be is DiskDriveBlockEntity) {
+                // Register this machine to receive disk signals
+                be.registerMachine(machine!!)
+                
                 val fs: FilesystemComponent? = be.getFilesystem()
                 if (fs != null) {
                     machine!!.network.add(fs)
@@ -516,6 +580,10 @@ class CaseBlockEntity(
                         gpu.bind(be.screen)
                         
                         OCLogger.boot("SCREEN", "Connected to screen at $checkPos (${be.screen.address})")
+                        
+                        // Add keyboard component if screen has an adjacent keyboard
+                        addKeyboardForScreen(checkPos)
+                        
                         return
                     }
                 }
@@ -523,9 +591,75 @@ class CaseBlockEntity(
         }
         OCLogger.boot("SCREEN", "No screen found nearby")
     }
+    
+    /**
+     * Check for keyboard blocks adjacent to any screen in the multi-block
+     * and add a KeyboardComponent to the machine network.
+     */
+    private fun addKeyboardForScreen(screenPos: BlockPos) {
+        if (level == null || machine == null) return
+        
+        // Check all 6 directions around the screen for a keyboard block
+        for (dir in net.minecraft.core.Direction.entries) {
+            val checkPos = screenPos.relative(dir)
+            val blockState = level!!.getBlockState(checkPos)
+            if (blockState.block is li.cil.oc.common.block.KeyboardBlock) {
+                val keyboard = KeyboardComponent()
+                machine!!.network.add(keyboard)
+                OCLogger.boot("COMPONENT", "Added Keyboard at $checkPos: ${keyboard.address}")
+                
+                // Store keyboard address in the screen entity for signal routing
+                val screenBe = level!!.getBlockEntity(screenPos) as? ScreenBlockEntity
+                screenBe?.keyboardAddress = keyboard.address
+                
+                // Register keyboard in the screen component so getKeyboards() works
+                screenBe?.screen?.keyboards?.add(keyboard.address)
+                
+                return
+            }
+        }
+    }
+    
+    // Cached redstone levels per side for detecting changes
+    private val lastRedstoneLevel = IntArray(6) { -1 }
+    
+    /**
+     * Called when a neighbor block changes - check for redstone_changed signals.
+     */
+    fun onRedstoneNeighborChanged() {
+        val world = level ?: return
+        val m = machine ?: return
+        
+        // Check all 6 sides for redstone level changes
+        net.minecraft.core.Direction.values().forEachIndexed { index, direction ->
+            val signal = world.getSignal(blockPos.relative(direction), direction)
+            val oldValue = lastRedstoneLevel[index]
+            
+            if (oldValue != signal) {
+                if (oldValue >= 0) {
+                    // Push redstone_changed signal (side, oldValue, newValue)
+                    m.pushSignal("redstone_changed", index, oldValue, signal)
+                    OCLogger.debug("[REDSTONE] Side $index changed: $oldValue -> $signal")
+                }
+                lastRedstoneLevel[index] = signal
+            }
+        }
+    }
 
     fun shutdown() {
         OCLogger.computer("SHUTDOWN", "Computer at $blockPos")
+        
+        // Unregister from disk drives before shutting down machine
+        if (level != null && machine != null) {
+            for (dir in net.minecraft.core.Direction.entries) {
+                val checkPos = blockPos.relative(dir)
+                val be = level!!.getBlockEntity(checkPos)
+                if (be is DiskDriveBlockEntity) {
+                    be.unregisterMachine(machine!!)
+                }
+            }
+        }
+        
         machine?.shutdown()
         machine = null
         isPowered = false
@@ -576,6 +710,12 @@ class CaseBlockEntity(
         isPowered = tag.getBoolean("Powered")
         if (tag.contains("Inventory")) {
             inventory.deserializeNBT(registries, tag.getCompound("Inventory"))
+        }
+        
+        // If computer was running when saved, schedule restart
+        if (isPowered) {
+            needsRestart = true
+            OCLogger.debug("Computer at $blockPos was powered - scheduling restart")
         }
     }
 

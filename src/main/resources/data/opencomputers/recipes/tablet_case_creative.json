@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "N N",
+    "NCN",
+    "NPN"
+  ],
+  "key": {
+    "N": {"item": "minecraft:nether_star"},
+    "C": {"item": "opencomputers:chip3"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "id": "opencomputers:tabletcase_creative",
+    "count": 1
+  }
+}

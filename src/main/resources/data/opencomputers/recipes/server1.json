@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICO",
+    "CPC",
+    "OCI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "minecraft:copper_ingot"},
+    "O": {"item": "minecraft:obsidian"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "id": "opencomputers:server1",
+    "count": 1
+  }
+}

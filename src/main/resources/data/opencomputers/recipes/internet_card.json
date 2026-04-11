@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " R ",
+    "RCR",
+    " R "
+  ],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "C": {"item": "opencomputers:chip2"}
+  },
+  "result": {
+    "id": "opencomputers:internet_card",
+    "count": 1
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IBI",
+    "BCB",
+    "IBI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "B": {"item": "opencomputers:card_base"},
+    "C": {"item": "opencomputers:chip1"}
+  },
+  "result": {
+    "id": "opencomputers:cardcontainer1",
+    "count": 1
+  }
+}

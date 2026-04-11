@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "RWR",
+    "IEI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:chip1"},
+    "R": {"item": "minecraft:redstone"},
+    "W": {"item": "minecraft:ender_pearl"},
+    "E": {"item": "opencomputers:cable"}
+  },
+  "result": {
+    "item": "opencomputers:relay",
+    "count": 1
+  }
+}

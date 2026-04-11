@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GDG",
+    "ACA",
+    "GDG"
+  ],
+  "key": {
+    "G": {"item": "minecraft:gold_ingot"},
+    "D": {"item": "minecraft:dropper"},
+    "A": {"item": "opencomputers:analyzer"},
+    "C": {"item": "opencomputers:chip2"}
+  },
+  "result": {
+    "id": "opencomputers:inventorycontrollerupgrade",
+    "count": 1
+  }
+}

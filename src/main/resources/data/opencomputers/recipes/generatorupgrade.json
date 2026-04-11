@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IPI",
+    "FCF",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "P": {"item": "minecraft:piston"},
+    "F": {"item": "minecraft:furnace"},
+    "C": {"item": "opencomputers:chip1"}
+  },
+  "result": {
+    "id": "opencomputers:generatorupgrade",
+    "count": 1
+  }
+}

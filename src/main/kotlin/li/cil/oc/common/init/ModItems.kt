@@ -20,6 +20,7 @@ import li.cil.oc.common.item.MaterialItems.NumpadItem
 import li.cil.oc.common.item.MaterialItems.ChameliumItem
 import li.cil.oc.common.item.MaterialItems.InkCartridgeItem
 import li.cil.oc.common.item.MaterialItems.DroneCaseItem
+import li.cil.oc.common.item.MaterialItems.RobotCaseItem
 import li.cil.oc.common.item.MaterialItems.MicrocontrollerCaseItem
 import li.cil.oc.common.item.MaterialItems.TabletCaseItem
 import li.cil.oc.common.item.MaterialItems.NanomachinesItem
@@ -70,6 +71,7 @@ object ModItems {
     val GEOLYZER_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.GEOLYZER)
     val MOTION_SENSOR_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.MOTION_SENSOR)
     val WAYPOINT_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.WAYPOINT)
+    val NET_SPLITTER_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.NET_SPLITTER)
     
     val RACK_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.RACK)
     val ASSEMBLER_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.ASSEMBLER)
@@ -325,6 +327,22 @@ object ModItems {
     
     val DRONE_CASE_CREATIVE: DeferredItem<DroneCaseItem> = ITEMS.registerItem("dronecase_creative") { props ->
         DroneCaseItem(props, 2)
+    }
+    
+    val ROBOT_CASE_TIER1: DeferredItem<RobotCaseItem> = ITEMS.registerItem("robotcase1") { props ->
+        RobotCaseItem(props, 0)
+    }
+    
+    val ROBOT_CASE_TIER2: DeferredItem<RobotCaseItem> = ITEMS.registerItem("robotcase2") { props ->
+        RobotCaseItem(props, 1)
+    }
+    
+    val ROBOT_CASE_TIER3: DeferredItem<RobotCaseItem> = ITEMS.registerItem("robotcase3") { props ->
+        RobotCaseItem(props, 2)
+    }
+    
+    val ROBOT_CASE_CREATIVE: DeferredItem<RobotCaseItem> = ITEMS.registerItem("robotcase_creative") { props ->
+        RobotCaseItem(props, 3)
     }
     
     val HOVER_BOOTS: DeferredItem<HoverBootsItem> = ITEMS.registerItem("hoverboots", ::HoverBootsItem)

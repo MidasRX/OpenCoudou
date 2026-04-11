@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "I I",
+    "III"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"}
+  },
+  "result": {
+    "id": "opencomputers:case_empty",
+    "count": 1
+  }
+}

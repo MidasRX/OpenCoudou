@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GGG",
+    "PCP",
+    "III"
+  ],
+  "key": {
+    "G": {"item": "minecraft:glass"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "C": {"item": "opencomputers:chip1"},
+    "I": {"item": "minecraft:iron_ingot"}
+  },
+  "result": {
+    "id": "opencomputers:world_sensor_card",
+    "count": 1
+  }
+}

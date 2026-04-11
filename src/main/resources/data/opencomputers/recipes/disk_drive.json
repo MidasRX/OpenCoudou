@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "PSP",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:chip1"},
+    "P": {"item": "minecraft:piston"},
+    "S": {"item": "minecraft:sticky_piston"}
+  },
+  "result": {
+    "item": "opencomputers:disk_drive",
+    "count": 1
+  }
+}

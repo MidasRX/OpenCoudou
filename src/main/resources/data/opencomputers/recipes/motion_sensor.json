@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IEI",
+    "DCD",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "E": {"item": "minecraft:ender_eye"},
+    "D": {"item": "minecraft:daylight_detector"},
+    "C": {"item": "opencomputers:chip2"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:motion_sensor",
+    "count": 1
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "NNN",
+    "NCN",
+    "NNN"
+  ],
+  "key": {
+    "N": {"item": "minecraft:nether_star"},
+    "C": {"item": "opencomputers:case3"}
+  },
+  "result": {
+    "id": "opencomputers:case_creative",
+    "count": 1
+  }
+}

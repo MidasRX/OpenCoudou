@@ -14,44 +14,86 @@ class EEPROMComponent(
 ) : AbstractComponent("eeprom") {
     
     companion object {
-        // Default BIOS that initializes GPU and displays boot message
+        // Default BIOS that initializes GPU and tries to boot from filesystem.
+        // Matches original OC boot sequence: init GPU, find boot device, load /init.lua
         val DEFAULT_BIOS = """
-            -- OpenComputers BIOS
-            computer.beep("Starting BIOS")
-            
-            local gpuAddr = component.list("gpu")()
-            computer.beep("GPU: " .. tostring(gpuAddr))
-            
-            local gpu = component.proxy(gpuAddr)
-            computer.beep("GPU proxy created")
-            
-            local screen = component.list("screen")()
-            computer.beep("Screen: " .. tostring(screen))
-            
-            if gpu and screen then
-                local ok, err = gpu.bind(screen)
-                computer.beep("Bind result: " .. tostring(ok) .. " " .. tostring(err))
-                
-                local w, h = gpu.getResolution()
-                computer.beep("Resolution: " .. tostring(w) .. "x" .. tostring(h))
-                
-                gpu.fill(1, 1, w, h, " ")
-                gpu.setForeground(0x00FF00)
-                gpu.set(1, 1, "OpenComputers v3.0.0")
-                gpu.setForeground(0xFFFFFF)
-                gpu.set(1, 2, "")
-                gpu.set(1, 3, "No bootable medium found.")
-                gpu.set(1, 4, "Press any key to shutdown.")
-                computer.beep("Boot message displayed")
-            else
-                computer.beep("ERROR: No GPU or screen found")
+            -- OpenComputers BIOS v3.0
+            local function tryLoadFrom(address)
+              local handle, reason = component.invoke(address, "open", "/init.lua")
+              if not handle then return nil, reason end
+              local buffer = ""
+              repeat
+                local data, reason = component.invoke(address, "read", handle, math.huge)
+                if not data and reason then
+                  return nil, reason
+                end
+                buffer = buffer .. (data or "")
+              until not data
+              component.invoke(address, "close", handle)
+              return load(buffer, "=init")
             end
             
-            while true do
+            local function boot()
+              -- Initialize GPU
+              local screen = component.list("screen")()
+              local gpu = component.list("gpu")()
+              if gpu and screen then
+                component.invoke(gpu, "bind", screen)
+              end
+              
+              -- Try boot address from EEPROM data first  
+              local eeprom = component.list("eeprom")()
+              local bootAddr = eeprom and component.invoke(eeprom, "getData")
+              if bootAddr and #bootAddr > 0 then
+                local init, reason = tryLoadFrom(bootAddr)
+                if init then
+                  computer.setBootAddress(bootAddr)
+                  return init
+                end
+              end
+              
+              -- Try all filesystems
+              for address in component.list("filesystem") do
+                local init, reason = tryLoadFrom(address)
+                if init then
+                  computer.setBootAddress(address)
+                  if eeprom then
+                    component.invoke(eeprom, "setData", address)
+                  end
+                  return init
+                end
+              end
+              
+              return nil, "no bootable medium found"
+            end
+            
+            -- Attempt boot
+            local init, reason = boot()
+            
+            if not init then
+              -- No bootable medium - show message
+              local gpu = component.list("gpu")()
+              if gpu then
+                local w, h = component.invoke(gpu, "getResolution")
+                component.invoke(gpu, "setBackground", 0x000000)
+                component.invoke(gpu, "setForeground", 0xFFFFFF)
+                component.invoke(gpu, "fill", 1, 1, w, h, " ")
+                component.invoke(gpu, "setForeground", 0x00FF00)
+                component.invoke(gpu, "set", 1, 1, "OpenComputers v3.0.0")
+                component.invoke(gpu, "setForeground", 0xFFFFFF)
+                component.invoke(gpu, "set", 1, 3, reason or "Unknown error")
+                component.invoke(gpu, "set", 1, 4, "Press any key to shutdown.")
+              end
+              while true do
                 local signal = computer.pullSignal(1)
                 if signal == "key_down" then
-                    computer.shutdown()
+                  computer.shutdown()
                 end
+              end
+            else
+              -- Boot!
+              computer.beep(1000, 0.2)
+              init()
             end
         """.trimIndent()
         
@@ -85,7 +127,7 @@ class EEPROMComponent(
         }
         
         registerMethod("getData", true, "Get the data section") { _ ->
-            arrayOf(String(data))
+            arrayOf(String(data).trimEnd('\u0000'))
         }
         
         registerMethod("setData", false, "Set the data section") { args ->

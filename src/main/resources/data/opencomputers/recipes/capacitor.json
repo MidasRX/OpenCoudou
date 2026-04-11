@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGI",
+    "RGR",
+    "ICI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "G": {"item": "minecraft:gold_ingot"},
+    "R": {"item": "minecraft:redstone_block"},
+    "C": {"item": "opencomputers:transistor"}
+  },
+  "result": {
+    "item": "opencomputers:capacitor",
+    "count": 1
+  }
+}

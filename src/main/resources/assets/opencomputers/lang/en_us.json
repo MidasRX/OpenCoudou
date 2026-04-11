@@ -291,5 +291,24 @@
   "message.opencomputers.computer.no_eeprom": "No EEPROM installed",
   "message.opencomputers.computer.no_energy": "Not enough energy",
   "message.opencomputers.computer.booting": "Booting...",
-  "message.opencomputers.computer.running": "Computer is running"
+  "message.opencomputers.computer.running": "Computer is running",
+  
+  "gui.opencomputers.assembler.assemble": "Assemble",
+  "gui.opencomputers.assembler.idle": "Idle",
+  "gui.opencomputers.assembler.assembling": "Assembling...",
+  "gui.opencomputers.assembler.waiting": "Waiting for items",
+  
+  "gui.opencomputers.raid.label": "Label:",
+  
+  "gui.opencomputers.charger.speed": "Charge Speed: %d%%",
+  
+  "gui.opencomputers.printer.chamelium": "Chamelium: %d/%d",
+  "gui.opencomputers.printer.ink": "Ink: %d/%d",
+  
+  "item.opencomputers.robotcase1": "Robot Case (Tier 1)",
+  "item.opencomputers.robotcase2": "Robot Case (Tier 2)",
+  "item.opencomputers.robotcase3": "Robot Case (Tier 3)",
+  "item.opencomputers.robotcase_creative": "Robot Case (Creative)",
+  
+  "block.opencomputers.redstone": "Redstone I/O"
 }

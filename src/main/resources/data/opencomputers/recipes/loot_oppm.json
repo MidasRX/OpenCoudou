@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "opencomputers:floppy"},
+    {"item": "minecraft:emerald"}
+  ],
+  "result": {
+    "id": "opencomputers:loot_oppm",
+    "count": 1
+  }
+}

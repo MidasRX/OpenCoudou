@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PNP",
+    "PCP",
+    "PSP"
+  ],
+  "key": {
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "N": {"item": "minecraft:nether_star"},
+    "C": {"item": "opencomputers:chip3"},
+    "S": {"item": "minecraft:beacon"}
+  },
+  "result": {
+    "id": "opencomputers:upgrade_creative",
+    "count": 1
+  }
+}

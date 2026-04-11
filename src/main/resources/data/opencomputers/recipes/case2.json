@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGH",
+    "MCM",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "G": {"item": "minecraft:gold_ingot"},
+    "C": {"item": "opencomputers:chip2"},
+    "H": {"item": "opencomputers:card_base"},
+    "M": {"item": "opencomputers:transistor"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:case2",
+    "count": 1
+  }
+}

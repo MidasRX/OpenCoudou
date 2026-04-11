@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GDG",
+    "ACA",
+    "GBG"
+  ],
+  "key": {
+    "G": {"item": "minecraft:gold_ingot"},
+    "D": {"item": "minecraft:dispenser"},
+    "A": {"item": "opencomputers:analyzer"},
+    "C": {"item": "opencomputers:chip2"},
+    "B": {"item": "minecraft:bucket"}
+  },
+  "result": {
+    "id": "opencomputers:tankcontrollerupgrade",
+    "count": 1
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "IDI",
+    "III"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_nugget"},
+    "D": {"item": "opencomputers:disk_platter"}
+  },
+  "result": {
+    "item": "opencomputers:floppy",
+    "count": 1
+  }
+}

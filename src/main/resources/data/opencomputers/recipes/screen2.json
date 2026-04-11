@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GGG",
+    "GCG",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:gold_ingot"},
+    "G": {"item": "minecraft:glass_pane"},
+    "C": {"item": "opencomputers:chip2"},
+    "P": {"item": "opencomputers:transistor"}
+  },
+  "result": {
+    "item": "opencomputers:screen2",
+    "count": 1
+  }
+}

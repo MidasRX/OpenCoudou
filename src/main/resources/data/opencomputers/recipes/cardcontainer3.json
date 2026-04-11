@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IBI",
+    "BCB",
+    "IBI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:diamond"},
+    "B": {"item": "opencomputers:card_base"},
+    "C": {"item": "opencomputers:chip3"}
+  },
+  "result": {
+    "id": "opencomputers:cardcontainer3",
+    "count": 1
+  }
+}

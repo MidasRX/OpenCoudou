@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGI",
+    "ECD",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "G": {"item": "minecraft:gold_ingot"},
+    "E": {"item": "minecraft:ender_eye"},
+    "C": {"item": "opencomputers:chip2"},
+    "D": {"item": "minecraft:diamond"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:geolyzer",
+    "count": 1
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IGI",
+    "PMG",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "G": {"item": "minecraft:glass"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "M": {"item": "opencomputers:chip2"}
+  },
+  "result": {
+    "id": "opencomputers:robotcase1",
+    "count": 1
+  }
+}

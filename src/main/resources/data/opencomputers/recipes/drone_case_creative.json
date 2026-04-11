@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "N N",
+    "NCN",
+    "NEN"
+  ],
+  "key": {
+    "N": {"item": "minecraft:nether_star"},
+    "C": {"item": "opencomputers:chip3"},
+    "E": {"item": "minecraft:ender_eye"}
+  },
+  "result": {
+    "id": "opencomputers:dronecase_creative",
+    "count": 1
+  }
+}

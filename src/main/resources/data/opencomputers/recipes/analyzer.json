@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "L L",
+    "IGI",
+    "III"
+  ],
+  "key": {
+    "L": {"item": "minecraft:leather"},
+    "I": {"item": "minecraft:iron_ingot"},
+    "G": {"item": "minecraft:glass"}
+  },
+  "result": {
+    "id": "opencomputers:analyzer",
+    "count": 1
+  }
+}

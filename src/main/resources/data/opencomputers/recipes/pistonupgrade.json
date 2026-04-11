@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IPI",
+    "PCP",
+    "ISI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "P": {"item": "minecraft:piston"},
+    "C": {"item": "opencomputers:chip1"},
+    "S": {"item": "minecraft:cobblestone"}
+  },
+  "result": {
+    "id": "opencomputers:pistonupgrade",
+    "count": 1
+  }
+}

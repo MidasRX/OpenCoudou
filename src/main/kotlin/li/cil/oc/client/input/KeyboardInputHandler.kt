@@ -1,6 +1,7 @@
 package li.cil.oc.client.input
 
 import li.cil.oc.network.KeyboardInputPacket
+import li.cil.oc.util.KeyboardKeys
 import li.cil.oc.util.OCLogger
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
@@ -16,39 +17,48 @@ object KeyboardInputHandler {
     
     /**
      * Send a key down event.
+     * @param char The character typed (or 0 for non-printable keys)
+     * @param keyCode The GLFW key code (will be converted to OC/LWJGL2 code)
      */
     fun sendKeyDown(char: Char, keyCode: Int) {
         val pos = focusedScreen ?: return
         val player = Minecraft.getInstance().player ?: return
         
-        val packet = KeyboardInputPacket(pos, char.code, keyCode, true, player.uuid)
+        // Convert GLFW keycode to OC-compatible LWJGL2 keycode
+        val ocKeyCode = KeyboardKeys.glfwToOC(keyCode)
+        
+        val packet = KeyboardInputPacket(pos, char.code, ocKeyCode, true, player.uuid)
         PacketDistributor.sendToServer(packet)
-        OCLogger.debug("Sent key_down: $char ($keyCode)")
+        OCLogger.debug("Sent key_down: $char (GLFW:$keyCode -> OC:$ocKeyCode)")
     }
     
     /**
      * Send a key up event.
+     * @param char The character (or 0 for non-printable keys)
+     * @param keyCode The GLFW key code (will be converted to OC/LWJGL2 code)
      */
     fun sendKeyUp(char: Char, keyCode: Int) {
         val pos = focusedScreen ?: return
         val player = Minecraft.getInstance().player ?: return
         
-        val packet = KeyboardInputPacket(pos, char.code, keyCode, false, player.uuid)
+        // Convert GLFW keycode to OC-compatible LWJGL2 keycode
+        val ocKeyCode = KeyboardKeys.glfwToOC(keyCode)
+        
+        val packet = KeyboardInputPacket(pos, char.code, ocKeyCode, false, player.uuid)
         PacketDistributor.sendToServer(packet)
     }
     
     /**
-     * Send clipboard paste - sends each character as a key press.
+     * Send clipboard paste - sends as a single clipboard signal.
+     * Original OC sends clipboard(keyboardAddress, text, playerName).
      */
     fun sendClipboard(text: String) {
         val pos = focusedScreen ?: return
         val player = Minecraft.getInstance().player ?: return
         
-        // Send each character
-        for (c in text) {
-            val packet = KeyboardInputPacket(pos, c.code, 0, true, player.uuid)
-            PacketDistributor.sendToServer(packet)
-        }
+        // Send clipboard as a single packet with code=-1 marker and full text
+        val packet = KeyboardInputPacket(pos, 0, -1, true, player.uuid, text)
+        PacketDistributor.sendToServer(packet)
         OCLogger.debug("Sent clipboard: ${text.take(20)}...")
     }
     

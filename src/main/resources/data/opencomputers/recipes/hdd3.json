@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DCD",
+    "DDM",
+    "DPD"
+  ],
+  "key": {
+    "D": {"item": "minecraft:diamond"},
+    "C": {"item": "opencomputers:chip3"},
+    "M": {"item": "opencomputers:control_unit"},
+    "P": {"item": "minecraft:piston"}
+  },
+  "result": {
+    "item": "opencomputers:hdd3",
+    "count": 1
+  }
+}

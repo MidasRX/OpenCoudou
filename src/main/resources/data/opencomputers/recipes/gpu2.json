@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GAG",
+    "TCT",
+    "GAG"
+  ],
+  "key": {
+    "G": {"item": "minecraft:gold_ingot"},
+    "A": {"item": "opencomputers:alu"},
+    "T": {"item": "opencomputers:transistor"},
+    "C": {"item": "opencomputers:chip2"}
+  },
+  "result": {
+    "item": "opencomputers:gpu2",
+    "count": 1
+  }
+}

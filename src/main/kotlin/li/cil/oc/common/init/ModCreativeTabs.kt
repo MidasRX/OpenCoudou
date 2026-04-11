@@ -50,6 +50,7 @@ object ModCreativeTabs {
                 output.accept(ModItems.GEOLYZER_ITEM.get())
                 output.accept(ModItems.MOTION_SENSOR_ITEM.get())
                 output.accept(ModItems.WAYPOINT_ITEM.get())
+                output.accept(ModItems.NET_SPLITTER_ITEM.get())
                 
                 output.accept(ModItems.RACK_ITEM.get())
                 output.accept(ModItems.ASSEMBLER_ITEM.get())
@@ -142,6 +143,10 @@ object ModCreativeTabs {
                 output.accept(ModItems.DRONE_CASE_TIER1.get())
                 output.accept(ModItems.DRONE_CASE_TIER2.get())
                 output.accept(ModItems.DRONE_CASE_CREATIVE.get())
+                output.accept(ModItems.ROBOT_CASE_TIER1.get())
+                output.accept(ModItems.ROBOT_CASE_TIER2.get())
+                output.accept(ModItems.ROBOT_CASE_TIER3.get())
+                output.accept(ModItems.ROBOT_CASE_CREATIVE.get())
                 output.accept(ModItems.MICROCONTROLLER_CASE_TIER1.get())
                 output.accept(ModItems.MICROCONTROLLER_CASE_TIER2.get())
                 output.accept(ModItems.MICROCONTROLLER_CASE_CREATIVE.get())
@@ -155,6 +160,54 @@ object ModCreativeTabs {
                 output.accept(ModItems.SERVER_TIER3.get())
                 output.accept(ModItems.SERVER_CREATIVE.get())
                 
+                // Upgrades
+                output.accept(ModItems.UPGRADE_ANGEL.get())
+                output.accept(ModItems.UPGRADE_BATTERY_TIER1.get())
+                output.accept(ModItems.UPGRADE_BATTERY_TIER2.get())
+                output.accept(ModItems.UPGRADE_BATTERY_TIER3.get())
+                output.accept(ModItems.UPGRADE_CHUNKLOADER.get())
+                output.accept(ModItems.UPGRADE_CRAFTING.get())
+                output.accept(ModItems.UPGRADE_DATABASE_TIER1.get())
+                output.accept(ModItems.UPGRADE_DATABASE_TIER2.get())
+                output.accept(ModItems.UPGRADE_DATABASE_TIER3.get())
+                output.accept(ModItems.UPGRADE_EXPERIENCE.get())
+                output.accept(ModItems.UPGRADE_GENERATOR.get())
+                output.accept(ModItems.UPGRADE_HOVER_TIER1.get())
+                output.accept(ModItems.UPGRADE_HOVER_TIER2.get())
+                output.accept(ModItems.UPGRADE_INVENTORY.get())
+                output.accept(ModItems.UPGRADE_INVENTORY_CONTROLLER.get())
+                output.accept(ModItems.UPGRADE_LEASH.get())
+                output.accept(ModItems.UPGRADE_MFU.get())
+                output.accept(ModItems.UPGRADE_NAVIGATION.get())
+                output.accept(ModItems.UPGRADE_PISTON.get())
+                output.accept(ModItems.UPGRADE_SIGN.get())
+                output.accept(ModItems.UPGRADE_SOLAR_GENERATOR.get())
+                output.accept(ModItems.UPGRADE_TANK.get())
+                output.accept(ModItems.UPGRADE_TANK_CONTROLLER.get())
+                output.accept(ModItems.UPGRADE_TRACTOR_BEAM.get())
+                output.accept(ModItems.UPGRADE_TRADING.get())
+                
+                // Containers
+                output.accept(ModItems.CARD_CONTAINER_TIER1.get())
+                output.accept(ModItems.CARD_CONTAINER_TIER2.get())
+                output.accept(ModItems.CARD_CONTAINER_TIER3.get())
+                output.accept(ModItems.UPGRADE_CONTAINER_TIER1.get())
+                output.accept(ModItems.UPGRADE_CONTAINER_TIER2.get())
+                output.accept(ModItems.UPGRADE_CONTAINER_TIER3.get())
+                
+                // Component Buses
+                output.accept(ModItems.COMPONENT_BUS_TIER1.get())
+                output.accept(ModItems.COMPONENT_BUS_TIER2.get())
+                output.accept(ModItems.COMPONENT_BUS_TIER3.get())
+                
+                // Higher tier memory
+                output.accept(ModItems.MEMORY_TIER4.get())
+                output.accept(ModItems.MEMORY_TIER5.get())
+                output.accept(ModItems.MEMORY_TIER6.get())
+                
+                // Misc
+                output.accept(ModItems.HOVER_BOOTS.get())
+                output.accept(ModItems.TABLET.get())
                 output.accept(ModItems.NANOMACHINES.get())
             }
             .build()

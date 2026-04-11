@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ICI",
+    "PDP",
+    "ICI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "opencomputers:chip2"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "D": {"item": "opencomputers:disk_drive"}
+  },
+  "result": {
+    "id": "opencomputers:rack_mountable_disk_drive",
+    "count": 1
+  }
+}

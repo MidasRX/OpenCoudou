@@ -24,7 +24,8 @@ class ScreenBlockEntity(
 
     private var tier: Int = 1
     
-    // Flag to track if buffer has changed and needs sync
+    // Flag to track if buffer has changed and needs sync (written by Lua thread, read by server tick)
+    @Volatile
     private var bufferDirty = false
     
     // The screen component with text buffer
@@ -40,6 +41,8 @@ class ScreenBlockEntity(
      */
     fun serverTick(level: Level, pos: BlockPos, state: BlockState) {
         if (bufferDirty) {
+            val nonSpaceCount = buffer.charData.count { it > 32 }
+            OCLogger.debug("[TICK] Buffer dirty, syncing. nonSpace=$nonSpaceCount, isOn=$isOn")
             bufferDirty = false
             setChanged()
             syncToClient()
@@ -60,6 +63,9 @@ class ScreenBlockEntity(
     
     // Connected computer address (for component network)
     var connectedComputer: String? = null
+    
+    // Keyboard component address (for key signal routing)
+    var keyboardAddress: String? = null
     
     fun setTier(t: Int) {
         tier = t
@@ -104,6 +110,8 @@ class ScreenBlockEntity(
      */
     private fun syncToClient() {
         if (level != null && !level!!.isClientSide) {
+            val firstChar = if (buffer.charData.isNotEmpty()) buffer.charData[0] else 0
+            OCLogger.debug("[SYNC] Syncing screen to client: isOn=$isOn, firstChar=$firstChar ('${firstChar.toChar()}')")
             level!!.sendBlockUpdated(blockPos, blockState, blockState, 3)
         }
     }
@@ -143,17 +151,16 @@ class ScreenBlockEntity(
                 val chars = bufferTag.getIntArray("chars")
                 val fg = bufferTag.getIntArray("fg")
                 val bg = bufferTag.getIntArray("bg")
-                if (chars.size == w * h) {
-                    System.arraycopy(chars, 0, buffer.charData, 0, chars.size)
-                }
-                if (fg.size == w * h) {
-                    System.arraycopy(fg, 0, buffer.fgData, 0, fg.size)
-                }
-                if (bg.size == w * h) {
-                    System.arraycopy(bg, 0, buffer.bgData, 0, bg.size)
-                }
+                buffer.setRawData(chars, fg, bg)
+                val nonSpaceCount = chars.count { it > 32 }
+                val isClient = level?.isClientSide ?: false
+                OCLogger.debug("[LOAD] Buffer ${w}x${h}, firstChar=${if (chars.isNotEmpty()) chars[0] else 0} ('${if (chars.isNotEmpty()) chars[0].toChar() else '?'}'), nonSpace=$nonSpaceCount, isClient=$isClient")
             }
         }
+    }
+    
+    override fun handleUpdateTag(tag: CompoundTag, lookupProvider: HolderLookup.Provider) {
+        loadAdditional(tag, lookupProvider)
     }
     
     override fun getUpdateTag(registries: HolderLookup.Provider): CompoundTag {

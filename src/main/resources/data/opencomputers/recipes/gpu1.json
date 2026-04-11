@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "RAR",
+    "TCT",
+    "RAR"
+  ],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "A": {"item": "opencomputers:alu"},
+    "T": {"item": "opencomputers:transistor"},
+    "C": {"item": "opencomputers:chip1"}
+  },
+  "result": {
+    "item": "opencomputers:gpu1",
+    "count": 1
+  }
+}

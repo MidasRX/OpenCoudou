@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GCG",
+    "DDM",
+    "GPG"
+  ],
+  "key": {
+    "G": {"item": "minecraft:gold_ingot"},
+    "C": {"item": "opencomputers:chip2"},
+    "D": {"item": "opencomputers:disk_platter"},
+    "M": {"item": "opencomputers:transistor"},
+    "P": {"item": "minecraft:piston"}
+  },
+  "result": {
+    "item": "opencomputers:hdd2",
+    "count": 1
+  }
+}

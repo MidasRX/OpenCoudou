@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "G G",
+    "PCP",
+    "GBG"
+  ],
+  "key": {
+    "G": {"item": "minecraft:gold_ingot"},
+    "P": {"item": "opencomputers:printed_circuit_board"},
+    "C": {"item": "opencomputers:chip2"},
+    "B": {"item": "opencomputers:card_base"}
+  },
+  "result": {
+    "id": "opencomputers:microcontroller_case2",
+    "count": 1
+  }
+}

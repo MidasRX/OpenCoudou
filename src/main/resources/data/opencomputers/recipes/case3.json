@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IDH",
+    "MCM",
+    "IPI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "D": {"item": "minecraft:diamond"},
+    "C": {"item": "opencomputers:chip3"},
+    "H": {"item": "opencomputers:card_base"},
+    "M": {"item": "opencomputers:control_unit"},
+    "P": {"item": "opencomputers:printed_circuit_board"}
+  },
+  "result": {
+    "item": "opencomputers:case3",
+    "count": 1
+  }
+}

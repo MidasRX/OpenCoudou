@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "NTN",
+    "NPN",
+    "NRN"
+  ],
+  "key": {
+    "N": {"item": "minecraft:gold_nugget"},
+    "T": {"item": "opencomputers:transistor"},
+    "P": {"item": "minecraft:paper"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "result": {
+    "item": "opencomputers:eeprom",
+    "count": 1
+  }
+}

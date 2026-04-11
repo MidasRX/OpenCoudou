@@ -5,6 +5,16 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 
 /**
+ * A virtual file with data and metadata.
+ */
+private data class VirtualFile(
+    var data: ByteArray,
+    var lastModified: Long = System.currentTimeMillis()
+) {
+    val size: Int get() = data.size
+}
+
+/**
  * Filesystem component that provides file storage.
  * Used for HDDs, floppies, and tmpfs.
  */
@@ -15,7 +25,7 @@ class FilesystemComponent(
 ) : AbstractComponent("filesystem") {
     
     // In-memory filesystem (would use NBT in real implementation)
-    private val files = mutableMapOf<String, ByteArray>()
+    private val files = mutableMapOf<String, VirtualFile>()
     private var usedSpace = 0L
     
     init {
@@ -56,7 +66,14 @@ class FilesystemComponent(
             val prefix = if (path.isEmpty()) "" else "$path/"
             val entries = files.keys
                 .filter { it.startsWith(prefix) }
-                .map { it.removePrefix(prefix).split("/").first() }
+                .map { 
+                    val relative = it.removePrefix(prefix).split("/").first()
+                    // Append / for directories (entries that have children)
+                    val isDir = files.keys.any { key -> 
+                        key.startsWith(if (prefix.isEmpty()) "$relative/" else "$prefix$relative/") 
+                    }
+                    if (isDir) "$relative/" else relative
+                }
                 .distinct()
                 .sorted()
             arrayOf(entries)
@@ -99,8 +116,8 @@ class FilesystemComponent(
         }
         
         registerMethod("lastModified", true, "lastModified(path:string):number -- Get last modified time") { args ->
-            // Return current time as placeholder
-            arrayOf(System.currentTimeMillis() / 1000)
+            val path = normalizePath(args.getOrNull(0)?.toString() ?: "")
+            arrayOf((files[path]?.lastModified ?: System.currentTimeMillis()) / 1000.0)
         }
         
         registerMethod("open", false, "open(path:string[,mode:string]):number -- Open file handle") { args ->
@@ -111,9 +128,13 @@ class FilesystemComponent(
                 return@registerMethod arrayOf(null, "filesystem is read-only")
             }
             
-            // Return file handle (address as handle for simplicity)
+            // Return file handle or nil + error
             val handle = openFile(path, mode)
-            arrayOf(handle)
+            if (handle != null) {
+                arrayOf(handle)
+            } else {
+                arrayOf(null, "file not found")
+            }
         }
         
         registerMethod("read", true, "read(handle:number,count:number):string -- Read from file") { args ->
@@ -170,12 +191,17 @@ class FilesystemComponent(
     private val handles = mutableMapOf<Int, FileHandle>()
     private var nextHandle = 1
     
-    private fun openFile(path: String, mode: String): Int {
+    private fun openFile(path: String, mode: String): Int? {
+        // For read mode, file must exist
+        if (!mode.contains("w") && !mode.contains("a") && !files.containsKey(path)) {
+            return null  // File not found
+        }
+        
         val handle = nextHandle++
         
         // Create file if writing and doesn't exist
         if (mode.contains("w") && !files.containsKey(path)) {
-            files[path] = ByteArray(0)
+            files[path] = VirtualFile(ByteArray(0))
         }
         
         handles[handle] = FileHandle(path, mode, if (mode.contains("a")) files[path]?.size ?: 0 else 0)
@@ -184,7 +210,8 @@ class FilesystemComponent(
     
     private fun readFromHandle(handle: Int, count: Int): String? {
         val fh = handles[handle] ?: return null
-        val data = files[fh.path] ?: return null
+        val vf = files[fh.path] ?: return null
+        val data = vf.data
         
         if (fh.position >= data.size) return null // EOF
         
@@ -199,7 +226,8 @@ class FilesystemComponent(
         if (!fh.mode.contains("w") && !fh.mode.contains("a")) return false
         
         val bytes = data.toByteArray(StandardCharsets.UTF_8)
-        val existing = files[fh.path] ?: ByteArray(0)
+        val vf = files[fh.path] ?: return false
+        val existing = vf.data
         
         // Calculate new size
         val newSize = maxOf(fh.position + bytes.size, existing.size)
@@ -212,7 +240,8 @@ class FilesystemComponent(
         System.arraycopy(bytes, 0, newData, fh.position, bytes.size)
         
         usedSpace = usedSpace - existing.size + newData.size
-        files[fh.path] = newData
+        vf.data = newData
+        vf.lastModified = System.currentTimeMillis()
         fh.position += bytes.size
         
         return true
@@ -245,7 +274,7 @@ class FilesystemComponent(
         val existing = files[normalized]
         
         usedSpace = usedSpace - (existing?.size ?: 0) + bytes.size
-        files[normalized] = bytes
+        files[normalized] = VirtualFile(bytes)
     }
     
     /**
@@ -261,7 +290,7 @@ class FilesystemComponent(
      * Read a file directly.
      */
     fun readFile(path: String): String? {
-        val data = files[normalizePath(path)] ?: return null
-        return String(data, StandardCharsets.UTF_8)
+        val vf = files[normalizePath(path)] ?: return null
+        return String(vf.data, StandardCharsets.UTF_8)
     }
 }
