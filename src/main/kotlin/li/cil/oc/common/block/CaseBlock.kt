@@ -59,13 +59,16 @@ class CaseBlock(private val tier: Int, properties: Properties) : Block(propertie
         state: BlockState, level: Level, pos: BlockPos,
         player: Player, hitResult: BlockHitResult
     ): InteractionResult {
-        if (!level.isClientSide && player is ServerPlayer) {
+        if (level.isClientSide) {
+            return InteractionResult.SUCCESS
+        }
+        if (player is ServerPlayer) {
             val be = level.getBlockEntity(pos) as? CaseBlockEntity
             if (be != null) {
                 player.openMenu(be) { buf -> buf.writeVarInt(be.tier) }
             }
         }
-        return InteractionResult.SUCCESS
+        return InteractionResult.CONSUME
     }
     
     @Suppress("OVERRIDE_DEPRECATION")
