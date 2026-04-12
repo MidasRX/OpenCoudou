@@ -198,10 +198,11 @@ object ModPackets {
     
     private fun handleScreenUpdate(packet: ScreenUpdatePacket, context: IPayloadContext) {
         context.enqueueWork {
-            // Update screen display on client
             val level = Minecraft.getInstance().level ?: return@enqueueWork
             val blockEntity = level.getBlockEntity(packet.pos)
-            // Update screen buffer
+            if (blockEntity is li.cil.oc.common.blockentity.ScreenBlockEntity) {
+                li.cil.oc.common.blockentity.ScreenBlockEntity.applyScreenUpdate(blockEntity, packet)
+            }
         }
     }
     
@@ -240,8 +241,10 @@ object ModPackets {
     }
     
     fun sendToAllTracking(level: Level, pos: BlockPos, packet: CustomPacketPayload) {
-        val chunk = level.getChunkAt(pos)
-        // PacketDistributor.sendToPlayersTrackingChunk(level as ServerLevel, chunk.pos, packet)
+        if (level is net.minecraft.server.level.ServerLevel) {
+            val chunk = level.getChunkAt(pos)
+            PacketDistributor.sendToPlayersTrackingChunk(level, chunk.pos, packet)
+        }
     }
     
     fun sendToAll(packet: CustomPacketPayload) {

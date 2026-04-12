@@ -426,6 +426,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen() ?: return LuaValue.FALSE
                 screen.buffer.set(x - 1, y - 1, text, vertical)
                 screen.setChanged()
+                screen.markForSync()
                 return LuaValue.TRUE
             }
         })
@@ -462,6 +463,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen() ?: return LuaValue.FALSE
                 screen.buffer.fill(x - 1, y - 1, w, h, char)
                 screen.setChanged()
+                screen.markForSync()
                 return LuaValue.TRUE
             }
         })
@@ -477,6 +479,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen() ?: return LuaValue.FALSE
                 screen.buffer.copy(x - 1, y - 1, w, h, tx, ty)
                 screen.setChanged()
+                screen.markForSync()
                 return LuaValue.TRUE
             }
         })

@@ -1,11 +1,16 @@
 package li.cil.oc.common.blockentity
 
 import li.cil.oc.common.init.ModBlockEntities
+import li.cil.oc.network.ModPackets
+import li.cil.oc.network.ScreenUpdatePacket
 import li.cil.oc.util.TextBuffer
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
+import net.minecraft.network.protocol.Packet
+import net.minecraft.network.protocol.game.ClientGamePacketListener
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket
 import net.minecraft.world.MenuProvider
 import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
@@ -13,6 +18,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
+import java.nio.ByteBuffer
 import java.util.UUID
 
 /**
@@ -33,6 +39,10 @@ class ScreenBlockEntity(
     // Text buffer for display - size depends on tier
     val buffer: TextBuffer = TextBuffer(getWidthForTier(tier), getHeightForTier(tier))
 
+    // Network sync: true when buffer has changed and needs to be sent to clients
+    @Volatile
+    var needsSync = false
+
     override fun getDisplayName(): Component = Component.literal("Screen")
     
     override fun createMenu(
@@ -40,6 +50,11 @@ class ScreenBlockEntity(
         playerInventory: Inventory,
         player: Player
     ): AbstractContainerMenu? = null
+
+    /** Mark screen for network sync on next server tick. */
+    fun markForSync() {
+        needsSync = true
+    }
 
     override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
         super.saveAdditional(tag, registries)
@@ -75,15 +90,45 @@ class ScreenBlockEntity(
             }
         }
     }
+
+    // --- NeoForge chunk-load sync: sends buffer to client when chunk is first loaded ---
+
+    override fun getUpdateTag(registries: HolderLookup.Provider): CompoundTag {
+        val tag = super.getUpdateTag(registries)
+        saveAdditional(tag, registries)
+        return tag
+    }
+
+    override fun getUpdatePacket(): Packet<ClientGamePacketListener>? {
+        return ClientboundBlockEntityDataPacket.create(this)
+    }
     
     fun serverTick(level: Level, pos: BlockPos, state: BlockState) {
-        // TODO: Implement serverTick
+        if (!needsSync) return
+        needsSync = false
+        val packet = createFullSyncPacket()
+        ModPackets.sendToAllTracking(level, pos, packet)
+    }
+
+    /** Encode the entire buffer into a ScreenUpdatePacket. */
+    fun createFullSyncPacket(): ScreenUpdatePacket {
+        val w = buffer.width
+        val h = buffer.height
+        val size = w * h
+        // 4 bytes per int, 3 arrays (char, fg, bg)
+        val bb = ByteBuffer.allocate(size * 4 * 3)
+        for (i in 0 until size) bb.putInt(buffer.charData[i])
+        for (i in 0 until size) bb.putInt(buffer.fgData[i])
+        for (i in 0 until size) bb.putInt(buffer.bgData[i])
+        return ScreenUpdatePacket(blockPos, 0, 0, w, h, bb.array())
     }
     
     companion object {
         @JvmStatic
         fun tick(level: Level, pos: BlockPos, state: BlockState, blockEntity: ScreenBlockEntity) {
-            // TODO: Implement tick
+            if (!level.isClientSide) {
+                blockEntity.serverTick(level, pos, state)
+            }
         }
         
         fun getWidthForTier(tier: Int): Int = when (tier) {
@@ -98,6 +143,23 @@ class ScreenBlockEntity(
             2 -> 25
             3 -> 50
             else -> 16
+        }
+
+        /** Decode a ScreenUpdatePacket's data into a client-side ScreenBlockEntity's buffer. */
+        fun applyScreenUpdate(be: ScreenBlockEntity, packet: ScreenUpdatePacket) {
+            val w = packet.width
+            val h = packet.height
+            if (w != be.buffer.width || h != be.buffer.height) {
+                be.buffer.resize(w, h)
+            }
+            val size = w * h
+            val expected = size * 4 * 3
+            if (packet.data.size < expected) return
+            val bb = ByteBuffer.wrap(packet.data)
+            val chars = IntArray(size) { bb.getInt() }
+            val fg = IntArray(size) { bb.getInt() }
+            val bg = IntArray(size) { bb.getInt() }
+            be.buffer.setRawData(chars, fg, bg)
         }
     }
 }
