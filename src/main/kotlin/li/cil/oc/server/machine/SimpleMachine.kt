@@ -3,7 +3,11 @@ package li.cil.oc.server.machine
 import li.cil.oc.OpenComputers
 import li.cil.oc.api.machine.*
 import li.cil.oc.api.network.Component
+import li.cil.oc.api.network.Environment
+import li.cil.oc.api.network.Message
+import li.cil.oc.api.network.Network
 import li.cil.oc.api.network.Node
+import li.cil.oc.api.network.Reachability
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.ItemStack
 import org.luaj.vm2.*
@@ -44,6 +48,9 @@ class SimpleMachine(override val host: MachineHost) : Machine {
     // Components installed in the case (set by CaseBlockEntity before start)
     var installedComponents: InstalledComponents = InstalledComponents()
     
+    // Flag set by architecture when Lua calls computer.shutdown(true)
+    var pendingReboot: Boolean = false
+    
     private var _cpuTime: Double = 0.0
     override val cpuTime: Double get() = _cpuTime
     
@@ -66,7 +73,33 @@ class SimpleMachine(override val host: MachineHost) : Machine {
     
     private val signalQueue = ConcurrentLinkedQueue<Signal>()
     private var _node: Node? = null
+    private var nodeAddress: String = java.util.UUID.randomUUID().toString()
     private var executorFuture: Future<*>? = null
+
+    /**
+     * Minimal Node implementation for the machine - just provides an address.
+     */
+    private inner class SimpleNode(override val address: String) : Node {
+        override val network: Network? get() = null
+        override val host: Environment get() = object : Environment {
+            override val node: Node? get() = this@SimpleNode
+            override fun onConnect(node: Node) {}
+            override fun onDisconnect(node: Node) {}
+            override fun onMessage(message: Message): Any? = null
+        }
+        override val reachability: Reachability get() = Reachability.NETWORK
+        override fun connect(other: Node): Boolean = false
+        override fun disconnect(other: Node): Boolean = false
+        override fun remove() {}
+        override fun neighbors(): Collection<Node> = emptyList()
+        override fun reachableNodes(): Collection<Node> = emptyList()
+        override fun sendToAddress(target: String, name: String, vararg args: Any?): Any? = null
+        override fun sendToNeighbors(name: String, vararg args: Any?) {}
+        override fun sendToReachable(name: String, vararg args: Any?) {}
+        override fun sendToVisible(name: String, vararg args: Any?) {}
+        override fun load(tag: CompoundTag) {}
+        override fun save(tag: CompoundTag) {}
+    }
     
     data class Signal(val name: String, val args: Array<out Any?>) {
         override fun equals(other: Any?): Boolean {
@@ -121,6 +154,11 @@ class SimpleMachine(override val host: MachineHost) : Machine {
         hasCrashed = false
         crashMessage = null
         signalQueue.clear()
+        
+        // Ensure node exists with a stable address
+        if (_node == null) {
+            _node = SimpleNode(nodeAddress)
+        }
         
         // Use actual memory from installed components
         totalMemory = if (installedComponents.totalMemory > 0) installedComponents.totalMemory else 256 * 1024
@@ -223,7 +261,18 @@ class SimpleMachine(override val host: MachineHost) : Machine {
             val startTime = System.nanoTime()
             try {
                 when (val result = arch.runThreaded(false)) {
-                    is ExecutionResult.Shutdown -> stop()
+                    is ExecutionResult.Shutdown -> {
+                        if (pendingReboot) {
+                            pendingReboot = false
+                            stop()
+                            // Re-start the machine on the main thread via signal queue
+                            // The CaseBlockEntity tick will handle this
+                            state = MachineState.STOPPED
+                            start()
+                        } else {
+                            stop()
+                        }
+                    }
                     is ExecutionResult.Error -> crash(result.message)
                     else -> {}
                 }
@@ -255,6 +304,7 @@ class SimpleMachine(override val host: MachineHost) : Machine {
     fun saveData(tag: CompoundTag) {
         tag.putInt("state", state.ordinal)
         tag.putBoolean("crashed", hasCrashed)
+        tag.putString("nodeAddress", nodeAddress)
         crashMessage?.let { tag.putString("crashMessage", it) }
         // Save architecture state (filesystems, boot address, etc.)
         val archTag = CompoundTag()
@@ -265,6 +315,8 @@ class SimpleMachine(override val host: MachineHost) : Machine {
     fun loadData(tag: CompoundTag) {
         state = MachineState.entries.getOrNull(tag.getInt("state")) ?: MachineState.STOPPED
         hasCrashed = tag.getBoolean("crashed")
+        if (tag.contains("nodeAddress")) nodeAddress = tag.getString("nodeAddress")
+        _node = SimpleNode(nodeAddress)
         crashMessage = if (tag.contains("crashMessage")) tag.getString("crashMessage") else null
         // Load architecture state (filesystems, boot address, etc.)
         if (tag.contains("architecture")) {

@@ -99,7 +99,9 @@ object ModPackets {
             val level = player.level() as? net.minecraft.server.level.ServerLevel ?: return@enqueueWork
             
             val blockEntity = level.getBlockEntity(packet.pos)
-            // Toggle computer power based on packet
+            if (blockEntity is li.cil.oc.common.blockentity.CaseBlockEntity) {
+                blockEntity.togglePower()
+            }
         }
     }
     

@@ -150,10 +150,14 @@ class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
             }
             return InteractionResult.CONSUME
         } else {
-            // Client side: open the terminal GUI to view screen and capture keyboard events
-            net.minecraft.client.Minecraft.getInstance().setScreen(
-                li.cil.oc.client.gui.TerminalScreen(pos)
-            )
+            // Client side: open the terminal GUI
+            // We check keyboard adjacency on client too to avoid briefly opening on invalid configs
+            val hasKb = multiBlockHasKeyboard(level, pos, state)
+            if (hasKb) {
+                net.minecraft.client.Minecraft.getInstance().setScreen(
+                    li.cil.oc.client.gui.TerminalScreen(pos)
+                )
+            }
             return InteractionResult.SUCCESS
         }
     }

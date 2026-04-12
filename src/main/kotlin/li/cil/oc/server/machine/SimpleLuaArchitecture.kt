@@ -962,7 +962,10 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             val signal = sm?.pollSignal()
             if (signal != null) {
                 if (signal.name == "__shutdown") return ExecutionResult.Shutdown
-                if (signal.name == "__reboot") return ExecutionResult.Shutdown // handle as restart
+                if (signal.name == "__reboot") {
+                    sm?.pendingReboot = true
+                    return ExecutionResult.Shutdown
+                }
 
                 // Convert signal to Lua values
                 val sigArgs = mutableListOf<LuaValue>(LuaValue.valueOf(signal.name))

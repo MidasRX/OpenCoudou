@@ -91,12 +91,12 @@ class CaseBlockEntity(
             // Pass component info to machine
             m.installedComponents = components
 
-            // Auto-connect nearby screens before starting
-            connectNearbyScreens(m)
             if (!m.start()) {
                 bootError = m.crashMessage ?: "Failed to start"
                 bootError
             } else {
+                // Auto-connect nearby screens after starting (node is available now)
+                connectNearbyScreens(m)
                 bootError = null
                 null
             }
