@@ -229,7 +229,7 @@ class CaseBlockEntity(
         @JvmStatic
         fun tick(level: Level, pos: BlockPos, state: BlockState, blockEntity: CaseBlockEntity) {
             blockEntity._machine?.let { machine ->
-                if (machine.state.isRunning) {
+                if (machine.state.isRunning || machine.needsReboot) {
                     machine.update()
                 }
             }

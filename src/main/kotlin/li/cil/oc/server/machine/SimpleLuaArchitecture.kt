@@ -1004,6 +1004,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         // Screen - if one is nearby
         if (screen != null) {
             sm.registerComponent(screen.address, "screen")
+            // Keyboard - associated with the screen
+            val kbAddr = screen.keyboardAddress ?: ("kb-" + screen.address)
+            sm.registerComponent(kbAddr, "keyboard")
         }
 
         // Internet card is always available for now

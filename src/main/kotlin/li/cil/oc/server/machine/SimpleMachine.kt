@@ -50,6 +50,10 @@ class SimpleMachine(override val host: MachineHost) : Machine {
     
     // Flag set by architecture when Lua calls computer.shutdown(true)
     var pendingReboot: Boolean = false
+
+    // Flag for server-tick reboot (set in executor, consumed in update)
+    @Volatile
+    var needsReboot: Boolean = false
     
     private var _cpuTime: Double = 0.0
     override val cpuTime: Double get() = _cpuTime
@@ -240,6 +244,13 @@ class SimpleMachine(override val host: MachineHost) : Machine {
         
         _callBudget = 1000
         
+        // Handle pending reboot on server thread
+        if (needsReboot && state == MachineState.STOPPED) {
+            needsReboot = false
+            start()
+            return state.isRunning
+        }
+        
         when (state) {
             MachineState.STOPPED, MachineState.CRASHED -> return false
             MachineState.RUNNING -> {
@@ -265,10 +276,7 @@ class SimpleMachine(override val host: MachineHost) : Machine {
                         if (pendingReboot) {
                             pendingReboot = false
                             stop()
-                            // Re-start the machine on the main thread via signal queue
-                            // The CaseBlockEntity tick will handle this
-                            state = MachineState.STOPPED
-                            start()
+                            needsReboot = true
                         } else {
                             stop()
                         }
