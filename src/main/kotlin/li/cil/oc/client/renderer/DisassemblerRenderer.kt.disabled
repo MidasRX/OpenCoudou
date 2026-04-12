@@ -1,0 +1,266 @@
+package li.cil.oc.client.renderer
+
+import com.mojang.blaze3d.vertex.PoseStack
+import com.mojang.blaze3d.vertex.VertexConsumer
+import li.cil.oc.common.blockentity.DisassemblerBlockEntity
+import net.minecraft.client.renderer.MultiBufferSource
+import net.minecraft.client.renderer.RenderType
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
+import net.minecraft.core.Direction
+import net.minecraft.world.level.block.HorizontalDirectionalBlock
+import org.joml.Matrix4f
+import kotlin.math.sin
+
+/**
+ * Renderer for disassembler block entities.
+ * Shows disassembly progress bar and warning indicators.
+ */
+class DisassemblerRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRenderer<DisassemblerBlockEntity> {
+    
+    companion object {
+        // Progress bar dimensions
+        private const val BAR_WIDTH = 0.6f
+        private const val BAR_HEIGHT = 0.05f
+        private const val BAR_X = 0.2f
+        private const val BAR_Y = 0.75f
+        private const val BAR_Z = -0.001f
+        
+        // Status LED
+        private const val LED_SIZE = 0.04f
+        private const val LED_X = 0.9f
+        private const val LED_Y = 0.9f
+        
+        // Colors
+        private const val COLOR_BAR_BG = 0x202020
+        private const val COLOR_BAR_FILL = 0xFF6600  // Orange for disassembly
+        private const val COLOR_BAR_FILL_COMPLETE = 0xFF0000  // Red when done
+        private const val COLOR_LED_IDLE = 0x333333
+        private const val COLOR_LED_ACTIVE = 0xFF6600
+        private const val COLOR_LED_DONE = 0xFF0000
+    }
+    
+    override fun render(
+        blockEntity: DisassemblerBlockEntity,
+        partialTick: Float,
+        poseStack: PoseStack,
+        buffer: MultiBufferSource,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val level = blockEntity.level ?: return
+        val state = blockEntity.blockState
+        
+        // Get facing if horizontal directional block
+        val facing = if (state.hasProperty(HorizontalDirectionalBlock.FACING)) {
+            state.getValue(HorizontalDirectionalBlock.FACING)
+        } else {
+            Direction.NORTH
+        }
+        
+        poseStack.pushPose()
+        poseStack.translate(0.5, 0.0, 0.5)
+        
+        // Rotate to face the correct direction
+        val rotation = when (facing) {
+            Direction.NORTH -> 180f
+            Direction.SOUTH -> 0f
+            Direction.WEST -> 90f
+            Direction.EAST -> -90f
+            else -> 0f
+        }
+        poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(rotation))
+        poseStack.translate(-0.5, 0.0, -0.5)
+        
+        val vertexConsumer = buffer.getBuffer(RenderType.solid())
+        val matrix = poseStack.last().pose()
+        
+        val isDisassembling = blockEntity.isDisassembling()
+        val progress = blockEntity.getProgress()
+        val gameTime = level.gameTime + partialTick
+        
+        // Render progress bar background
+        renderProgressBarBG(matrix, vertexConsumer, packedLight, packedOverlay)
+        
+        // Render progress bar fill
+        if (isDisassembling || progress > 0) {
+            val fillColor = if (progress >= 1.0f) COLOR_BAR_FILL_COMPLETE else COLOR_BAR_FILL
+            renderProgressBarFill(matrix, vertexConsumer, progress, fillColor, packedLight, packedOverlay)
+        }
+        
+        // Render status LED
+        val ledColor = when {
+            progress >= 1.0f -> COLOR_LED_DONE
+            isDisassembling -> {
+                // Flash the LED while disassembling
+                val flash = (sin(gameTime * 0.3) * 0.5 + 0.5).toFloat()
+                blendColor(COLOR_LED_IDLE, COLOR_LED_ACTIVE, flash)
+            }
+            else -> COLOR_LED_IDLE
+        }
+        renderLED(matrix, vertexConsumer, LED_X, LED_Y, ledColor, packedLight, packedOverlay)
+        
+        // Render warning stripes when active
+        if (isDisassembling) {
+            renderWarningStripes(matrix, vertexConsumer, gameTime, packedLight, packedOverlay)
+        }
+        
+        poseStack.popPose()
+    }
+    
+    private fun renderProgressBarBG(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = ((COLOR_BAR_BG shr 16) and 0xFF) / 255f
+        val g = ((COLOR_BAR_BG shr 8) and 0xFF) / 255f
+        val b = (COLOR_BAR_BG and 0xFF) / 255f
+        
+        val x1 = BAR_X
+        val x2 = BAR_X + BAR_WIDTH
+        val y1 = BAR_Y
+        val y2 = BAR_Y + BAR_HEIGHT
+        
+        buffer.addVertex(matrix, x1, y1, BAR_Z).setColor(r, g, b, 1f)
+            .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x1, y2, BAR_Z).setColor(r, g, b, 1f)
+            .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y2, BAR_Z).setColor(r, g, b, 1f)
+            .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y1, BAR_Z).setColor(r, g, b, 1f)
+            .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+    }
+    
+    private fun renderProgressBarFill(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        progress: Float,
+        color: Int,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        if (progress <= 0) return
+        
+        val r = ((color shr 16) and 0xFF) / 255f
+        val g = ((color shr 8) and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        
+        val x1 = BAR_X + 0.01f
+        val x2 = BAR_X + 0.01f + (BAR_WIDTH - 0.02f) * progress.coerceIn(0f, 1f)
+        val y1 = BAR_Y + 0.01f
+        val y2 = BAR_Y + BAR_HEIGHT - 0.01f
+        val z = BAR_Z - 0.001f
+        
+        buffer.addVertex(matrix, x1, y1, z).setColor(r, g, b, 1f)
+            .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x1, y2, z).setColor(r, g, b, 1f)
+            .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y2, z).setColor(r, g, b, 1f)
+            .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y1, z).setColor(r, g, b, 1f)
+            .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+    }
+    
+    private fun renderLED(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        xCenter: Float,
+        yCenter: Float,
+        color: Int,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = ((color shr 16) and 0xFF) / 255f
+        val g = ((color shr 8) and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        
+        val x1 = xCenter - LED_SIZE / 2
+        val x2 = xCenter + LED_SIZE / 2
+        val y1 = yCenter - LED_SIZE / 2
+        val y2 = yCenter + LED_SIZE / 2
+        val z = BAR_Z - 0.002f
+        
+        buffer.addVertex(matrix, x1, y1, z).setColor(r, g, b, 1f)
+            .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x1, y2, z).setColor(r, g, b, 1f)
+            .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y2, z).setColor(r, g, b, 1f)
+            .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y1, z).setColor(r, g, b, 1f)
+            .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+    }
+    
+    private fun renderWarningStripes(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        gameTime: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        // Animated warning stripe on the bottom
+        val stripeY = 0.1f
+        val stripeHeight = 0.05f
+        val offset = (gameTime * 0.02f) % 1.0f
+        
+        val numStripes = 8
+        val stripeWidth = 1.0f / numStripes
+        
+        for (i in 0 until numStripes) {
+            val isYellow = (i + (offset * numStripes).toInt()) % 2 == 0
+            val r = if (isYellow) 1f else 0.1f
+            val g = if (isYellow) 0.8f else 0.1f
+            val b = 0.1f
+            val a = 0.7f
+            
+            val x1 = i * stripeWidth
+            val x2 = (i + 1) * stripeWidth
+            val y1 = stripeY
+            val y2 = stripeY + stripeHeight
+            val z = BAR_Z - 0.003f
+            
+            buffer.addVertex(matrix, x1, y1, z).setColor(r, g, b, a)
+                .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+                .setNormal(0f, 0f, -1f)
+            buffer.addVertex(matrix, x1, y2, z).setColor(r, g, b, a)
+                .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+                .setNormal(0f, 0f, -1f)
+            buffer.addVertex(matrix, x2, y2, z).setColor(r, g, b, a)
+                .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+                .setNormal(0f, 0f, -1f)
+            buffer.addVertex(matrix, x2, y1, z).setColor(r, g, b, a)
+                .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+                .setNormal(0f, 0f, -1f)
+        }
+    }
+    
+    private fun blendColor(color1: Int, color2: Int, t: Float): Int {
+        val r1 = (color1 shr 16) and 0xFF
+        val g1 = (color1 shr 8) and 0xFF
+        val b1 = color1 and 0xFF
+        val r2 = (color2 shr 16) and 0xFF
+        val g2 = (color2 shr 8) and 0xFF
+        val b2 = color2 and 0xFF
+        
+        val r = (r1 + (r2 - r1) * t).toInt()
+        val g = (g1 + (g2 - g1) * t).toInt()
+        val b = (b1 + (b2 - b1) * t).toInt()
+        
+        return (r shl 16) or (g shl 8) or b
+    }
+    
+    override fun shouldRenderOffScreen(blockEntity: DisassemblerBlockEntity): Boolean = false
+}

@@ -1,0 +1,256 @@
+package li.cil.oc.common.blockentity
+
+import li.cil.oc.common.init.ModBlockEntities
+import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.Tag
+import net.minecraft.network.protocol.Packet
+import net.minecraft.network.protocol.game.ClientGamePacketListener
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.shapes.Shapes
+import net.minecraft.world.phys.shapes.VoxelShape
+
+/**
+ * Print block entity - represents a 3D printed object from the Printer.
+ * 
+ * Prints are defined by a collection of 3D shapes with textures.
+ * Each shape is an axis-aligned box with min/max coordinates (0-16 range).
+ */
+class PrintBlockEntity(
+    pos: BlockPos,
+    state: BlockState
+) : BlockEntity(ModBlockEntities.PRINT.get(), pos, state) {
+    
+    companion object {
+        const val MAX_SHAPES = 24  // Max shapes in a print
+        const val RESOLUTION = 16  // 16 units per block
+    }
+    
+    // Print label (shown in tooltip)
+    var label: String = ""
+    
+    // Print tooltip text
+    var tooltip: String = ""
+    
+    // Light level emitted (0-15)
+    var lightLevel: Int = 0
+    
+    // Redstone output level (0-15)
+    var redstoneLevel: Int = 0
+    
+    // Whether this print should emit particles
+    var emitParticles: Boolean = false
+    
+    // Whether this print responds to redstone (toggles state)
+    var redstoneActivated: Boolean = false
+    
+    // Whether print is currently in "active" state
+    var isActive: Boolean = false
+    
+    // Shapes that make up this print (in "off" state)
+    val shapes: MutableList<PrintShape> = mutableListOf()
+    
+    // Shapes when active (for redstone-activated prints)
+    val activeShapes: MutableList<PrintShape> = mutableListOf()
+    
+    // Button behavior settings
+    var isButton: Boolean = false
+    var buttonDuration: Int = 20  // Ticks to stay active
+    private var buttonTimer: Int = 0
+    
+    /**
+     * A single shape in the print.
+     */
+    data class PrintShape(
+        val minX: Int, val minY: Int, val minZ: Int,  // 0-16 range
+        val maxX: Int, val maxY: Int, val maxZ: Int,
+        val texture: String = "",  // Texture path or color
+        val tint: Int = 0xFFFFFF   // Color tint
+    ) {
+        fun toVoxelShape(): VoxelShape {
+            return Shapes.box(
+                minX / 16.0, minY / 16.0, minZ / 16.0,
+                maxX / 16.0, maxY / 16.0, maxZ / 16.0
+            )
+        }
+    }
+    
+    /**
+     * Get the combined voxel shape for collision/outline.
+     */
+    fun getVoxelShape(): VoxelShape {
+        val shapesToUse = if (isActive && activeShapes.isNotEmpty()) activeShapes else shapes
+        
+        if (shapesToUse.isEmpty()) {
+            return Shapes.block()
+        }
+        
+        var combined = Shapes.empty()
+        for (shape in shapesToUse) {
+            combined = Shapes.or(combined, shape.toVoxelShape())
+        }
+        return combined
+    }
+    
+    /**
+     * Get render bounds (for block entity renderer).
+     */
+    fun getRenderBounds(): AABB {
+        return AABB(blockPos).inflate(0.5)
+    }
+    
+    /**
+     * Toggle the active state (for redstone-activated prints).
+     */
+    fun toggle(): Boolean {
+        if (!redstoneActivated) return false
+        
+        isActive = !isActive
+        
+        if (isButton && isActive) {
+            buttonTimer = buttonDuration
+        }
+        
+        setChanged()
+        syncToClient()
+        return true
+    }
+    
+    /**
+     * Called every tick.
+     */
+    fun tick() {
+        if (isButton && isActive) {
+            buttonTimer--
+            if (buttonTimer <= 0) {
+                isActive = false
+                setChanged()
+                syncToClient()
+            }
+        }
+    }
+    
+    /**
+     * Sync state to client for rendering.
+     */
+    private fun syncToClient() {
+        if (level != null && !level!!.isClientSide) {
+            level!!.sendBlockUpdated(blockPos, blockState, blockState, 3)
+        }
+    }
+    
+    // ==================== NBT ====================
+    
+    override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.saveAdditional(tag, registries)
+        
+        tag.putString("label", label)
+        tag.putString("tooltip", tooltip)
+        tag.putInt("light", lightLevel)
+        tag.putInt("redstone", redstoneLevel)
+        tag.putBoolean("particles", emitParticles)
+        tag.putBoolean("redstoneActivated", redstoneActivated)
+        tag.putBoolean("isActive", isActive)
+        tag.putBoolean("isButton", isButton)
+        tag.putInt("buttonDuration", buttonDuration)
+        
+        // Save shapes
+        val shapesTag = ListTag()
+        for (shape in shapes) {
+            val shapeTag = CompoundTag()
+            shapeTag.putInt("minX", shape.minX)
+            shapeTag.putInt("minY", shape.minY)
+            shapeTag.putInt("minZ", shape.minZ)
+            shapeTag.putInt("maxX", shape.maxX)
+            shapeTag.putInt("maxY", shape.maxY)
+            shapeTag.putInt("maxZ", shape.maxZ)
+            shapeTag.putString("texture", shape.texture)
+            shapeTag.putInt("tint", shape.tint)
+            shapesTag.add(shapeTag)
+        }
+        tag.put("shapes", shapesTag)
+        
+        // Save active shapes
+        val activeShapesTag = ListTag()
+        for (shape in activeShapes) {
+            val shapeTag = CompoundTag()
+            shapeTag.putInt("minX", shape.minX)
+            shapeTag.putInt("minY", shape.minY)
+            shapeTag.putInt("minZ", shape.minZ)
+            shapeTag.putInt("maxX", shape.maxX)
+            shapeTag.putInt("maxY", shape.maxY)
+            shapeTag.putInt("maxZ", shape.maxZ)
+            shapeTag.putString("texture", shape.texture)
+            shapeTag.putInt("tint", shape.tint)
+            activeShapesTag.add(shapeTag)
+        }
+        tag.put("activeShapes", activeShapesTag)
+    }
+    
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
+        
+        label = tag.getString("label")
+        tooltip = tag.getString("tooltip")
+        lightLevel = tag.getInt("light").coerceIn(0, 15)
+        redstoneLevel = tag.getInt("redstone").coerceIn(0, 15)
+        emitParticles = tag.getBoolean("particles")
+        redstoneActivated = tag.getBoolean("redstoneActivated")
+        isActive = tag.getBoolean("isActive")
+        isButton = tag.getBoolean("isButton")
+        buttonDuration = tag.getInt("buttonDuration").coerceAtLeast(1)
+        
+        // Load shapes
+        shapes.clear()
+        if (tag.contains("shapes")) {
+            val shapesTag = tag.getList("shapes", Tag.TAG_COMPOUND.toInt())
+            for (i in 0 until shapesTag.size) {
+                val shapeTag = shapesTag.getCompound(i)
+                shapes.add(PrintShape(
+                    minX = shapeTag.getInt("minX"),
+                    minY = shapeTag.getInt("minY"),
+                    minZ = shapeTag.getInt("minZ"),
+                    maxX = shapeTag.getInt("maxX"),
+                    maxY = shapeTag.getInt("maxY"),
+                    maxZ = shapeTag.getInt("maxZ"),
+                    texture = shapeTag.getString("texture"),
+                    tint = shapeTag.getInt("tint")
+                ))
+            }
+        }
+        
+        // Load active shapes
+        activeShapes.clear()
+        if (tag.contains("activeShapes")) {
+            val shapesTag = tag.getList("activeShapes", Tag.TAG_COMPOUND.toInt())
+            for (i in 0 until shapesTag.size) {
+                val shapeTag = shapesTag.getCompound(i)
+                activeShapes.add(PrintShape(
+                    minX = shapeTag.getInt("minX"),
+                    minY = shapeTag.getInt("minY"),
+                    minZ = shapeTag.getInt("minZ"),
+                    maxX = shapeTag.getInt("maxX"),
+                    maxY = shapeTag.getInt("maxY"),
+                    maxZ = shapeTag.getInt("maxZ"),
+                    texture = shapeTag.getString("texture"),
+                    tint = shapeTag.getInt("tint")
+                ))
+            }
+        }
+    }
+    
+    // ==================== Client Sync ====================
+    
+    override fun getUpdatePacket(): Packet<ClientGamePacketListener> {
+        return ClientboundBlockEntityDataPacket.create(this)
+    }
+    
+    override fun getUpdateTag(registries: HolderLookup.Provider): CompoundTag {
+        return saveWithoutMetadata(registries)
+    }
+}

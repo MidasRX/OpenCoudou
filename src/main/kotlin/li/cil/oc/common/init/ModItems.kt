@@ -59,6 +59,7 @@ object ModItems {
     val ACCESS_POINT_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.ACCESS_POINT)
     
     val CAPACITOR_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.CAPACITOR)
+    val CARPETED_CAPACITOR_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.CARPETED_CAPACITOR)
     val POWER_CONVERTER_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.POWER_CONVERTER)
     val POWER_DISTRIBUTOR_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.POWER_DISTRIBUTOR)
     val CHARGER_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.CHARGER)
@@ -77,6 +78,7 @@ object ModItems {
     val ASSEMBLER_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.ASSEMBLER)
     val DISASSEMBLER_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.DISASSEMBLER)
     val PRINTER_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.PRINTER)
+    val PRINT_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.PRINT)
     
     val HOLOGRAM_TIER1_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.HOLOGRAM_TIER1)
     val HOLOGRAM_TIER2_ITEM: DeferredItem<BlockItem> = ITEMS.registerSimpleBlockItem(ModBlocks.HOLOGRAM_TIER2)
@@ -391,6 +393,7 @@ object ModItems {
     val COMPONENT_BUS_TIER1: DeferredItem<Item> = ITEMS.registerSimpleItem("componentbus1")
     val COMPONENT_BUS_TIER2: DeferredItem<Item> = ITEMS.registerSimpleItem("componentbus2")
     val COMPONENT_BUS_TIER3: DeferredItem<Item> = ITEMS.registerSimpleItem("componentbus3")
+    val COMPONENT_BUS_CREATIVE: DeferredItem<Item> = ITEMS.registerSimpleItem("componentbus_creative")
     
     // ========================================
     // Tools

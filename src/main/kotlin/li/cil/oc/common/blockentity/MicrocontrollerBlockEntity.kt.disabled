@@ -1,0 +1,285 @@
+package li.cil.oc.common.blockentity
+
+import li.cil.oc.common.init.ModBlockEntities
+import li.cil.oc.server.machine.Machine
+import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.world.Container
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import java.util.UUID
+
+/**
+ * Microcontroller block entity - a minimal computer that runs Lua programs.
+ * 
+ * Unlike a full computer case, a microcontroller:
+ * - Has limited component slots (assembled, not user-configurable at runtime)
+ * - Cannot connect to external components
+ * - Has no screen output capability
+ * - Has an EEPROM slot for the boot program
+ * - Is perfect for simple automation tasks
+ * - Uses less energy than full computers
+ */
+class MicrocontrollerBlockEntity(
+    pos: BlockPos,
+    state: BlockState
+) : BlockEntity(ModBlockEntities.MICROCONTROLLER.get(), pos, state), Container {
+    
+    // Component address
+    val address: String = UUID.randomUUID().toString()
+    
+    // Tier determines capabilities (0-2, or 3 for creative)
+    private var tier: Int = 0
+    
+    // Machine for running Lua code
+    private var machine: Machine? = null
+    private var machineInitialized = false
+    
+    // EEPROM in this microcontroller (baked in during assembly)
+    private var eeprom: ItemStack = ItemStack.EMPTY
+    
+    // Assembled components (cannot be changed after assembly)
+    private val components = mutableListOf<ItemStack>()
+    
+    // Max component count based on tier
+    private val maxComponents: Int get() = when (tier) {
+        0 -> 2  // Tier 1: CPU + 1 component
+        1 -> 4  // Tier 2: CPU + 3 components
+        2 -> 6  // Tier 3: CPU + 5 components
+        else -> 9 // Creative
+    }
+    
+    // Energy storage
+    private var energy: Double = 0.0
+    private val maxEnergy: Double get() = when (tier) {
+        0 -> 10000.0
+        1 -> 15000.0
+        2 -> 20000.0
+        else -> Double.MAX_VALUE
+    }
+    
+    // Running state
+    private var isRunning = false
+    
+    // Signals queue for the machine
+    private val signals = mutableListOf<Array<Any?>>()
+    
+    fun getTier(): Int = tier
+    
+    fun setTier(newTier: Int) {
+        tier = newTier.coerceIn(0, 3)
+        setChanged()
+    }
+    
+    // ==================== Machine Control ====================
+    
+    fun start(): Boolean {
+        if (isRunning) return false
+        if (eeprom.isEmpty) return false
+        
+        // Initialize machine if needed
+        if (!machineInitialized) {
+            initializeMachine()
+        }
+        
+        machine?.let { m ->
+            // Get BIOS code from EEPROM - for now use a simple placeholder
+            // In a real implementation, we'd read from the EEPROM component
+            val biosCode = ""  // TODO: Read from EEPROM item
+            if (m.start(biosCode)) {
+                isRunning = true
+                setChanged()
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    fun stop() {
+        machine?.shutdown()
+        isRunning = false
+        setChanged()
+    }
+    
+    fun isRunning(): Boolean = isRunning
+    
+    private fun initializeMachine() {
+        machine = Machine()
+        machineInitialized = true
+    }
+    
+    fun getMachine(): Machine? {
+        if (!machineInitialized) {
+            initializeMachine()
+        }
+        return machine
+    }
+    
+    // ==================== Energy ====================
+    
+    fun getEnergy(): Double = energy
+    
+    fun addEnergy(amount: Double): Double {
+        val added = minOf(amount, maxEnergy - energy)
+        energy += added
+        setChanged()
+        return added
+    }
+    
+    fun useEnergy(amount: Double): Boolean {
+        if (tier == 3) return true // Creative has unlimited power
+        if (energy >= amount) {
+            energy -= amount
+            setChanged()
+            return true
+        }
+        return false
+    }
+    
+    // ==================== Components ====================
+    
+    fun getEEPROM(): ItemStack = eeprom.copy()
+    
+    fun setEEPROM(stack: ItemStack) {
+        eeprom = stack.copy()
+        setChanged()
+    }
+    
+    fun getAssembledComponents(): List<ItemStack> = components.toList()
+    
+    fun addComponent(stack: ItemStack): Boolean {
+        if (components.size >= maxComponents) return false
+        components.add(stack.copy())
+        setChanged()
+        return true
+    }
+    
+    // ==================== Signals ====================
+    
+    fun pushSignal(name: String, vararg args: Any?) {
+        signals.add(arrayOf(name, *args))
+        if (signals.size > 256) {
+            signals.removeAt(0)
+        }
+    }
+    
+    fun popSignal(): Array<Any?>? {
+        return if (signals.isNotEmpty()) signals.removeAt(0) else null
+    }
+    
+    // ==================== Tick ====================
+    
+    fun tick() {
+        if (level?.isClientSide == true) return
+        
+        if (isRunning) {
+            // Use energy per tick
+            val energyPerTick = when (tier) {
+                0 -> 0.5
+                1 -> 1.0
+                2 -> 1.5
+                else -> 0.0
+            }
+            
+            if (!useEnergy(energyPerTick)) {
+                // Out of power - signal and maybe stop
+                pushSignal("power_low")
+                if (energy <= 0) {
+                    stop()
+                }
+            }
+            
+            // Machine runs itself in background, nothing to do here
+        }
+    }
+    
+    // ==================== Container ====================
+    
+    override fun getContainerSize(): Int = maxComponents + 1 // +1 for EEPROM
+    
+    override fun isEmpty(): Boolean = eeprom.isEmpty && components.all { it.isEmpty }
+    
+    override fun getItem(slot: Int): ItemStack {
+        return when {
+            slot == 0 -> eeprom
+            slot - 1 < components.size -> components[slot - 1]
+            else -> ItemStack.EMPTY
+        }
+    }
+    
+    override fun removeItem(slot: Int, amount: Int): ItemStack = ItemStack.EMPTY // Locked after assembly
+    
+    override fun removeItemNoUpdate(slot: Int): ItemStack = ItemStack.EMPTY // Locked
+    
+    override fun setItem(slot: Int, stack: ItemStack) {
+        // Only during assembly
+    }
+    
+    override fun stillValid(player: Player): Boolean = false // No direct access
+    
+    override fun clearContent() {
+        // Cannot clear assembled microcontroller
+    }
+    
+    // ==================== NBT ====================
+    
+    override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.saveAdditional(tag, registries)
+        
+        tag.putString("address", address)
+        tag.putInt("tier", tier)
+        tag.putDouble("energy", energy)
+        tag.putBoolean("running", isRunning)
+        
+        if (!eeprom.isEmpty) {
+            tag.put("eeprom", eeprom.save(registries))
+        }
+        
+        val componentsList = ListTag()
+        components.forEach { stack ->
+            if (!stack.isEmpty) {
+                componentsList.add(stack.save(registries))
+            }
+        }
+        tag.put("components", componentsList)
+        
+        // Machine state would be saved here in a full implementation
+        // For now, just track running status
+    }
+    
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
+        
+        tier = tag.getInt("tier")
+        energy = tag.getDouble("energy")
+        isRunning = tag.getBoolean("running")
+        
+        if (tag.contains("eeprom")) {
+            eeprom = ItemStack.parse(registries, tag.getCompound("eeprom")).orElse(ItemStack.EMPTY)
+        }
+        
+        components.clear()
+        if (tag.contains("components")) {
+            val componentsList = tag.getList("components", 10) // 10 = CompoundTag
+            for (i in 0 until componentsList.size) {
+                val stack = ItemStack.parse(registries, componentsList.getCompound(i)).orElse(ItemStack.EMPTY)
+                if (!stack.isEmpty) {
+                    components.add(stack)
+                }
+            }
+        }
+        
+        // Machine state would be loaded here in a full implementation
+        // For now, if it was running, restart it
+        if (isRunning && level != null && !level!!.isClientSide) {
+            // Machine needs to be re-initialized after load
+            machineInitialized = false
+            isRunning = false  // Will be restarted manually
+        }
+    }
+}

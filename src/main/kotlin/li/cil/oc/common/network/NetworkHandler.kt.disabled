@@ -75,9 +75,9 @@ object NetworkHandler {
             
             if (blockEntity is li.cil.oc.common.blockentity.KeyboardBlockEntity) {
                 when (packet.inputType) {
-                    KeyboardInputType.KEY_DOWN -> blockEntity.keyDown(packet.char, packet.code, player)
-                    KeyboardInputType.KEY_UP -> blockEntity.keyUp(packet.char, packet.code, player)
-                    KeyboardInputType.CLIPBOARD -> blockEntity.clipboard(packet.clipboard ?: "", player)
+                    KeyboardInputType.KEY_DOWN -> blockEntity.keyDown(player, packet.char.code, packet.code)
+                    KeyboardInputType.KEY_UP -> blockEntity.keyUp(player, packet.char.code, packet.code)
+                    KeyboardInputType.CLIPBOARD -> blockEntity.clipboard(player, packet.clipboard ?: "")
                 }
             }
         }

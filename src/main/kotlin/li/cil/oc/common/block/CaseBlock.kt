@@ -41,7 +41,7 @@ class CaseBlock(private val tier: Int, properties: Properties) : Block(propertie
     override fun getRenderShape(state: BlockState): RenderShape = RenderShape.MODEL
 
     override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
-        return CaseBlockEntity(pos, state).also { it.setTier(tier) }
+        return CaseBlockEntity(pos, state).also { it.tier = tier }
     }
 
     override fun <T : BlockEntity> getTicker(
@@ -55,7 +55,7 @@ class CaseBlock(private val tier: Int, properties: Properties) : Block(propertie
         if (!level.isClientSide && player is ServerPlayer) {
             val be = level.getBlockEntity(pos) as? CaseBlockEntity
             if (be != null) {
-                player.openMenu(be) { buf -> buf.writeVarInt(be.getTier()) }
+                player.openMenu(be) { buf -> buf.writeVarInt(be.tier) }
             }
         }
         return InteractionResult.SUCCESS

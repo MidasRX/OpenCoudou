@@ -123,16 +123,16 @@ object ModPackets {
                                 val be = level.getBlockEntity(checkPos)
                                 if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
                                     val machine = be.machine
-                                    if (machine != null && machine.address == connAddr) {
+                                    if (machine != null && machine.node().address == connAddr) {
                                         if (packet.code == -1) {
                                             // Clipboard paste: code=-1, char=clipboardText encoded
                                             // The clipboard text follows as a separate field
                                             // We stored the text length in char, actual text comes from clipboardText
-                                            machine.pushSignal("clipboard", kbAddr, packet.clipboardText, player.name.string)
+                                            machine.signal("clipboard", kbAddr, packet.clipboardText, player.name.string)
                                         } else {
                                             // Original OC format: key_down(keyboardAddress, char, code, playerName)
                                             val signalName = if (packet.isPressed) "key_down" else "key_up"
-                                            machine.pushSignal(signalName, kbAddr, packet.char, packet.code, player.name.string)
+                                            machine.signal(signalName, kbAddr, packet.char, packet.code, player.name.string)
                                         }
                                         return@enqueueWork
                                     }
@@ -168,7 +168,7 @@ object ModPackets {
             val blockEntity = level.getBlockEntity(packet.screenPos)
             if (blockEntity is li.cil.oc.common.blockentity.ScreenBlockEntity) {
                 val connAddr = blockEntity.connectedComputer ?: return@enqueueWork
-                val screenAddr = blockEntity.screen.address
+                val screenAddr = blockEntity.address
                 
                 // Find the connected case
                 val searchRadius = 16
@@ -179,13 +179,13 @@ object ModPackets {
                             val be = level.getBlockEntity(checkPos)
                             if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
                                 val machine = be.machine
-                                if (machine != null && machine.address == connAddr) {
+                                if (machine != null && machine.node().address == connAddr) {
                                     // Use normalized coordinates sent from client (1-indexed)
                                     val charX = packet.x.toInt().coerceIn(1, blockEntity.buffer.width)
                                     val charY = packet.y.toInt().coerceIn(1, blockEntity.buffer.height)
                                     
                                     // Original OC format: touch/drag/drop(screenAddr, x, y, button, playerName)
-                                    machine.pushSignal(packet.eventType, screenAddr, charX, charY, packet.button, player.name.string)
+                                    machine.signal(packet.eventType, screenAddr, charX, charY, packet.button, player.name.string)
                                     return@enqueueWork
                                 }
                             }

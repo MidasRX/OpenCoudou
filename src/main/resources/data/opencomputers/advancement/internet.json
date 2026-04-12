@@ -1,0 +1,29 @@
+{
+  "parent": "opencomputers:first_computer",
+  "display": {
+    "icon": {
+      "id": "opencomputers:internet_card"
+    },
+    "title": {
+      "translate": "advancements.opencomputers.internet.title"
+    },
+    "description": {
+      "translate": "advancements.opencomputers.internet.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "craft_internet": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "opencomputers:internet_card"
+          }
+        ]
+      }
+    }
+  }
+}

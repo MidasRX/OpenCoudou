@@ -1,0 +1,28 @@
+{
+  "values": [
+    "opencomputers:battery_upgrade1",
+    "opencomputers:battery_upgrade2",
+    "opencomputers:battery_upgrade3",
+    "opencomputers:chunkloader_upgrade",
+    "opencomputers:crafting_upgrade",
+    "opencomputers:database_upgrade1",
+    "opencomputers:database_upgrade2",
+    "opencomputers:database_upgrade3",
+    "opencomputers:experience_upgrade",
+    "opencomputers:generator_upgrade",
+    "opencomputers:hover_upgrade1",
+    "opencomputers:hover_upgrade2",
+    "opencomputers:inventory_upgrade",
+    "opencomputers:inventory_controller_upgrade",
+    "opencomputers:leash_upgrade",
+    "opencomputers:navigation_upgrade",
+    "opencomputers:piston_upgrade",
+    "opencomputers:sign_upgrade",
+    "opencomputers:solar_generator_upgrade",
+    "opencomputers:tank_upgrade",
+    "opencomputers:tank_controller_upgrade",
+    "opencomputers:tractor_beam_upgrade",
+    "opencomputers:trading_upgrade",
+    "opencomputers:angel_upgrade"
+  ]
+}

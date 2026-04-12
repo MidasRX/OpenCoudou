@@ -1,11 +1,17 @@
 package li.cil.oc.common.block
 
+import li.cil.oc.common.blockentity.CableBlockEntity
+import li.cil.oc.common.init.ModBlockEntities
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.EntityBlock
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.entity.BlockEntityTicker
+import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
 import net.minecraft.world.level.block.state.properties.BooleanProperty
@@ -18,7 +24,7 @@ import net.minecraft.world.phys.shapes.VoxelShape
  * Cable block for connecting OpenComputers components.
  * Connects to adjacent cables and OC blocks (cases, screens, etc.)
  */
-class CableBlock(properties: Properties) : Block(properties) {
+class CableBlock(properties: Properties) : Block(properties), EntityBlock {
 
     companion object {
         val NORTH: BooleanProperty = BooleanProperty.create("north")
@@ -87,6 +93,9 @@ class CableBlock(properties: Properties) : Block(properties) {
         if (newState != state) {
             level.setBlock(pos, newState, 3)
         }
+        
+        // Notify block entity of connection change
+        (level.getBlockEntity(pos) as? CableBlockEntity)?.updateConnections()
     }
 
     override fun getShape(state: BlockState, level: BlockGetter, pos: BlockPos, context: CollisionContext): VoxelShape {
@@ -101,4 +110,14 @@ class CableBlock(properties: Properties) : Block(properties) {
     }
 
     override fun propagatesSkylightDown(state: BlockState): Boolean = true
+    
+    override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
+        return CableBlockEntity(pos, state)
+    }
+    
+    override fun <T : BlockEntity> getTicker(
+        level: Level,
+        state: BlockState,
+        type: BlockEntityType<T>
+    ): BlockEntityTicker<T>? = null // Cables are passive, no ticking needed
 }

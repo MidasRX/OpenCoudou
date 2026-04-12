@@ -1,0 +1,98 @@
+package li.cil.oc.server.component
+
+import net.minecraft.world.entity.player.Player
+import java.lang.ref.WeakReference
+
+/**
+ * Tablet component - provides Lua API for tablets.
+ * Tablets are portable computers held by players.
+ */
+class TabletComponent : AbstractComponent("tablet") {
+    
+    // Reference to the player holding the tablet
+    private var playerRef: WeakReference<Player>? = null
+    
+    init {
+        // Player orientation methods
+        registerMethod("getPitch", true, "getPitch():number -- Get the pitch angle of the player holding the tablet") { _ ->
+            val player = playerRef?.get()
+            if (player != null) {
+                arrayOf(player.xRot)
+            } else {
+                arrayOf(0.0)
+            }
+        }
+        
+        registerMethod("getYaw", true, "getYaw():number -- Get the yaw angle of the player holding the tablet") { _ ->
+            val player = playerRef?.get()
+            if (player != null) {
+                arrayOf(player.yRot)
+            } else {
+                arrayOf(0.0)
+            }
+        }
+        
+        // Position methods
+        registerMethod("getPosition", true, "getPosition():number,number,number -- Get the position of the player") { _ ->
+            val player = playerRef?.get()
+            if (player != null) {
+                arrayOf(player.x, player.y, player.z)
+            } else {
+                arrayOf(0.0, 0.0, 0.0)
+            }
+        }
+        
+        // Light level at player position
+        registerMethod("getLightLevel", true, "getLightLevel():number -- Get light level at the tablet position") { _ ->
+            val player = playerRef?.get()
+            if (player != null) {
+                val level = player.level()
+                val pos = player.blockPosition()
+                arrayOf(level.getRawBrightness(pos, 0))
+            } else {
+                arrayOf(0)
+            }
+        }
+        
+        // Check if player is in water
+        registerMethod("isInWater", true, "isInWater():boolean -- Check if the player is in water") { _ ->
+            val player = playerRef?.get()
+            arrayOf(player?.isInWater ?: false)
+        }
+        
+        // Check if player can see sky
+        registerMethod("canSeeSky", true, "canSeeSky():boolean -- Check if the player can see the sky") { _ ->
+            val player = playerRef?.get()
+            if (player != null) {
+                val level = player.level()
+                val pos = player.blockPosition()
+                arrayOf(level.canSeeSky(pos))
+            } else {
+                arrayOf(false)
+            }
+        }
+        
+        // Get dimension name
+        registerMethod("getDimension", true, "getDimension():string -- Get the name of the current dimension") { _ ->
+            val player = playerRef?.get()
+            if (player != null) {
+                val dimension = player.level().dimension().location().toString()
+                arrayOf(dimension)
+            } else {
+                arrayOf("unknown")
+            }
+        }
+    }
+    
+    /**
+     * Set the player holding this tablet.
+     */
+    fun setPlayer(player: Player?) {
+        this.playerRef = if (player != null) WeakReference(player) else null
+    }
+    
+    /**
+     * Get the player holding this tablet.
+     */
+    fun getPlayer(): Player? = playerRef?.get()
+}

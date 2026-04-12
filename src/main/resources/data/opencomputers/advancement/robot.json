@@ -1,0 +1,29 @@
+{
+  "parent": "opencomputers:first_computer",
+  "display": {
+    "icon": {
+      "id": "opencomputers:robotcase1"
+    },
+    "title": {
+      "translate": "advancements.opencomputers.robot.title"
+    },
+    "description": {
+      "translate": "advancements.opencomputers.robot.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "craft_robot": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "opencomputers:robot_case1"
+          }
+        ]
+      }
+    }
+  }
+}

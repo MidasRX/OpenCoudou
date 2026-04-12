@@ -1,0 +1,28 @@
+{
+  "parent": "opencomputers:root",
+  "display": {
+    "icon": {
+      "id": "opencomputers:case1"
+    },
+    "title": {
+      "translate": "advancements.opencomputers.first_computer.title"
+    },
+    "description": {
+      "translate": "advancements.opencomputers.first_computer.description"
+    },
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "build_computer": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "opencomputers:case1"
+          }
+        ]
+      }
+    }
+  }
+}

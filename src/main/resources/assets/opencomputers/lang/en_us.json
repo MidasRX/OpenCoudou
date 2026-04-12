@@ -267,6 +267,7 @@
   "item.opencomputers.diskdrivemountable": "Mountable Disk Drive",
   "item.opencomputers.present": "Present",
   "item.opencomputers.componentbuscreative": "Component Bus (Creative)",
+  "item.opencomputers.componentbus_creative": "Component Bus (Creative)",
   "item.opencomputers.lootdisk": "Loot Disk",
 
   "tooltip.opencomputers.terminal.bound": "Bound to terminal server",
@@ -305,10 +306,40 @@
   "gui.opencomputers.printer.chamelium": "Chamelium: %d/%d",
   "gui.opencomputers.printer.ink": "Ink: %d/%d",
   
+  "gui.opencomputers.manual.title": "OpenComputers Manual",
+  "gui.opencomputers.manual.home": "Home",
+  "gui.opencomputers.manual.back": "Back",
+  "gui.opencomputers.manual.prev": "Previous",
+  "gui.opencomputers.manual.next": "Next",
+  "gui.opencomputers.manual.chapter.overview": "Overview",
+  "gui.opencomputers.manual.chapter.blocks": "Blocks",
+  "gui.opencomputers.manual.chapter.items": "Items",
+  "gui.opencomputers.manual.chapter.components": "Components",
+  "gui.opencomputers.manual.chapter.lua": "Lua Programming",
+  "gui.opencomputers.manual.chapter.api": "API Reference",
+  "gui.opencomputers.manual.chapter.recipes": "Recipes",
+  
   "item.opencomputers.robotcase1": "Robot Case (Tier 1)",
   "item.opencomputers.robotcase2": "Robot Case (Tier 2)",
   "item.opencomputers.robotcase3": "Robot Case (Tier 3)",
   "item.opencomputers.robotcase_creative": "Robot Case (Creative)",
   
-  "block.opencomputers.redstone": "Redstone I/O"
+  "block.opencomputers.redstone": "Redstone I/O",
+  
+  "advancements.opencomputers.root.title": "OpenComputers",
+  "advancements.opencomputers.root.description": "Build your first transistor",
+  "advancements.opencomputers.first_computer.title": "Hello World!",
+  "advancements.opencomputers.first_computer.description": "Craft your first computer case",
+  "advancements.opencomputers.screen.title": "Visual Output",
+  "advancements.opencomputers.screen.description": "Craft a screen to see what your code does",
+  "advancements.opencomputers.robot.title": "Automated Labor",
+  "advancements.opencomputers.robot.description": "Build a robot to do your bidding",
+  "advancements.opencomputers.drone.title": "Air Superiority",
+  "advancements.opencomputers.drone.description": "Create a drone for aerial operations",
+  "advancements.opencomputers.internet.title": "Connected",
+  "advancements.opencomputers.internet.description": "Craft an internet card for web access",
+  "advancements.opencomputers.tier2.title": "Upgrade Time",
+  "advancements.opencomputers.tier2.description": "Build a Tier 2 computer case",
+  "advancements.opencomputers.tier3.title": "Maximum Power",
+  "advancements.opencomputers.tier3.description": "Build a Tier 3 computer case"
 }

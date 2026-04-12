@@ -1,0 +1,161 @@
+package li.cil.oc.common.blockentity
+
+import li.cil.oc.common.init.ModBlockEntities
+import li.cil.oc.server.entity.RobotEntity
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.Container
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import java.util.UUID
+
+/**
+ * Robot Proxy block entity - acts as a delegate to the actual robot entity.
+ * This block entity exists at the robot's current position in the world.
+ */
+class RobotProxyBlockEntity(
+    pos: BlockPos,
+    state: BlockState
+) : BlockEntity(ModBlockEntities.ROBOT_PROXY.get(), pos, state), Container {
+    
+    // Reference to the actual robot entity
+    private var robotUUID: UUID? = null
+    private var cachedRobot: RobotEntity? = null
+    
+    // Robot properties (cached)
+    var tier: Int = 1
+    var lightColor: Int = 0x66FF66
+    var isRunning: Boolean = false
+    
+    // Inventory size depends on tier
+    private val inventorySize: Int get() = when (tier) {
+        1 -> 16
+        2 -> 32
+        3 -> 64
+        else -> 100 // Creative
+    }
+    
+    private val inventory = Array<ItemStack>(100) { ItemStack.EMPTY }
+    
+    fun tick() {
+        val level = level ?: return
+        if (level.isClientSide) return
+        
+        // Locate robot entity if needed
+        if (cachedRobot == null && robotUUID != null) {
+            // Find robot entity with matching UUID
+            level.getEntitiesOfClass(RobotEntity::class.java, 
+                net.minecraft.world.phys.AABB(blockPos).inflate(1.0)
+            ) { it.uuid == robotUUID }.firstOrNull()?.let {
+                cachedRobot = it
+            }
+        }
+        
+        // Sync state from robot
+        cachedRobot?.let { robot ->
+            isRunning = robot.isRunning()
+            // lightColor = robot.lightColor
+        }
+    }
+    
+    fun setRobot(robot: RobotEntity) {
+        this.robotUUID = robot.uuid
+        this.cachedRobot = robot
+        // Tier is private in RobotEntity, so we don't sync it
+        // this.tier = robot.tier
+        setChanged()
+    }
+    
+    fun getRobot(): RobotEntity? {
+        return cachedRobot
+    }
+    
+    // Container implementation - delegates to robot inventory
+    override fun getContainerSize(): Int = inventorySize
+    
+    override fun isEmpty(): Boolean = inventory.all { it.isEmpty }
+    
+    override fun getItem(slot: Int): ItemStack {
+        return if (slot in 0 until inventorySize) inventory[slot] else ItemStack.EMPTY
+    }
+    
+    override fun removeItem(slot: Int, amount: Int): ItemStack {
+        if (slot !in 0 until inventorySize) return ItemStack.EMPTY
+        val stack = inventory[slot]
+        if (stack.isEmpty) return ItemStack.EMPTY
+        
+        val extracted = stack.split(amount)
+        if (stack.isEmpty) inventory[slot] = ItemStack.EMPTY
+        setChanged()
+        return extracted
+    }
+    
+    override fun removeItemNoUpdate(slot: Int): ItemStack {
+        if (slot !in 0 until inventorySize) return ItemStack.EMPTY
+        val stack = inventory[slot]
+        inventory[slot] = ItemStack.EMPTY
+        return stack
+    }
+    
+    override fun setItem(slot: Int, stack: ItemStack) {
+        if (slot in 0 until inventorySize) {
+            inventory[slot] = stack
+            setChanged()
+        }
+    }
+    
+    override fun stillValid(player: Player): Boolean {
+        return player.distanceToSqr(blockPos.x + 0.5, blockPos.y + 0.5, blockPos.z + 0.5) <= 64.0
+    }
+    
+    override fun clearContent() {
+        for (i in inventory.indices) {
+            inventory[i] = ItemStack.EMPTY
+        }
+        setChanged()
+    }
+    
+    // NBT persistence
+    override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.saveAdditional(tag, registries)
+        tag.putInt("tier", tier)
+        tag.putInt("lightColor", lightColor)
+        tag.putBoolean("running", isRunning)
+        robotUUID?.let { tag.putUUID("robotUUID", it) }
+        
+        // Save inventory
+        val itemsTag = net.minecraft.nbt.ListTag()
+        for (i in 0 until inventorySize) {
+            if (!inventory[i].isEmpty) {
+                val itemTag = CompoundTag()
+                itemTag.putInt("Slot", i)
+                itemsTag.add(inventory[i].save(registries, itemTag))
+            }
+        }
+        tag.put("Items", itemsTag)
+    }
+    
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
+        tier = tag.getInt("tier")
+        lightColor = tag.getInt("lightColor")
+        isRunning = tag.getBoolean("running")
+        if (tag.hasUUID("robotUUID")) {
+            robotUUID = tag.getUUID("robotUUID")
+        }
+        
+        // Load inventory
+        val itemsTag = tag.getList("Items", 10)
+        for (i in 0 until itemsTag.size) {
+            val itemTag = itemsTag.getCompound(i)
+            val slot = itemTag.getInt("Slot")
+            if (slot in 0 until inventorySize) {
+                inventory[slot] = ItemStack.parse(registries, itemTag).orElse(ItemStack.EMPTY)
+            }
+        }
+    }
+}

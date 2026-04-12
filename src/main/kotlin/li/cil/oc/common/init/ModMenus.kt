@@ -48,6 +48,51 @@ object ModMenus {
             IMenuTypeExtension.create(PrinterMenu::fromNetwork)
         }
 
+    val ADAPTER: DeferredHolder<MenuType<*>, MenuType<AdapterMenu>> =
+        MENUS.register("adapter") { ->
+            IMenuTypeExtension.create(AdapterMenu::fromNetwork)
+        }
+
+    val RACK: DeferredHolder<MenuType<*>, MenuType<RackMenu>> =
+        MENUS.register("rack") { ->
+            IMenuTypeExtension.create(RackMenu::fromNetwork)
+        }
+
+    val DATABASE: DeferredHolder<MenuType<*>, MenuType<DatabaseMenu>> =
+        MENUS.register("database") { ->
+            IMenuTypeExtension.create(DatabaseMenu::fromNetwork)
+        }
+
+    val RELAY: DeferredHolder<MenuType<*>, MenuType<RelayMenu>> =
+        MENUS.register("relay") { ->
+            IMenuTypeExtension.create(RelayMenu::fromNetwork)
+        }
+
+    val ROBOT: DeferredHolder<MenuType<*>, MenuType<RobotMenu>> =
+        MENUS.register("robot") { ->
+            IMenuTypeExtension.create(RobotMenu::fromNetwork)
+        }
+
+    val DRONE: DeferredHolder<MenuType<*>, MenuType<DroneMenu>> =
+        MENUS.register("drone") { ->
+            IMenuTypeExtension.create(DroneMenu::fromNetwork)
+        }
+
+    val SERVER: DeferredHolder<MenuType<*>, MenuType<ServerMenu>> =
+        MENUS.register("server") { ->
+            IMenuTypeExtension.create(ServerMenu::fromNetwork)
+        }
+
+    val TABLET: DeferredHolder<MenuType<*>, MenuType<TabletMenu>> =
+        MENUS.register("tablet") { ->
+            IMenuTypeExtension.create(TabletMenu::fromNetwork)
+        }
+
+    val SWITCH: DeferredHolder<MenuType<*>, MenuType<SwitchMenu>> =
+        MENUS.register("switch") { ->
+            IMenuTypeExtension.create(SwitchMenu::fromNetwork)
+        }
+
     fun register(eventBus: IEventBus) {
         MENUS.register(eventBus)
     }

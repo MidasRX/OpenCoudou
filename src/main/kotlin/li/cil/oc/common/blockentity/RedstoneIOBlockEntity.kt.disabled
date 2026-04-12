@@ -1,0 +1,257 @@
+package li.cil.oc.common.blockentity
+
+import li.cil.oc.common.init.ModBlockEntities
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import java.util.UUID
+
+/**
+ * Redstone I/O block entity - provides redstone input/output capabilities
+ * that can be read/written from Lua programs via component API.
+ *
+ * Like original OpenComputers, this block:
+ * - Can read redstone input from all 6 sides
+ * - Can output redstone signal to all 6 sides independently
+ * - Can detect bundled cables (if available)
+ * - Provides comparator output
+ */
+class RedstoneIOBlockEntity(
+    pos: BlockPos,
+    state: BlockState
+) : BlockEntity(ModBlockEntities.REDSTONE_IO.get(), pos, state) {
+    
+    // Component address for Lua access
+    val address: String = UUID.randomUUID().toString()
+    
+    // Output values per side (0-15)
+    private val outputs = IntArray(6) { 0 }
+    
+    // Cached input values per side
+    private val cachedInputs = IntArray(6) { 0 }
+    
+    // Bundled output per side (16 channels each)
+    private val bundledOutputs = Array(6) { IntArray(16) { 0 } }
+    
+    // Whether wake-on-redstone is enabled
+    private var wakeOnRedstone = false
+    
+    // Last known total input (for comparator)
+    private var lastTotalInput = 0
+    
+    // ==================== Input Methods ====================
+    
+    /**
+     * Get redstone input on a specific side.
+     * @param side Direction index (0-5)
+     * @return Signal strength 0-15
+     */
+    fun getInput(side: Int): Int {
+        if (side !in 0..5) return 0
+        return cachedInputs[side]
+    }
+    
+    /**
+     * Get redstone input from a specific direction.
+     */
+    fun getInput(direction: Direction): Int {
+        return getInput(direction.ordinal)
+    }
+    
+    /**
+     * Get all inputs as an array.
+     */
+    fun getAllInputs(): IntArray = cachedInputs.copyOf()
+    
+    /**
+     * Get bundled input on a side (for bundled cables).
+     * Returns 16-element array of signal strengths.
+     */
+    fun getBundledInput(side: Int): IntArray {
+        // In vanilla, we can only detect regular redstone
+        // Real bundled support would require mod integration
+        return IntArray(16) { if (it == 0) getInput(side) else 0 }
+    }
+    
+    // ==================== Output Methods ====================
+    
+    /**
+     * Set redstone output on a specific side.
+     * @param side Direction index (0-5)
+     * @param value Signal strength 0-15
+     */
+    fun setOutput(side: Int, value: Int): Boolean {
+        if (side !in 0..5) return false
+        val clampedValue = value.coerceIn(0, 15)
+        if (outputs[side] != clampedValue) {
+            outputs[side] = clampedValue
+            setChanged()
+            notifyNeighbors()
+            return true
+        }
+        return false
+    }
+    
+    /**
+     * Set redstone output on a specific direction.
+     */
+    fun setOutput(direction: Direction, value: Int): Boolean {
+        return setOutput(direction.ordinal, value)
+    }
+    
+    /**
+     * Get current output on a side.
+     */
+    fun getOutput(side: Int): Int {
+        if (side !in 0..5) return 0
+        return outputs[side]
+    }
+    
+    /**
+     * Get output for a specific direction.
+     */
+    fun getOutput(direction: Direction): Int {
+        return getOutput(direction.ordinal)
+    }
+    
+    /**
+     * Set bundled output on a side.
+     */
+    fun setBundledOutput(side: Int, colors: IntArray): Boolean {
+        if (side !in 0..5 || colors.size != 16) return false
+        var changed = false
+        for (i in 0 until 16) {
+            val v = colors[i].coerceIn(0, 255)
+            if (bundledOutputs[side][i] != v) {
+                bundledOutputs[side][i] = v
+                changed = true
+            }
+        }
+        if (changed) {
+            setChanged()
+            notifyNeighbors()
+        }
+        return changed
+    }
+    
+    /**
+     * Get bundled output on a side.
+     */
+    fun getBundledOutput(side: Int): IntArray {
+        if (side !in 0..5) return IntArray(16)
+        return bundledOutputs[side].copyOf()
+    }
+    
+    // ==================== Wake-on-Redstone ====================
+    
+    fun isWakeOnRedstone(): Boolean = wakeOnRedstone
+    
+    fun setWakeOnRedstone(enabled: Boolean) {
+        wakeOnRedstone = enabled
+        setChanged()
+    }
+    
+    // ==================== Tick / Update ====================
+    
+    fun tick() {
+        if (level?.isClientSide == true) return
+        updateInputs()
+    }
+    
+    /**
+     * Update cached input values from world.
+     */
+    private fun updateInputs() {
+        val level = level ?: return
+        var totalInput = 0
+        var changed = false
+        
+        Direction.entries.forEachIndexed { index, direction ->
+            val neighborPos = blockPos.relative(direction)
+            val signal = level.getSignal(neighborPos, direction)
+            
+            if (cachedInputs[index] != signal) {
+                cachedInputs[index] = signal
+                changed = true
+            }
+            totalInput += signal
+        }
+        
+        if (changed) {
+            lastTotalInput = totalInput
+            setChanged()
+            
+            // If wake-on-redstone is enabled, could signal a connected computer
+            if (wakeOnRedstone && totalInput > 0) {
+                // Would wake connected computer here
+            }
+        }
+    }
+    
+    /**
+     * Get signal for comparator output.
+     */
+    fun getComparatorOutput(): Int {
+        // Average of all outputs
+        return outputs.sum() / 6
+    }
+    
+    /**
+     * Notify neighbors that redstone state changed.
+     */
+    private fun notifyNeighbors() {
+        val level = level ?: return
+        val state = level.getBlockState(blockPos)
+        level.updateNeighborsAt(blockPos, state.block)
+        
+        // Also update diagonal neighbors for comparators
+        Direction.entries.forEach { dir ->
+            level.updateNeighborsAt(blockPos.relative(dir), state.block)
+        }
+    }
+    
+    // ==================== NBT ====================
+    
+    override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.saveAdditional(tag, registries)
+        
+        tag.putString("address", address)
+        tag.putIntArray("outputs", outputs)
+        tag.putBoolean("wakeOnRedstone", wakeOnRedstone)
+        
+        // Save bundled outputs
+        val bundledTag = CompoundTag()
+        for (side in 0..5) {
+            bundledTag.putIntArray("side$side", bundledOutputs[side])
+        }
+        tag.put("bundled", bundledTag)
+    }
+    
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
+        
+        if (tag.contains("outputs")) {
+            val saved = tag.getIntArray("outputs")
+            for (i in 0 until minOf(saved.size, 6)) {
+                outputs[i] = saved[i]
+            }
+        }
+        
+        wakeOnRedstone = tag.getBoolean("wakeOnRedstone")
+        
+        if (tag.contains("bundled")) {
+            val bundledTag = tag.getCompound("bundled")
+            for (side in 0..5) {
+                if (bundledTag.contains("side$side")) {
+                    val saved = bundledTag.getIntArray("side$side")
+                    for (i in 0 until minOf(saved.size, 16)) {
+                        bundledOutputs[side][i] = saved[i]
+                    }
+                }
+            }
+        }
+    }
+}

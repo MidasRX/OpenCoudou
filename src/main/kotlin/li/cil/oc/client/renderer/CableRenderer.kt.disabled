@@ -1,0 +1,372 @@
+package li.cil.oc.client.renderer
+
+import com.mojang.blaze3d.vertex.PoseStack
+import com.mojang.blaze3d.vertex.VertexConsumer
+import li.cil.oc.common.blockentity.CableBlockEntity
+import net.minecraft.client.renderer.MultiBufferSource
+import net.minecraft.client.renderer.RenderType
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
+import net.minecraft.core.Direction
+import org.joml.Matrix4f
+import kotlin.math.sin
+
+/**
+ * Renderer for cable block entities.
+ * Shows network activity indicators and connection visualization.
+ */
+class CableRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRenderer<CableBlockEntity> {
+    
+    companion object {
+        // Cable core dimensions
+        private const val CORE_SIZE = 0.25f
+        private const val CORE_START = (1f - CORE_SIZE) / 2
+        private const val CORE_END = CORE_START + CORE_SIZE
+        
+        // Connector dimensions
+        private const val CONNECTOR_SIZE = 0.1875f  // 3 pixels
+        private const val CONNECTOR_LENGTH = 0.3125f  // 5 pixels
+        
+        // Activity indicator
+        private const val INDICATOR_SIZE = 0.06f
+        
+        // Colors
+        private const val COLOR_CABLE = 0x404040
+        private const val COLOR_ACTIVE = 0x00AAFF
+        private const val COLOR_CONNECTOR = 0x303030
+    }
+    
+    override fun render(
+        blockEntity: CableBlockEntity,
+        partialTick: Float,
+        poseStack: PoseStack,
+        buffer: MultiBufferSource,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val level = blockEntity.level ?: return
+        
+        poseStack.pushPose()
+        
+        val vertexConsumer = buffer.getBuffer(RenderType.solid())
+        val matrix = poseStack.last().pose()
+        val gameTime = level.gameTime + partialTick
+        
+        // Check for network activity (simulated)
+        val hasActivity = blockEntity.getNetworkId() >= 0
+        val activityPulse = if (hasActivity) {
+            ((sin(gameTime * 0.5) * 0.5 + 0.5) * 0.3).toFloat()
+        } else 0f
+        
+        // Render core with activity color blend
+        val coreColor = if (hasActivity) {
+            blendColor(COLOR_CABLE, COLOR_ACTIVE, activityPulse)
+        } else {
+            COLOR_CABLE
+        }
+        renderCore(matrix, vertexConsumer, coreColor, packedLight, packedOverlay)
+        
+        // Render connections to each adjacent block
+        for (direction in Direction.entries) {
+            if (blockEntity.isConnected(direction)) {
+                renderConnection(matrix, vertexConsumer, direction, coreColor, packedLight, packedOverlay)
+            }
+        }
+        
+        // Render activity indicator in center if active
+        if (hasActivity && activityPulse > 0.1f) {
+            renderActivityIndicator(matrix, vertexConsumer, activityPulse, packedLight, packedOverlay)
+        }
+        
+        poseStack.popPose()
+    }
+    
+    private fun renderCore(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        color: Int,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = ((color shr 16) and 0xFF) / 255f
+        val g = ((color shr 8) and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        
+        // Render a cube at the center
+        // Bottom face
+        renderQuad(matrix, buffer,
+            CORE_START, CORE_START, CORE_START,
+            CORE_END, CORE_START, CORE_END,
+            r, g, b, 0f, -1f, 0f, packedLight, packedOverlay)
+        
+        // Top face
+        renderQuad(matrix, buffer,
+            CORE_START, CORE_END, CORE_START,
+            CORE_END, CORE_END, CORE_END,
+            r, g, b, 0f, 1f, 0f, packedLight, packedOverlay)
+        
+        // North face
+        renderQuad(matrix, buffer,
+            CORE_START, CORE_START, CORE_START,
+            CORE_END, CORE_END, CORE_START,
+            r, g, b, 0f, 0f, -1f, packedLight, packedOverlay)
+        
+        // South face
+        renderQuad(matrix, buffer,
+            CORE_START, CORE_START, CORE_END,
+            CORE_END, CORE_END, CORE_END,
+            r, g, b, 0f, 0f, 1f, packedLight, packedOverlay)
+        
+        // West face
+        renderQuadSide(matrix, buffer,
+            CORE_START, CORE_START, CORE_START,
+            CORE_START, CORE_END, CORE_END,
+            r, g, b, -1f, 0f, 0f, packedLight, packedOverlay)
+        
+        // East face
+        renderQuadSide(matrix, buffer,
+            CORE_END, CORE_START, CORE_START,
+            CORE_END, CORE_END, CORE_END,
+            r, g, b, 1f, 0f, 0f, packedLight, packedOverlay)
+    }
+    
+    private fun renderConnection(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        direction: Direction,
+        color: Int,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = ((color shr 16) and 0xFF) / 255f
+        val g = ((color shr 8) and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        
+        val connStart = (1f - CONNECTOR_SIZE) / 2
+        val connEnd = connStart + CONNECTOR_SIZE
+        
+        when (direction) {
+            Direction.DOWN -> {
+                // Vertical connection going down
+                renderVerticalConnector(matrix, buffer, connStart, connEnd, 0f, CORE_START, r, g, b, packedLight, packedOverlay)
+            }
+            Direction.UP -> {
+                // Vertical connection going up
+                renderVerticalConnector(matrix, buffer, connStart, connEnd, CORE_END, 1f, r, g, b, packedLight, packedOverlay)
+            }
+            Direction.NORTH -> {
+                // Connection to north (-Z)
+                renderHorizontalConnectorZ(matrix, buffer, connStart, connEnd, 0f, CORE_START, r, g, b, packedLight, packedOverlay)
+            }
+            Direction.SOUTH -> {
+                // Connection to south (+Z)
+                renderHorizontalConnectorZ(matrix, buffer, connStart, connEnd, CORE_END, 1f, r, g, b, packedLight, packedOverlay)
+            }
+            Direction.WEST -> {
+                // Connection to west (-X)
+                renderHorizontalConnectorX(matrix, buffer, connStart, connEnd, 0f, CORE_START, r, g, b, packedLight, packedOverlay)
+            }
+            Direction.EAST -> {
+                // Connection to east (+X)
+                renderHorizontalConnectorX(matrix, buffer, connStart, connEnd, CORE_END, 1f, r, g, b, packedLight, packedOverlay)
+            }
+        }
+    }
+    
+    private fun renderVerticalConnector(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        xStart: Float, xEnd: Float,
+        yStart: Float, yEnd: Float,
+        r: Float, g: Float, b: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val zStart = xStart
+        val zEnd = xEnd
+        
+        // X sides
+        renderQuadSide(matrix, buffer, xStart, yStart, zStart, xStart, yEnd, zEnd, r, g, b, -1f, 0f, 0f, packedLight, packedOverlay)
+        renderQuadSide(matrix, buffer, xEnd, yStart, zStart, xEnd, yEnd, zEnd, r, g, b, 1f, 0f, 0f, packedLight, packedOverlay)
+        
+        // Z sides
+        renderQuad(matrix, buffer, xStart, yStart, zStart, xEnd, yEnd, zStart, r, g, b, 0f, 0f, -1f, packedLight, packedOverlay)
+        renderQuad(matrix, buffer, xStart, yStart, zEnd, xEnd, yEnd, zEnd, r, g, b, 0f, 0f, 1f, packedLight, packedOverlay)
+    }
+    
+    private fun renderHorizontalConnectorZ(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        xStart: Float, xEnd: Float,
+        zStart: Float, zEnd: Float,
+        r: Float, g: Float, b: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val yStart = xStart
+        val yEnd = xEnd
+        
+        // Top/bottom
+        renderQuad(matrix, buffer, xStart, yStart, zStart, xEnd, yStart, zEnd, r, g, b, 0f, -1f, 0f, packedLight, packedOverlay)
+        renderQuad(matrix, buffer, xStart, yEnd, zStart, xEnd, yEnd, zEnd, r, g, b, 0f, 1f, 0f, packedLight, packedOverlay)
+        
+        // X sides
+        renderQuadZAxis(matrix, buffer, xStart, yStart, zStart, xStart, yEnd, zEnd, r, g, b, -1f, 0f, 0f, packedLight, packedOverlay)
+        renderQuadZAxis(matrix, buffer, xEnd, yStart, zStart, xEnd, yEnd, zEnd, r, g, b, 1f, 0f, 0f, packedLight, packedOverlay)
+    }
+    
+    private fun renderHorizontalConnectorX(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        yStart: Float, yEnd: Float,
+        xStart: Float, xEnd: Float,
+        r: Float, g: Float, b: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val zStart = yStart
+        val zEnd = yEnd
+        
+        // Top/bottom
+        renderQuadXAxis(matrix, buffer, xStart, yStart, zStart, xEnd, yStart, zEnd, r, g, b, 0f, -1f, 0f, packedLight, packedOverlay)
+        renderQuadXAxis(matrix, buffer, xStart, yEnd, zStart, xEnd, yEnd, zEnd, r, g, b, 0f, 1f, 0f, packedLight, packedOverlay)
+        
+        // Z sides
+        renderQuadXAxisZ(matrix, buffer, xStart, yStart, zStart, xEnd, yEnd, zStart, r, g, b, 0f, 0f, -1f, packedLight, packedOverlay)
+        renderQuadXAxisZ(matrix, buffer, xStart, yStart, zEnd, xEnd, yEnd, zEnd, r, g, b, 0f, 0f, 1f, packedLight, packedOverlay)
+    }
+    
+    private fun renderActivityIndicator(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        intensity: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = 0f
+        val g = 0.67f * intensity
+        val b = 1f * intensity
+        val a = intensity
+        
+        val center = 0.5f
+        val size = INDICATOR_SIZE * (0.5f + intensity * 0.5f)
+        
+        // Small glowing cube in center
+        val x1 = center - size / 2
+        val x2 = center + size / 2
+        val y1 = center - size / 2
+        val y2 = center + size / 2
+        val z1 = center - size / 2
+        val z2 = center + size / 2
+        
+        // All faces
+        // Bottom
+        buffer.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a).setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(0f, -1f, 0f)
+        buffer.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a).setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(0f, -1f, 0f)
+        buffer.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a).setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(0f, -1f, 0f)
+        buffer.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a).setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(0f, -1f, 0f)
+        
+        // Top
+        buffer.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a).setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(0f, 1f, 0f)
+        buffer.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a).setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(0f, 1f, 0f)
+        buffer.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a).setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(0f, 1f, 0f)
+        buffer.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a).setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(0f, 1f, 0f)
+    }
+    
+    private fun renderQuad(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        x1: Float, y1: Float, z1: Float,
+        x2: Float, y2: Float, z2: Float,
+        r: Float, g: Float, b: Float,
+        nx: Float, ny: Float, nz: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        buffer.addVertex(matrix, x1, y1, z1).setColor(r, g, b, 1f).setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x1, y2, z1).setColor(r, g, b, 1f).setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y2, z2).setColor(r, g, b, 1f).setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y1, z2).setColor(r, g, b, 1f).setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+    }
+    
+    private fun renderQuadSide(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        x1: Float, y1: Float, z1: Float,
+        x2: Float, y2: Float, z2: Float,
+        r: Float, g: Float, b: Float,
+        nx: Float, ny: Float, nz: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        buffer.addVertex(matrix, x1, y1, z1).setColor(r, g, b, 1f).setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y2, z1).setColor(r, g, b, 1f).setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y2, z2).setColor(r, g, b, 1f).setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x1, y1, z2).setColor(r, g, b, 1f).setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+    }
+    
+    private fun renderQuadZAxis(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        x1: Float, y1: Float, z1: Float,
+        x2: Float, y2: Float, z2: Float,
+        r: Float, g: Float, b: Float,
+        nx: Float, ny: Float, nz: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        buffer.addVertex(matrix, x1, y1, z1).setColor(r, g, b, 1f).setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y2, z1).setColor(r, g, b, 1f).setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y2, z2).setColor(r, g, b, 1f).setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x1, y1, z2).setColor(r, g, b, 1f).setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+    }
+    
+    private fun renderQuadXAxis(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        x1: Float, y: Float, z1: Float,
+        x2: Float, _y: Float, z2: Float,
+        r: Float, g: Float, b: Float,
+        nx: Float, ny: Float, nz: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        buffer.addVertex(matrix, x1, y, z1).setColor(r, g, b, 1f).setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x1, y, z2).setColor(r, g, b, 1f).setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y, z2).setColor(r, g, b, 1f).setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y, z1).setColor(r, g, b, 1f).setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+    }
+    
+    private fun renderQuadXAxisZ(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        x1: Float, y1: Float, z: Float,
+        x2: Float, y2: Float, _z: Float,
+        r: Float, g: Float, b: Float,
+        nx: Float, ny: Float, nz: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        buffer.addVertex(matrix, x1, y1, z).setColor(r, g, b, 1f).setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x1, y2, z).setColor(r, g, b, 1f).setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y2, z).setColor(r, g, b, 1f).setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+        buffer.addVertex(matrix, x2, y1, z).setColor(r, g, b, 1f).setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight).setNormal(nx, ny, nz)
+    }
+    
+    private fun blendColor(color1: Int, color2: Int, t: Float): Int {
+        val r1 = (color1 shr 16) and 0xFF
+        val g1 = (color1 shr 8) and 0xFF
+        val b1 = color1 and 0xFF
+        val r2 = (color2 shr 16) and 0xFF
+        val g2 = (color2 shr 8) and 0xFF
+        val b2 = color2 and 0xFF
+        
+        val r = (r1 + (r2 - r1) * t).toInt().coerceIn(0, 255)
+        val g = (g1 + (g2 - g1) * t).toInt().coerceIn(0, 255)
+        val b = (b1 + (b2 - b1) * t).toInt().coerceIn(0, 255)
+        
+        return (r shl 16) or (g shl 8) or b
+    }
+    
+    override fun shouldRenderOffScreen(blockEntity: CableBlockEntity): Boolean = false
+}

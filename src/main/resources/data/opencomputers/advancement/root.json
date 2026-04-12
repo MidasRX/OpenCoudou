@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "opencomputers:case1"
+    },
+    "title": {
+      "translate": "advancements.opencomputers.root.title"
+    },
+    "description": {
+      "translate": "advancements.opencomputers.root.description"
+    },
+    "background": "minecraft:textures/gui/advancements/backgrounds/stone.png",
+    "show_toast": false,
+    "announce_to_chat": false
+  },
+  "criteria": {
+    "get_transistor": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "opencomputers:transistor"
+          }
+        ]
+      }
+    }
+  }
+}

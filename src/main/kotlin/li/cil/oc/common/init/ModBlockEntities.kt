@@ -4,22 +4,30 @@ import li.cil.oc.OpenComputers
 import li.cil.oc.common.blockentity.AccessPointBlockEntity
 import li.cil.oc.common.blockentity.AdapterBlockEntity
 import li.cil.oc.common.blockentity.AssemblerBlockEntity
+import li.cil.oc.common.blockentity.CableBlockEntity
 import li.cil.oc.common.blockentity.CapacitorBlockEntity
+import li.cil.oc.common.blockentity.CarpetedCapacitorBlockEntity
 import li.cil.oc.common.blockentity.CaseBlockEntity
 import li.cil.oc.common.blockentity.ChargerBlockEntity
 import li.cil.oc.common.blockentity.DisassemblerBlockEntity
 import li.cil.oc.common.blockentity.DiskDriveBlockEntity
 import li.cil.oc.common.blockentity.GeolyzerBlockEntity
 import li.cil.oc.common.blockentity.HologramBlockEntity
+import li.cil.oc.common.blockentity.KeyboardBlockEntity
+import li.cil.oc.common.blockentity.MicrocontrollerBlockEntity
 import li.cil.oc.common.blockentity.MotionSensorBlockEntity
 import li.cil.oc.common.blockentity.NetSplitterBlockEntity
 import li.cil.oc.common.blockentity.PowerConverterBlockEntity
 import li.cil.oc.common.blockentity.PowerDistributorBlockEntity
+import li.cil.oc.common.blockentity.PrintBlockEntity
 import li.cil.oc.common.blockentity.PrinterBlockEntity
 import li.cil.oc.common.blockentity.RaidBlockEntity
+import li.cil.oc.common.blockentity.RedstoneIOBlockEntity
 import li.cil.oc.common.blockentity.RelayBlockEntity
+import li.cil.oc.common.blockentity.RobotProxyBlockEntity
 import li.cil.oc.common.blockentity.ScreenBlockEntity
 import li.cil.oc.common.blockentity.ServerRackBlockEntity
+import li.cil.oc.common.blockentity.SwitchBlockEntity
 import li.cil.oc.common.blockentity.TransposerBlockEntity
 import li.cil.oc.common.blockentity.WaypointBlockEntity
 import net.minecraft.core.registries.Registries
@@ -99,6 +107,15 @@ object ModBlockEntities {
         })
 
     @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+    val PRINT: DeferredHolder<BlockEntityType<*>, BlockEntityType<PrintBlockEntity>> =
+        BLOCK_ENTITIES.register("print", Supplier {
+            BlockEntityType(
+                BlockEntityType.BlockEntitySupplier { pos, state -> PrintBlockEntity(pos, state) },
+                ModBlocks.PRINT.get()
+            )
+        })
+
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
     val CHARGER: DeferredHolder<BlockEntityType<*>, BlockEntityType<ChargerBlockEntity>> =
         BLOCK_ENTITIES.register("charger", Supplier {
             BlockEntityType(
@@ -131,6 +148,15 @@ object ModBlockEntities {
             BlockEntityType(
                 BlockEntityType.BlockEntitySupplier { pos, state -> CapacitorBlockEntity(pos, state) },
                 ModBlocks.CAPACITOR.get()
+            )
+        })
+
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+    val CARPETED_CAPACITOR: DeferredHolder<BlockEntityType<*>, BlockEntityType<CarpetedCapacitorBlockEntity>> =
+        BLOCK_ENTITIES.register("carpeted_capacitor", Supplier {
+            BlockEntityType(
+                BlockEntityType.BlockEntitySupplier { pos, state -> CarpetedCapacitorBlockEntity(pos, state) },
+                ModBlocks.CARPETED_CAPACITOR.get()
             )
         })
 
@@ -221,6 +247,60 @@ object ModBlockEntities {
             BlockEntityType(
                 BlockEntityType.BlockEntitySupplier { pos, state -> ServerRackBlockEntity(pos, state) },
                 ModBlocks.RACK.get()
+            )
+        })
+
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+    val KEYBOARD: DeferredHolder<BlockEntityType<*>, BlockEntityType<KeyboardBlockEntity>> =
+        BLOCK_ENTITIES.register("keyboard", Supplier {
+            BlockEntityType(
+                BlockEntityType.BlockEntitySupplier { pos, state -> KeyboardBlockEntity(pos, state) },
+                ModBlocks.KEYBOARD.get()
+            )
+        })
+
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+    val REDSTONE_IO: DeferredHolder<BlockEntityType<*>, BlockEntityType<RedstoneIOBlockEntity>> =
+        BLOCK_ENTITIES.register("redstone_io", Supplier {
+            BlockEntityType(
+                BlockEntityType.BlockEntitySupplier { pos, state -> RedstoneIOBlockEntity(pos, state) },
+                ModBlocks.REDSTONE_IO.get()
+            )
+        })
+
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+    val MICROCONTROLLER: DeferredHolder<BlockEntityType<*>, BlockEntityType<MicrocontrollerBlockEntity>> =
+        BLOCK_ENTITIES.register("microcontroller", Supplier {
+            BlockEntityType(
+                BlockEntityType.BlockEntitySupplier { pos, state -> MicrocontrollerBlockEntity(pos, state) },
+                ModBlocks.MICROCONTROLLER.get()
+            )
+        })
+
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+    val ROBOT_PROXY: DeferredHolder<BlockEntityType<*>, BlockEntityType<RobotProxyBlockEntity>> =
+        BLOCK_ENTITIES.register("robot_proxy", Supplier {
+            BlockEntityType(
+                BlockEntityType.BlockEntitySupplier { pos, state -> RobotProxyBlockEntity(pos, state) },
+                ModBlocks.ROBOT_PROXY.get()
+            )
+        })
+
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+    val SWITCH: DeferredHolder<BlockEntityType<*>, BlockEntityType<SwitchBlockEntity>> =
+        BLOCK_ENTITIES.register("switch", Supplier {
+            BlockEntityType(
+                BlockEntityType.BlockEntitySupplier { pos, state -> SwitchBlockEntity(pos, state) },
+                ModBlocks.SWITCH.get()
+            )
+        })
+
+    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+    val CABLE: DeferredHolder<BlockEntityType<*>, BlockEntityType<CableBlockEntity>> =
+        BLOCK_ENTITIES.register("cable", Supplier {
+            BlockEntityType(
+                BlockEntityType.BlockEntitySupplier { pos, state -> CableBlockEntity(pos, state) },
+                ModBlocks.CABLE.get()
             )
         })
 

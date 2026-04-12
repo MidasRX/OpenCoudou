@@ -1,0 +1,125 @@
+package li.cil.oc.server.component
+
+import li.cil.oc.common.blockentity.RedstoneIOBlockEntity
+
+/**
+ * Redstone component - provides Lua API for redstone input/output.
+ * 
+ * This mirrors the original OpenComputers redstone API:
+ * - getInput(side) / setOutput(side, value)
+ * - getBundledInput(side, color) / setBundledOutput(side, color, value)
+ * - getComparatorInput(side)
+ * - setWakeThreshold(threshold) for wake-on-redstone
+ */
+class RedstoneComponent(
+    private val blockEntity: RedstoneIOBlockEntity? = null
+) : AbstractComponent("redstone") {
+    
+    // Side names for compatibility
+    private val sideNames = mapOf(
+        "bottom" to 0, "down" to 0,
+        "top" to 1, "up" to 1,
+        "north" to 2, "back" to 2,
+        "south" to 3, "front" to 3,
+        "west" to 4, "left" to 4,
+        "east" to 5, "right" to 5
+    )
+    
+    // Color names for bundled cables
+    private val colorNames = mapOf(
+        "white" to 0, "orange" to 1, "magenta" to 2, "lightBlue" to 3,
+        "yellow" to 4, "lime" to 5, "pink" to 6, "gray" to 7,
+        "silver" to 8, "cyan" to 9, "purple" to 10, "blue" to 11,
+        "brown" to 12, "green" to 13, "red" to 14, "black" to 15
+    )
+    
+    private fun parseSide(side: Any?): Int {
+        return when (side) {
+            is Number -> side.toInt().coerceIn(0, 5)
+            is String -> sideNames[side.lowercase()] ?: 0
+            else -> 0
+        }
+    }
+    
+    private fun parseColor(color: Any?): Int {
+        return when (color) {
+            is Number -> color.toInt().coerceIn(0, 15)
+            is String -> colorNames[color.lowercase()] ?: 0
+            else -> 0
+        }
+    }
+    
+    init {
+        // ==================== Basic Redstone ====================
+        
+        registerMethod("getInput", doc = "getInput(side:number|string):number -- Gets the redstone input on the specified side.") { args ->
+            val side = parseSide(args.getOrNull(0))
+            arrayOf(blockEntity?.getInput(side) ?: 0)
+        }
+        
+        registerMethod("getOutput", doc = "getOutput(side:number|string):number -- Gets the current redstone output on the specified side.") { args ->
+            val side = parseSide(args.getOrNull(0))
+            arrayOf(blockEntity?.getOutput(side) ?: 0)
+        }
+        
+        registerMethod("setOutput", doc = "setOutput(side:number|string,value:number):number -- Sets the redstone output. Returns previous value.") { args ->
+            val side = parseSide(args.getOrNull(0))
+            val value = (args.getOrNull(1) as? Number)?.toInt() ?: 0
+            val prev = blockEntity?.getOutput(side) ?: 0
+            blockEntity?.setOutput(side, value)
+            arrayOf(prev)
+        }
+        
+        // ==================== Bundled Cables ====================
+        
+        registerMethod("getBundledInput", doc = "getBundledInput(side:number|string,color:number|string):number -- Gets bundled cable input for a specific color.") { args ->
+            val side = parseSide(args.getOrNull(0))
+            val color = parseColor(args.getOrNull(1))
+            val bundled = blockEntity?.getBundledInput(side)
+            arrayOf(bundled?.getOrNull(color) ?: 0)
+        }
+        
+        registerMethod("getBundledOutput", doc = "getBundledOutput(side:number|string,color:number|string):number -- Gets bundled cable output for a specific color.") { args ->
+            val side = parseSide(args.getOrNull(0))
+            val color = parseColor(args.getOrNull(1))
+            val bundled = blockEntity?.getBundledOutput(side)
+            arrayOf(bundled?.getOrNull(color) ?: 0)
+        }
+        
+        registerMethod("setBundledOutput", doc = "setBundledOutput(side:number|string,color:number|string,value:number):number -- Sets bundled cable output. Returns previous value.") { args ->
+            val side = parseSide(args.getOrNull(0))
+            val color = parseColor(args.getOrNull(1))
+            val value = (args.getOrNull(2) as? Number)?.toInt() ?: 0
+            
+            val prev = blockEntity?.getBundledOutput(side)?.getOrNull(color) ?: 0
+            
+            // Update the specific color
+            val bundled = blockEntity?.getBundledOutput(side)?.toMutableList()?.toIntArray() ?: IntArray(16)
+            bundled[color] = value.coerceIn(0, 255)
+            blockEntity?.setBundledOutput(side, bundled)
+            
+            arrayOf(prev)
+        }
+        
+        // ==================== Wake-on-Redstone ====================
+        
+        registerMethod("getWakeThreshold", doc = "getWakeThreshold():number -- Returns 0 if wake-on-redstone is disabled, 1 if enabled.") { _ ->
+            arrayOf(if (blockEntity?.isWakeOnRedstone() == true) 1 else 0)
+        }
+        
+        registerMethod("setWakeThreshold", doc = "setWakeThreshold(threshold:number):number -- Sets wake-on-redstone. 0 = disabled, any other = enabled.") { args ->
+            val threshold = (args.getOrNull(0) as? Number)?.toInt() ?: 0
+            val prev = if (blockEntity?.isWakeOnRedstone() == true) 1 else 0
+            blockEntity?.setWakeOnRedstone(threshold > 0)
+            arrayOf(prev)
+        }
+        
+        // ==================== Comparator ====================
+        
+        registerMethod("getComparatorInput", doc = "getComparatorInput(side:number|string):number -- Gets comparator input from the specified side.") { args ->
+            val side = parseSide(args.getOrNull(0))
+            // In vanilla redstone, comparator reads same as normal signal
+            arrayOf(blockEntity?.getInput(side) ?: 0)
+        }
+    }
+}

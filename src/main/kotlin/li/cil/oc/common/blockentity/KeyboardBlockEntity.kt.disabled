@@ -1,0 +1,188 @@
+package li.cil.oc.common.blockentity
+
+import li.cil.oc.common.init.ModBlockEntities
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import java.util.UUID
+import java.util.WeakHashMap
+
+/**
+ * Keyboard block entity - handles keyboard input and forwards to connected screen/computer.
+ * 
+ * In OpenComputers, the keyboard:
+ * - Attaches to a screen
+ * - Captures key events from players looking at it
+ * - Forwards key_down/key_up/clipboard signals to connected computer
+ * - Can be used by multiple players simultaneously
+ */
+class KeyboardBlockEntity(
+    pos: BlockPos,
+    state: BlockState
+) : BlockEntity(ModBlockEntities.KEYBOARD.get(), pos, state) {
+    
+    // Component address
+    val address: String = UUID.randomUUID().toString()
+    
+    // Users currently "using" this keyboard
+    private val activeUsers = WeakHashMap<Player, Long>()
+    
+    // Timeout for user activity (5 seconds)
+    private val userTimeout = 5000L
+    
+    // Connected screen position (adjacent)
+    private var connectedScreenPos: BlockPos? = null
+    
+    /**
+     * Called when a key is pressed by a player.
+     * @param player The player who pressed the key
+     * @param char The character typed (0 for non-printable)
+     * @param code The LWJGL/GLFW key code
+     */
+    fun keyDown(player: Player, char: Int, code: Int) {
+        if (level?.isClientSide == true) return
+        
+        // Mark user as active
+        activeUsers[player] = System.currentTimeMillis()
+        
+        // Signal to computer
+        signalKeyEvent("key_down", player, char, code)
+    }
+    
+    /**
+     * Called when a key is released.
+     */
+    fun keyUp(player: Player, char: Int, code: Int) {
+        if (level?.isClientSide == true) return
+        
+        activeUsers[player] = System.currentTimeMillis()
+        
+        signalKeyEvent("key_up", player, char, code)
+    }
+    
+    /**
+     * Called when text is pasted from clipboard.
+     */
+    fun clipboard(player: Player, text: String) {
+        if (level?.isClientSide == true) return
+        
+        activeUsers[player] = System.currentTimeMillis()
+        
+        // Signal clipboard event
+        findConnectedCase()?.let { case ->
+            case.machine?.pushSignal("clipboard", address, text)
+        }
+    }
+    
+    /**
+     * Find adjacent screen block entity.
+     */
+    private fun findConnectedScreen(): ScreenBlockEntity? {
+        val level = level ?: return null
+        
+        // Check cached position first
+        connectedScreenPos?.let { pos ->
+            val be = level.getBlockEntity(pos)
+            if (be is ScreenBlockEntity) {
+                return be
+            } else {
+                connectedScreenPos = null
+            }
+        }
+        
+        // Search adjacent blocks
+        Direction.entries.forEach { dir ->
+            val neighborPos = blockPos.relative(dir)
+            val be = level.getBlockEntity(neighborPos)
+            if (be is ScreenBlockEntity) {
+                connectedScreenPos = neighborPos
+                return be
+            }
+        }
+        
+        return null
+    }
+    
+    /**
+     * Find adjacent case block entity (for keyboard-to-computer direct connection).
+     */
+    private fun findConnectedCase(): CaseBlockEntity? {
+        val level = level ?: return null
+        
+        Direction.entries.forEach { dir ->
+            val neighborPos = blockPos.relative(dir)
+            val be = level.getBlockEntity(neighborPos)
+            if (be is CaseBlockEntity) {
+                return be
+            }
+        }
+        
+        // Also check via screen
+        findConnectedScreen()?.let { screen ->
+            // Screen might be connected to a case
+            // Would need screen to expose its connected case
+        }
+        
+        return null
+    }
+    
+    /**
+     * Signal a key event to the connected computer.
+     */
+    private fun signalKeyEvent(eventType: String, player: Player, char: Int, code: Int) {
+        findConnectedCase()?.let { case ->
+            case.machine?.pushSignal(eventType, address, char, code, player.name.string)
+        }
+    }
+    
+    /**
+     * Check if a player is currently using this keyboard.
+     */
+    fun isUsingKeyboard(player: Player): Boolean {
+        val lastActivity = activeUsers[player] ?: return false
+        return System.currentTimeMillis() - lastActivity < userTimeout
+    }
+    
+    /**
+     * Get list of currently active users.
+     */
+    fun getActiveUsers(): List<Player> {
+        val now = System.currentTimeMillis()
+        return activeUsers.entries
+            .filter { now - it.value < userTimeout }
+            .mapNotNull { it.key }
+    }
+    
+    fun tick() {
+        // Clean up stale user entries
+        val now = System.currentTimeMillis()
+        activeUsers.entries.removeIf { now - it.value > userTimeout * 2 }
+    }
+    
+    override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.saveAdditional(tag, registries)
+        tag.putString("address", address)
+        
+        connectedScreenPos?.let { pos ->
+            tag.putInt("screenX", pos.x)
+            tag.putInt("screenY", pos.y)
+            tag.putInt("screenZ", pos.z)
+        }
+    }
+    
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
+        
+        if (tag.contains("screenX")) {
+            connectedScreenPos = BlockPos(
+                tag.getInt("screenX"),
+                tag.getInt("screenY"),
+                tag.getInt("screenZ")
+            )
+        }
+    }
+}

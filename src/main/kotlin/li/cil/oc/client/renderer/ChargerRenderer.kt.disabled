@@ -1,0 +1,243 @@
+package li.cil.oc.client.renderer
+
+import com.mojang.blaze3d.vertex.PoseStack
+import com.mojang.blaze3d.vertex.VertexConsumer
+import li.cil.oc.common.blockentity.ChargerBlockEntity
+import net.minecraft.client.renderer.MultiBufferSource
+import net.minecraft.client.renderer.RenderType
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
+import org.joml.Matrix4f
+import kotlin.math.cos
+import kotlin.math.sin
+
+/**
+ * Renderer for charger block entities.
+ * Shows charging indicators and energy level visualization.
+ */
+class ChargerRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRenderer<ChargerBlockEntity> {
+    
+    companion object {
+        // Energy bar dimensions (vertical bar on side)
+        private const val BAR_WIDTH = 0.1f
+        private const val BAR_HEIGHT = 0.7f
+        private const val BAR_X = 0.05f
+        private const val BAR_Y_START = 0.15f
+        private const val BAR_Z = 1.001f
+        
+        // Charging indicator
+        private const val INDICATOR_SIZE = 0.15f
+        private const val INDICATOR_Y = 0.9f
+        
+        // Colors
+        private const val COLOR_BAR_BG = 0x1a1a1a
+        private const val COLOR_BAR_LOW = 0xFF3300     // Red for low energy
+        private const val COLOR_BAR_MID = 0xFFAA00     // Orange for mid
+        private const val COLOR_BAR_HIGH = 0x00FF00    // Green for high
+        private const val COLOR_CHARGING = 0x00AAFF    // Blue pulse when charging
+    }
+    
+    override fun render(
+        blockEntity: ChargerBlockEntity,
+        partialTick: Float,
+        poseStack: PoseStack,
+        buffer: MultiBufferSource,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val level = blockEntity.level ?: return
+        
+        poseStack.pushPose()
+        
+        val vertexConsumer = buffer.getBuffer(RenderType.solid())
+        val matrix = poseStack.last().pose()
+        
+        val energyStored = blockEntity.energyStored.toFloat()
+        val maxEnergy = blockEntity.maxEnergyStored.toFloat()
+        val energyRatio = if (maxEnergy > 0) energyStored / maxEnergy else 0f
+        val gameTime = level.gameTime + partialTick
+        
+        // Render on all 4 sides
+        for (side in 0 until 4) {
+            poseStack.pushPose()
+            poseStack.translate(0.5, 0.0, 0.5)
+            poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f * side))
+            poseStack.translate(-0.5, 0.0, -0.5)
+            
+            val sideMatrix = poseStack.last().pose()
+            
+            // Render energy bar background
+            renderBarBackground(sideMatrix, vertexConsumer, packedLight, packedOverlay)
+            
+            // Render energy bar fill
+            if (energyRatio > 0) {
+                val barColor = getEnergyColor(energyRatio)
+                renderBarFill(sideMatrix, vertexConsumer, energyRatio, barColor, packedLight, packedOverlay)
+            }
+            
+            // Render charging indicator when actively charging
+            val isCharging = energyStored > 0 && energyRatio < 1.0f
+            if (isCharging) {
+                val pulse = (sin(gameTime * 0.3) * 0.5 + 0.5).toFloat()
+                renderChargingIndicator(sideMatrix, vertexConsumer, pulse, packedLight, packedOverlay)
+            }
+            
+            poseStack.popPose()
+        }
+        
+        // Render top charging effect
+        if (energyStored > 0) {
+            renderTopEffect(matrix, vertexConsumer, energyRatio, gameTime, packedLight, packedOverlay)
+        }
+        
+        poseStack.popPose()
+    }
+    
+    private fun renderBarBackground(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = ((COLOR_BAR_BG shr 16) and 0xFF) / 255f
+        val g = ((COLOR_BAR_BG shr 8) and 0xFF) / 255f
+        val b = (COLOR_BAR_BG and 0xFF) / 255f
+        
+        val x1 = BAR_X
+        val x2 = BAR_X + BAR_WIDTH
+        val y1 = BAR_Y_START
+        val y2 = BAR_Y_START + BAR_HEIGHT
+        
+        buffer.addVertex(matrix, x1, y1, BAR_Z).setColor(r, g, b, 1f)
+            .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x1, y2, BAR_Z).setColor(r, g, b, 1f)
+            .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x2, y2, BAR_Z).setColor(r, g, b, 1f)
+            .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x2, y1, BAR_Z).setColor(r, g, b, 1f)
+            .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+    }
+    
+    private fun renderBarFill(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        fillRatio: Float,
+        color: Int,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = ((color shr 16) and 0xFF) / 255f
+        val g = ((color shr 8) and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        
+        val x1 = BAR_X + 0.01f
+        val x2 = BAR_X + BAR_WIDTH - 0.01f
+        val y1 = BAR_Y_START + 0.01f
+        val y2 = BAR_Y_START + 0.01f + (BAR_HEIGHT - 0.02f) * fillRatio.coerceIn(0f, 1f)
+        val z = BAR_Z + 0.001f
+        
+        buffer.addVertex(matrix, x1, y1, z).setColor(r, g, b, 1f)
+            .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x1, y2, z).setColor(r, g, b, 1f)
+            .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x2, y2, z).setColor(r, g, b, 1f)
+            .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x2, y1, z).setColor(r, g, b, 1f)
+            .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+    }
+    
+    private fun renderChargingIndicator(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        pulse: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val alpha = 0.5f + pulse * 0.5f
+        val r = ((COLOR_CHARGING shr 16) and 0xFF) / 255f * alpha
+        val g = ((COLOR_CHARGING shr 8) and 0xFF) / 255f * alpha
+        val b = (COLOR_CHARGING and 0xFF) / 255f * alpha
+        
+        val cx = 0.5f
+        val size = INDICATOR_SIZE * (0.8f + pulse * 0.2f)
+        val x1 = cx - size / 2
+        val x2 = cx + size / 2
+        val y1 = INDICATOR_Y - size / 2
+        val y2 = INDICATOR_Y + size / 2
+        val z = BAR_Z + 0.002f
+        
+        buffer.addVertex(matrix, x1, y1, z).setColor(r, g, b, alpha)
+            .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x1, y2, z).setColor(r, g, b, alpha)
+            .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x2, y2, z).setColor(r, g, b, alpha)
+            .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+        buffer.addVertex(matrix, x2, y1, z).setColor(r, g, b, alpha)
+            .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, 1f)
+    }
+    
+    private fun renderTopEffect(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        energyRatio: Float,
+        gameTime: Float,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        // Spinning energy effect on top
+        val angle = gameTime * 0.1f
+        val radius = 0.2f
+        val cx = 0.5f
+        val cz = 0.5f
+        val y = 1.001f
+        
+        // Draw rotating energy points
+        val steps = 4
+        for (i in 0 until steps) {
+            val a = angle + (i * 2 * Math.PI / steps).toFloat()
+            val x = cx + cos(a) * radius * energyRatio
+            val z = cz + sin(a) * radius * energyRatio
+            
+            val size = 0.03f
+            val alpha = 0.7f
+            val r = 0f
+            val g = 0.67f * alpha
+            val b = 1f * alpha
+            
+            buffer.addVertex(matrix, x - size, y, z - size).setColor(r, g, b, alpha)
+                .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+                .setNormal(0f, 1f, 0f)
+            buffer.addVertex(matrix, x - size, y, z + size).setColor(r, g, b, alpha)
+                .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+                .setNormal(0f, 1f, 0f)
+            buffer.addVertex(matrix, x + size, y, z + size).setColor(r, g, b, alpha)
+                .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+                .setNormal(0f, 1f, 0f)
+            buffer.addVertex(matrix, x + size, y, z - size).setColor(r, g, b, alpha)
+                .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+                .setNormal(0f, 1f, 0f)
+        }
+    }
+    
+    private fun getEnergyColor(ratio: Float): Int {
+        return when {
+            ratio < 0.33f -> COLOR_BAR_LOW
+            ratio < 0.66f -> COLOR_BAR_MID
+            else -> COLOR_BAR_HIGH
+        }
+    }
+    
+    override fun shouldRenderOffScreen(blockEntity: ChargerBlockEntity): Boolean = false
+}

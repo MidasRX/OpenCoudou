@@ -1,0 +1,155 @@
+package li.cil.oc.common.blockentity
+
+import li.cil.oc.common.init.ModBlockEntities
+import li.cil.oc.server.component.RelayComponent
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import net.neoforged.neoforge.items.ItemStackHandler
+import java.util.LinkedList
+
+/**
+ * Switch block entity - provides network routing with configurable parameters.
+ * Unlike Relay which is passive, Switch has queue management and rate limiting.
+ * Unlike NetSplitter which splits networks, Switch routes packets.
+ */
+class SwitchBlockEntity(
+    pos: BlockPos,
+    state: BlockState
+) : BlockEntity(ModBlockEntities.SWITCH.get(), pos, state) {
+    
+    // Component for Lua methods
+    private val switchComponent = RelayComponent()
+    
+    // Upgrade slots
+    val upgrades = ItemStackHandler(4)
+    
+    // Network statistics
+    private var packetsRelayed: Long = 0
+    private var bytesRelayed: Long = 0
+    private val packetQueue = LinkedList<PendingPacket>()
+    
+    // Configuration
+    private var maxQueueSize = 20
+    private var relayDelay = 5 // ticks between relay operations
+    private var maxPacketSize = 8192
+    
+    // Per-side connectivity
+    private val sideEnabled = BooleanArray(6) { true }
+    
+    private var tickCounter = 0
+    
+    data class PendingPacket(
+        val source: Direction,
+        val data: ByteArray,
+        val targetAddress: String?
+    )
+    
+    fun getComponent(): RelayComponent = switchComponent
+    
+    fun tick() {
+        if (level?.isClientSide == true) return
+        
+        tickCounter++
+        if (tickCounter >= relayDelay) {
+            tickCounter = 0
+            processQueue()
+        }
+    }
+    
+    private fun processQueue() {
+        if (packetQueue.isEmpty()) return
+        
+        // Process one packet per tick cycle
+        val packet = packetQueue.poll() ?: return
+        
+        // Route to all enabled sides except source
+        for (dir in Direction.entries) {
+            if (dir == packet.source) continue
+            if (!sideEnabled[dir.ordinal]) continue
+            
+            // Would send to connected component at this side
+            sendToSide(dir, packet)
+        }
+        
+        packetsRelayed++
+        bytesRelayed += packet.data.size
+    }
+    
+    private fun sendToSide(dir: Direction, packet: PendingPacket) {
+        // Implementation would connect to the network node at this side
+        // and deliver the packet
+    }
+    
+    /**
+     * Queue a packet for relay.
+     */
+    fun queuePacket(source: Direction, data: ByteArray, targetAddress: String? = null): Boolean {
+        if (data.size > maxPacketSize) return false
+        if (packetQueue.size >= maxQueueSize) return false
+        
+        packetQueue.add(PendingPacket(source, data, targetAddress))
+        return true
+    }
+    
+    fun isSideEnabled(side: Direction): Boolean = sideEnabled[side.ordinal]
+    
+    fun setSideEnabled(side: Direction, enabled: Boolean) {
+        sideEnabled[side.ordinal] = enabled
+        setChanged()
+    }
+    
+    fun toggleSide(side: Direction) {
+        setSideEnabled(side, !isSideEnabled(side))
+    }
+    
+    fun getPacketsRelayed(): Long = packetsRelayed
+    fun getBytesRelayed(): Long = bytesRelayed
+    fun getQueueSize(): Int = packetQueue.size
+    fun getMaxQueueSize(): Int = maxQueueSize
+    
+    fun resetStatistics() {
+        packetsRelayed = 0
+        bytesRelayed = 0
+        setChanged()
+    }
+    
+    override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.saveAdditional(tag, registries)
+        
+        tag.putLong("packetsRelayed", packetsRelayed)
+        tag.putLong("bytesRelayed", bytesRelayed)
+        tag.putInt("maxQueueSize", maxQueueSize)
+        tag.putInt("relayDelay", relayDelay)
+        tag.putInt("maxPacketSize", maxPacketSize)
+        
+        val sidesTag = ByteArray(6) { if (sideEnabled[it]) 1 else 0 }
+        tag.putByteArray("sides", sidesTag)
+        
+        tag.put("upgrades", upgrades.serializeNBT(registries))
+    }
+    
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
+        
+        packetsRelayed = tag.getLong("packetsRelayed")
+        bytesRelayed = tag.getLong("bytesRelayed")
+        maxQueueSize = tag.getInt("maxQueueSize").coerceAtLeast(1)
+        relayDelay = tag.getInt("relayDelay").coerceAtLeast(1)
+        maxPacketSize = tag.getInt("maxPacketSize").coerceAtLeast(256)
+        
+        if (tag.contains("sides")) {
+            val sidesTag = tag.getByteArray("sides")
+            for (i in 0 until minOf(sidesTag.size, 6)) {
+                sideEnabled[i] = sidesTag[i] != 0.toByte()
+            }
+        }
+        
+        if (tag.contains("upgrades")) {
+            upgrades.deserializeNBT(registries, tag.getCompound("upgrades"))
+        }
+    }
+}

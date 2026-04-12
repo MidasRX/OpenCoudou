@@ -3,9 +3,13 @@ package li.cil.oc.common.item
 import li.cil.oc.common.init.ModDataComponents
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
+import net.minecraft.world.level.Level
 
 /**
  * Tablet item - portable computer.
@@ -374,6 +378,19 @@ class TerminalItem(properties: Properties) : Item(properties) {
  * Manual item - in-game documentation.
  */
 class ManualItem(properties: Properties) : Item(properties) {
+    
+    override fun use(level: Level, player: Player, usedHand: InteractionHand): InteractionResult {
+        if (level.isClientSide) {
+            // Open manual screen on client
+            openManualScreen()
+        }
+        return InteractionResult.SUCCESS
+    }
+    
+    private fun openManualScreen() {
+        // Called on client side only
+        li.cil.oc.client.gui.ManualScreen().open()
+    }
     
     override fun appendHoverText(
         stack: ItemStack,

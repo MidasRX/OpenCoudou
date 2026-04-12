@@ -1,0 +1,28 @@
+{
+  "parent": "opencomputers:first_computer",
+  "display": {
+    "icon": {
+      "id": "opencomputers:screen1"
+    },
+    "title": {
+      "translate": "advancements.opencomputers.screen.title"
+    },
+    "description": {
+      "translate": "advancements.opencomputers.screen.description"
+    },
+    "show_toast": true,
+    "announce_to_chat": false
+  },
+  "criteria": {
+    "craft_screen": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "opencomputers:screen1"
+          }
+        ]
+      }
+    }
+  }
+}

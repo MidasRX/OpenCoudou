@@ -1,0 +1,29 @@
+{
+  "parent": "opencomputers:first_computer",
+  "display": {
+    "icon": {
+      "id": "opencomputers:case2"
+    },
+    "title": {
+      "translate": "advancements.opencomputers.tier2.title"
+    },
+    "description": {
+      "translate": "advancements.opencomputers.tier2.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "craft_tier2": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "opencomputers:case2"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -152,9 +152,9 @@ class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
                 player.displayClientMessage(Component.translatable("message.opencomputers.screen.ready"), true)
             }
         } else {
-            // Client side: open the screen input GUI to capture keyboard events
+            // Client side: open the terminal GUI to view screen and capture keyboard events
             net.minecraft.client.Minecraft.getInstance().setScreen(
-                li.cil.oc.client.gui.ScreenInputScreen(pos)
+                li.cil.oc.client.gui.TerminalScreen(pos)
             )
         }
         return InteractionResult.SUCCESS

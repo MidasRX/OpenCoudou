@@ -84,7 +84,7 @@ class RaidMenu(
         raidLabel = newLabel
         levelAccess.execute { level, pos ->
             val be = level.getBlockEntity(pos) as? RaidBlockEntity ?: return@execute
-            be.setLabel(newLabel)
+            be.label = newLabel
         }
     }
 

@@ -1,0 +1,141 @@
+package li.cil.oc.common.blockentity
+
+import li.cil.oc.common.init.ModBlockEntities
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
+import java.util.UUID
+
+/**
+ * Cable block entity - provides network connectivity between OC components.
+ * Cables are passive network nodes that pass messages through.
+ */
+class CableBlockEntity(
+    pos: BlockPos,
+    state: BlockState
+) : BlockEntity(ModBlockEntities.CABLE.get(), pos, state) {
+    
+    // Network node address
+    private var nodeAddress: String = UUID.randomUUID().toString().take(8)
+    
+    // Connected sides (cache from block state)
+    private val connections = BooleanArray(6) { false }
+    
+    // Network membership
+    private var networkId: Int = -1
+    
+    fun getNodeAddress(): String = nodeAddress
+    
+    fun getNetworkId(): Int = networkId
+    
+    fun setNetworkId(id: Int) {
+        networkId = id
+        setChanged()
+    }
+    
+    /**
+     * Check if this cable is connected on a given side.
+     */
+    fun isConnected(direction: Direction): Boolean {
+        return connections[direction.ordinal]
+    }
+    
+    /**
+     * Update connection state from block state.
+     */
+    fun updateConnections() {
+        val state = blockState
+        
+        // Read connection properties from block state
+        // These match the property names in CableBlock
+        val properties = mapOf(
+            Direction.NORTH to "north",
+            Direction.SOUTH to "south",
+            Direction.EAST to "east",
+            Direction.WEST to "west",
+            Direction.UP to "up",
+            Direction.DOWN to "down"
+        )
+        
+        for ((dir, propName) in properties) {
+            val prop = state.properties.find { it.name == propName }
+            if (prop != null && prop.valueClass == java.lang.Boolean::class.java) {
+                @Suppress("UNCHECKED_CAST")
+                val boolProp = prop as net.minecraft.world.level.block.state.properties.BooleanProperty
+                connections[dir.ordinal] = state.getValue(boolProp)
+            }
+        }
+        
+        onConnectionsChanged()
+    }
+    
+    /**
+     * Called when connections change - notifies network.
+     */
+    private fun onConnectionsChanged() {
+        if (level?.isClientSide == true) return
+        
+        // Would notify network registry of topology change
+    }
+    
+    /**
+     * Get all directions this cable connects to.
+     */
+    fun getConnectedDirections(): List<Direction> {
+        return Direction.entries.filter { connections[it.ordinal] }
+    }
+    
+    /**
+     * Count connected sides.
+     */
+    fun connectionCount(): Int {
+        return connections.count { it }
+    }
+    
+    /**
+     * Pass a message through this cable to connected nodes.
+     * Called by network system when routing messages.
+     */
+    fun relayMessage(sourceDirection: Direction, message: Any) {
+        if (level?.isClientSide == true) return
+        
+        // Relay to all connected directions except source
+        for (dir in Direction.entries) {
+            if (dir == sourceDirection) continue
+            if (!connections[dir.ordinal]) continue
+            
+            val neighborPos = blockPos.relative(dir)
+            val neighbor = level?.getBlockEntity(neighborPos)
+            
+            // Would pass message to neighbor's network node
+        }
+    }
+    
+    override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.saveAdditional(tag, registries)
+        tag.putString("nodeAddress", nodeAddress)
+        tag.putInt("networkId", networkId)
+    }
+    
+    override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
+        super.loadAdditional(tag, registries)
+        if (tag.contains("nodeAddress")) {
+            nodeAddress = tag.getString("nodeAddress")
+        }
+        networkId = tag.getInt("networkId")
+    }
+    
+    override fun setRemoved() {
+        super.setRemoved()
+        // Would notify network of removal
+    }
+    
+    override fun clearRemoved() {
+        super.clearRemoved()
+        // Would notify network of addition
+        updateConnections()
+    }
+}

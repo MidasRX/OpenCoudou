@@ -8,9 +8,11 @@ import li.cil.oc.common.init.ModCreativeTabs
 import li.cil.oc.common.init.ModDataComponents
 import li.cil.oc.common.init.ModSoundEvents
 import li.cil.oc.common.init.ModEntities
+import li.cil.oc.common.loot.ModLootModifiers
 import li.cil.oc.util.OCLogger
 // import li.cil.oc.common.network.NetworkHandler  // TODO: Re-enable
 // import li.cil.oc.server.machine.MachineRegistry  // TODO: Re-enable
+import net.minecraft.resources.ResourceLocation
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.ModContainer
 import net.neoforged.fml.common.Mod
@@ -51,6 +53,12 @@ class OpenComputers(
         @JvmStatic
         lateinit var instance: OpenComputers
             private set
+        
+        /**
+         * Create a ResourceLocation with the OpenComputers namespace.
+         */
+        @JvmStatic
+        fun loc(path: String): ResourceLocation = ResourceLocation.fromNamespaceAndPath(MOD_ID, path)
     }
     
     init {
@@ -66,6 +74,7 @@ class OpenComputers(
         ModDataComponents.register(modBus)
         ModSoundEvents.register(modBus)
         ModEntities.register(modBus)
+        ModLootModifiers.register(modBus)
         
         // Register event handlers
         modBus.addListener(this::commonSetup)

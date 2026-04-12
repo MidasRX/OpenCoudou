@@ -286,3 +286,32 @@ object Tier {
         else -> 0xDDDDDD   // Light gray
     }
 }
+
+/**
+ * Provides environments for items.
+ * 
+ * Environment providers are used to determine what kind of environment
+ * an item should create when placed in an Adapter slot.
+ */
+interface EnvironmentProvider {
+    /**
+     * Gets the environment class for an item stack.
+     * Return null if this provider doesn't handle the item.
+     */
+    fun getEnvironment(stack: ItemStack): Class<*>?
+}
+
+/**
+ * Simple block driver that checks block state instead of block entity.
+ */
+interface DriverBlockState {
+    /**
+     * Checks if this driver works with the block state.
+     */
+    fun worksWith(level: Level, pos: BlockPos, state: net.minecraft.world.level.block.state.BlockState): Boolean
+    
+    /**
+     * Creates an environment for the block.
+     */
+    fun createEnvironment(level: Level, pos: BlockPos, state: net.minecraft.world.level.block.state.BlockState): li.cil.oc.api.network.Environment?
+}

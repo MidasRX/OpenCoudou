@@ -1,0 +1,198 @@
+package li.cil.oc.server.component
+
+import li.cil.oc.server.machine.Machine
+import net.minecraft.world.item.ItemStack
+import java.util.UUID
+
+/**
+ * Server component - represents a server blade mounted in a server rack.
+ * 
+ * Servers are rack-mounted computers that:
+ * - Run independently within the rack
+ * - Can share components with other servers in the same rack
+ * - Have their own CPU, memory, and component slots
+ * - Support rack-to-rack connections via switches
+ */
+class ServerComponent(
+    private val tier: Int = 1,
+    private val slotInRack: Int = 0
+) : AbstractComponent("server") {
+    
+    // Server machine
+    private var machine: Machine? = null
+    private var machineInitialized = false
+    
+    // Server state
+    private var isRunning = false
+    private var lastTickTime = 0L
+    
+    // Energy
+    private var energy: Double = 0.0
+    private val maxEnergy: Double get() = when (tier) {
+        1 -> 10000.0
+        2 -> 15000.0
+        3 -> 25000.0
+        else -> 50000.0 // Creative
+    }
+    
+    // Mounted components (set during assembly)
+    private val components = mutableListOf<ItemStack>()
+    
+    // Component bus connectivity (number of external components)
+    private val maxComponents: Int get() = when (tier) {
+        1 -> 8
+        2 -> 12
+        3 -> 16
+        else -> 64
+    }
+    
+    // Rack reference (set by ServerRackBlockEntity)
+    var rackAddress: String? = null
+    
+    init {
+        // Register server methods
+        
+        registerMethod("start", doc = "start():boolean -- Starts the server.") { _ ->
+            arrayOf(start())
+        }
+        
+        registerMethod("stop", doc = "stop():boolean -- Stops the server.") { _ ->
+            arrayOf(stop())
+        }
+        
+        registerMethod("isRunning", doc = "isRunning():boolean -- Returns whether the server is running.") { _ ->
+            arrayOf(isRunning)
+        }
+        
+        registerMethod("slot", doc = "slot():number -- Returns the slot this server is in (0-3).") { _ ->
+            arrayOf(slotInRack)
+        }
+        
+        registerMethod("tier", doc = "tier():number -- Returns the server's tier.") { _ ->
+            arrayOf(tier)
+        }
+        
+        registerMethod("energy", doc = "energy():number -- Returns the current energy stored.") { _ ->
+            arrayOf(energy)
+        }
+        
+        registerMethod("maxEnergy", doc = "maxEnergy():number -- Returns the max energy capacity.") { _ ->
+            arrayOf(maxEnergy)
+        }
+        
+        registerMethod("componentCount", doc = "componentCount():number -- Returns the number of installed components.") { _ ->
+            arrayOf(components.size)
+        }
+        
+        registerMethod("maxComponents", doc = "maxComponents():number -- Returns max component slots for this tier.") { _ ->
+            arrayOf(maxComponents)
+        }
+    }
+    
+    // ==================== Machine Control ====================
+    
+    /**
+     * Starts the server.
+     */
+    fun start(): Boolean {
+        if (isRunning) return false
+        
+        if (!machineInitialized) {
+            initializeMachine()
+        }
+        
+        machine?.let { m ->
+            // Find EEPROM in components for BIOS
+            val biosCode = findBiosCode()
+            if (m.start(biosCode)) {
+                isRunning = true
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /**
+     * Stops the server.
+     */
+    fun stop(): Boolean {
+        if (!isRunning) return false
+        
+        machine?.shutdown()
+        isRunning = false
+        return true
+    }
+    
+    private fun initializeMachine() {
+        machine = Machine()
+        machineInitialized = true
+    }
+    
+    private fun findBiosCode(): String {
+        // Search components for EEPROM
+        // TODO: Read actual BIOS from EEPROM item
+        return ""
+    }
+    
+    // ==================== Energy ====================
+    
+    fun addEnergy(amount: Double): Double {
+        if (tier == 4) return amount // Creative ignores energy
+        
+        val toAdd = minOf(amount, maxEnergy - energy)
+        energy += toAdd
+        return toAdd
+    }
+    
+    fun useEnergy(amount: Double): Boolean {
+        if (tier == 4) return true // Creative has unlimited
+        
+        if (energy >= amount) {
+            energy -= amount
+            return true
+        }
+        return false
+    }
+    
+    // ==================== Components ====================
+    
+    fun addComponent(stack: ItemStack): Boolean {
+        if (components.size >= maxComponents) return false
+        components.add(stack.copy())
+        return true
+    }
+    
+    fun getComponents(): List<ItemStack> = components.toList()
+    
+    fun clearComponents() {
+        components.clear()
+    }
+    
+    // ==================== Tick ====================
+    
+    fun tick() {
+        if (!isRunning) return
+        
+        // Energy cost per tick based on tier
+        val energyPerTick = when (tier) {
+            1 -> 1.0
+            2 -> 1.5
+            3 -> 2.0
+            else -> 0.0
+        }
+        
+        if (!useEnergy(energyPerTick)) {
+            // Out of energy
+            stop()
+        }
+        
+        lastTickTime = System.currentTimeMillis()
+    }
+    
+    // ==================== Machine Access ====================
+    
+    fun getMachine(): Machine? = machine
+    
+    fun isServerRunning(): Boolean = isRunning
+}

@@ -1,0 +1,165 @@
+package li.cil.oc.client.renderer
+
+import com.mojang.blaze3d.vertex.PoseStack
+import com.mojang.blaze3d.vertex.VertexConsumer
+import li.cil.oc.common.blockentity.ServerRackBlockEntity
+import net.minecraft.client.renderer.MultiBufferSource
+import net.minecraft.client.renderer.RenderType
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
+import net.minecraft.core.Direction
+import net.minecraft.world.level.block.HorizontalDirectionalBlock
+import org.joml.Matrix4f
+
+/**
+ * Renderer for server rack block entities.
+ * Shows server modules in their slots with activity indicator lights.
+ */
+class RackRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRenderer<ServerRackBlockEntity> {
+    
+    companion object {
+        // Slot positions (relative to the front face)
+        private const val SLOT_START_Y = 0.125f  // Start from bottom
+        private const val SLOT_HEIGHT = 0.1875f  // Height of each slot
+        private const val SLOT_INSET = 0.01f     // Slightly inset from face
+        
+        // LED positions
+        private const val LED_SIZE = 0.03f
+        private const val LED_OFFSET_X = 0.85f   // Position from left edge
+        private const val LED_OFFSET_Z = -0.001f // Just in front of face
+        
+        // Colors
+        private const val COLOR_EMPTY = 0x404040       // Grey for empty slot
+        private const val COLOR_SERVER = 0x303030     // Dark grey for server present
+        private const val COLOR_LED_OFF = 0x1a1a1a    // LED off
+        private const val COLOR_LED_RUNNING = 0x00FF00 // Green LED for running
+        private const val COLOR_LED_IDLE = 0xFFAA00    // Orange LED for idle
+    }
+    
+    override fun render(
+        blockEntity: ServerRackBlockEntity,
+        partialTick: Float,
+        poseStack: PoseStack,
+        buffer: MultiBufferSource,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val level = blockEntity.level ?: return
+        val state = blockEntity.blockState
+        val facing = state.getValue(HorizontalDirectionalBlock.FACING)
+        
+        poseStack.pushPose()
+        poseStack.translate(0.5, 0.0, 0.5)
+        
+        // Rotate to face the correct direction
+        val rotation = when (facing) {
+            Direction.NORTH -> 180f
+            Direction.SOUTH -> 0f
+            Direction.WEST -> 90f
+            Direction.EAST -> -90f
+            else -> 0f
+        }
+        poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(rotation))
+        poseStack.translate(-0.5, 0.0, -0.5)
+        
+        val vertexConsumer = buffer.getBuffer(RenderType.solid())
+        val matrix = poseStack.last().pose()
+        val normalMatrix = poseStack.last().normal()
+        
+        // Render each server slot
+        for (slot in 0 until ServerRackBlockEntity.SLOT_COUNT) {
+            val server = blockEntity.getServer(slot)
+            val hasServer = server != null && !server.isEmpty
+            val y = SLOT_START_Y + slot * SLOT_HEIGHT
+            
+            // Render slot indicator
+            val slotColor = if (hasServer) COLOR_SERVER else COLOR_EMPTY
+            renderSlotIndicator(matrix, vertexConsumer, y, slotColor, packedLight, packedOverlay)
+            
+            // Render LED if server is present
+            if (hasServer) {
+                val gameTime = level.gameTime + partialTick
+                // Blink LED every second when running
+                val isRunning = blockEntity.isSideConnected(slot)
+                val ledColor = if (isRunning) {
+                    // Blink green when running
+                    if ((gameTime.toInt() / 10) % 2 == 0) COLOR_LED_RUNNING else COLOR_LED_OFF
+                } else {
+                    COLOR_LED_IDLE
+                }
+                renderLED(matrix, vertexConsumer, y + SLOT_HEIGHT / 2, ledColor, packedLight, packedOverlay)
+            }
+        }
+        
+        poseStack.popPose()
+    }
+    
+    private fun renderSlotIndicator(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        y: Float,
+        color: Int,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = ((color shr 16) and 0xFF) / 255f
+        val g = ((color shr 8) and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        
+        // Small indicator bar on the front face
+        val x1 = 0.1f
+        val x2 = 0.8f
+        val y1 = y + 0.02f
+        val y2 = y + SLOT_HEIGHT - 0.02f
+        val z = SLOT_INSET
+        
+        // Front face
+        buffer.addVertex(matrix, x1, y1, z).setColor(r, g, b, 1f)
+            .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x1, y2, z).setColor(r, g, b, 1f)
+            .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y2, z).setColor(r, g, b, 1f)
+            .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y1, z).setColor(r, g, b, 1f)
+            .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+    }
+    
+    private fun renderLED(
+        matrix: Matrix4f,
+        buffer: VertexConsumer,
+        yCenter: Float,
+        color: Int,
+        packedLight: Int,
+        packedOverlay: Int
+    ) {
+        val r = ((color shr 16) and 0xFF) / 255f
+        val g = ((color shr 8) and 0xFF) / 255f
+        val b = (color and 0xFF) / 255f
+        
+        val x1 = LED_OFFSET_X - LED_SIZE / 2
+        val x2 = LED_OFFSET_X + LED_SIZE / 2
+        val y1 = yCenter - LED_SIZE / 2
+        val y2 = yCenter + LED_SIZE / 2
+        val z = LED_OFFSET_Z
+        
+        // LED quad
+        buffer.addVertex(matrix, x1, y1, z).setColor(r, g, b, 1f)
+            .setUv(0f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x1, y2, z).setColor(r, g, b, 1f)
+            .setUv(0f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y2, z).setColor(r, g, b, 1f)
+            .setUv(1f, 1f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+        buffer.addVertex(matrix, x2, y1, z).setColor(r, g, b, 1f)
+            .setUv(1f, 0f).setOverlay(packedOverlay).setLight(packedLight)
+            .setNormal(0f, 0f, -1f)
+    }
+    
+    override fun shouldRenderOffScreen(blockEntity: ServerRackBlockEntity): Boolean = false
+}

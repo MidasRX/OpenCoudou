@@ -1,0 +1,29 @@
+{
+  "parent": "opencomputers:robot",
+  "display": {
+    "icon": {
+      "id": "opencomputers:dronecase1"
+    },
+    "title": {
+      "translate": "advancements.opencomputers.drone.title"
+    },
+    "description": {
+      "translate": "advancements.opencomputers.drone.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "craft_drone": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "opencomputers:drone_case1"
+          }
+        ]
+      }
+    }
+  }
+}

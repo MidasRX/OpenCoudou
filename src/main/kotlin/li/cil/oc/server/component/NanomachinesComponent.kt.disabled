@@ -6,7 +6,9 @@ import li.cil.oc.api.network.ComponentVisibility
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.effect.MobEffectInstance
-import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.effect.MobEffect
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -132,24 +134,31 @@ class NanomachinesComponent : ComponentBase("nanomachines") {
 class NanomachineHandler(private val player: Player) {
     private val enabledBehaviors = BooleanArray(NanomachinesComponent.MAX_BEHAVIORS)
     private var power = 100.0
+    
+    // Lookup effect by name from registry
+    private fun getEffect(name: String): MobEffect? {
+        val rl = ResourceLocation.withDefaultNamespace(name)
+        return BuiltInRegistries.MOB_EFFECT.getOptional(rl).orElse(null)
+    }
 
-    val behaviors = arrayOf(
-        { applyPotion(MobEffects.STRENGTH, 0) },        // 1: Strength
-        { applyPotion(MobEffects.MOVEMENT_SPEED, 0) },  // 2: Speed
-        { applyPotion(MobEffects.JUMP, 0) },            // 3: Jump Boost
-        { applyPotion(MobEffects.NIGHT_VISION, 0) },    // 4: Night Vision
-        { applyPotion(MobEffects.DIG_SPEED, 0) },       // 5: Haste
-        { applyPotion(MobEffects.WATER_BREATHING, 0) }, // 6: Water Breathing
-        { applyPotion(MobEffects.REGENERATION, 0) },    // 7: Regeneration
-        { applyPotion(MobEffects.FIRE_RESISTANCE, 0) }, // 8: Fire Resistance
-        { applyPotion(MobEffects.INVISIBILITY, 0) },    // 9: Invisibility
-        { applyPotion(MobEffects.ABSORPTION, 0) },      // 10: Absorption
-        { player.attackStrengthScale },                  // 11: Attack boost (semi-passive)
-        { applyPotion(MobEffects.SLOW_FALLING, 0) },    // 12: Slow fall
+    val behaviors = arrayOf<() -> Unit>(
+        { getEffect("strength")?.let { applyPotion(it, 0) } },        // 1: Strength
+        { getEffect("speed")?.let { applyPotion(it, 0) } },           // 2: Speed
+        { getEffect("jump_boost")?.let { applyPotion(it, 0) } },      // 3: Jump Boost
+        { getEffect("night_vision")?.let { applyPotion(it, 0) } },    // 4: Night Vision
+        { getEffect("haste")?.let { applyPotion(it, 0) } },           // 5: Haste
+        { getEffect("water_breathing")?.let { applyPotion(it, 0) } }, // 6: Water Breathing
+        { getEffect("regeneration")?.let { applyPotion(it, 0) } },    // 7: Regeneration
+        { getEffect("fire_resistance")?.let { applyPotion(it, 0) } }, // 8: Fire Resistance
+        { getEffect("invisibility")?.let { applyPotion(it, 0) } },    // 9: Invisibility
+        { getEffect("absorption")?.let { applyPotion(it, 0) } },      // 10: Absorption
+        { /* Attack boost - handled passively */ },                   // 11: Attack boost
+        { getEffect("slow_falling")?.let { applyPotion(it, 0) } },    // 12: Slow fall
     )
 
-    private fun applyPotion(effect: net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect>, amplifier: Int) {
-        player.addEffect(MobEffectInstance(effect, 3 * 20, amplifier, true, false))
+    private fun applyPotion(effect: MobEffect, amplifier: Int) {
+        val holder = BuiltInRegistries.MOB_EFFECT.wrapAsHolder(effect)
+        player.addEffect(MobEffectInstance(holder, 3 * 20, amplifier, true, false))
     }
 
     fun tick() {
