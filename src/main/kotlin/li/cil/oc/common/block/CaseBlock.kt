@@ -44,9 +44,16 @@ class CaseBlock(private val tier: Int, properties: Properties) : Block(propertie
         return CaseBlockEntity(pos, state).also { it.tier = tier }
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun <T : BlockEntity> getTicker(
         level: Level, state: BlockState, type: BlockEntityType<T>
-    ): BlockEntityTicker<T>? = null
+    ): BlockEntityTicker<T>? {
+        if (level.isClientSide) return null
+        if (type != ModBlockEntities.CASE.get()) return null
+        return BlockEntityTicker<T> { lvl, pos, st, be ->
+            CaseBlockEntity.tick(lvl, pos, st, be as CaseBlockEntity)
+        }
+    }
 
     override fun useWithoutItem(
         state: BlockState, level: Level, pos: BlockPos,

@@ -6,6 +6,7 @@ import li.cil.oc.api.machine.MachineState
 import li.cil.oc.api.network.Component
 import li.cil.oc.api.network.Node
 import li.cil.oc.common.init.ModBlockEntities
+import li.cil.oc.common.container.CaseMenu
 import li.cil.oc.server.machine.SimpleMachine
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
@@ -14,9 +15,11 @@ import net.minecraft.world.MenuProvider
 import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.AbstractContainerMenu
+import net.minecraft.world.inventory.ContainerLevelAccess
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
+import net.neoforged.neoforge.items.ItemStackHandler
 
 /**
  * Computer case block entity.
@@ -119,7 +122,15 @@ class CaseBlockEntity(
         containerId: Int,
         playerInventory: Inventory,
         player: Player
-    ): AbstractContainerMenu? = null // TODO: Implement menu
+    ): AbstractContainerMenu {
+        val lvl = level ?: return CaseMenu(containerId, playerInventory, ContainerLevelAccess.NULL, ItemStackHandler(10), tier)
+        return CaseMenu(
+            containerId, playerInventory,
+            ContainerLevelAccess.create(lvl, blockPos),
+            ItemStackHandler(10),
+            tier
+        )
+    }
     
     override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
         super.saveAdditional(tag, registries)
