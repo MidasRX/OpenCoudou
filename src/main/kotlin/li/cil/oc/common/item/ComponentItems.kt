@@ -17,7 +17,7 @@ import java.util.UUID
 abstract class TieredItem(
     properties: Properties,
     val tier: Int
-) : Item(properties) {
+) : Item(properties.stacksTo(1)) {
     
     companion object {
         val TIER_NAMES = arrayOf("Tier 1", "Tier 2", "Tier 3", "Creative")
@@ -167,7 +167,7 @@ class HDDItem(properties: Properties, tier: Int) : TieredItem(properties, tier) 
 /**
  * Floppy Disk item - removable storage.
  */
-class FloppyDiskItem(properties: Properties) : Item(properties) {
+class FloppyDiskItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     companion object {
         const val CAPACITY = 512 // 512 KB
@@ -203,7 +203,7 @@ class FloppyDiskItem(properties: Properties) : Item(properties) {
 /**
  * EEPROM item - contains boot code or BIOS.
  */
-class EEPROMItem(properties: Properties) : Item(properties) {
+class EEPROMItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     companion object {
         const val CODE_SIZE = 4096  // 4 KB for code
@@ -313,7 +313,7 @@ class NetworkCardItem(properties: Properties, tier: Int = 1) : TieredItem(proper
 /**
  * Internet Card item - enables HTTP requests and TCP connections.
  */
-class InternetCardItem(properties: Properties) : Item(properties) {
+class InternetCardItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     override fun appendHoverText(
         stack: ItemStack,

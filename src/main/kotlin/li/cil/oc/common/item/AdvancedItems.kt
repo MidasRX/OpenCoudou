@@ -16,7 +16,7 @@ import net.minecraft.world.level.Level
  * 
  * Tablets are assembled with components and provide a mobile computing experience.
  */
-class TabletItem(properties: Properties) : Item(properties) {
+class TabletItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     companion object {
         const val MAX_ENERGY = 10000.0
@@ -68,7 +68,7 @@ class TabletItem(properties: Properties) : Item(properties) {
 /**
  * Server item - rack-mounted computer.
  */
-class ServerItem(properties: Properties, val tier: Int) : Item(properties) {
+class ServerItem(properties: Properties, val tier: Int) : Item(properties.stacksTo(1)) {
     
     companion object {
         val TIER_COMPONENTS = mapOf(
@@ -112,7 +112,7 @@ class ServerItem(properties: Properties, val tier: Int) : Item(properties) {
 /**
  * Terminal Server item - provides remote terminals.
  */
-class TerminalServerItem(properties: Properties) : Item(properties) {
+class TerminalServerItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     companion object {
         const val MAX_TERMINALS = 4
@@ -134,7 +134,7 @@ class TerminalServerItem(properties: Properties) : Item(properties) {
 /**
  * Remote Terminal item - connects to terminal servers.
  */
-class RemoteTerminalItem(properties: Properties) : Item(properties) {
+class RemoteTerminalItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     override fun appendHoverText(
         stack: ItemStack,
@@ -225,7 +225,7 @@ class ComponentBusItem(properties: Properties, tier: Int) : TieredItem(propertie
 /**
  * Linked Card item - quantum-entangled network card pair.
  */
-class LinkedCardItem(properties: Properties) : Item(properties) {
+class LinkedCardItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     override fun appendHoverText(
         stack: ItemStack,
@@ -251,7 +251,7 @@ class LinkedCardItem(properties: Properties) : Item(properties) {
 /**
  * Debug Card item - creative-only debugging tool.
  */
-class DebugCardItem(properties: Properties) : Item(properties) {
+class DebugCardItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     override fun appendHoverText(
         stack: ItemStack,
@@ -298,7 +298,7 @@ class DataCardItem(properties: Properties, tier: Int) : TieredItem(properties, t
 /**
  * World Sensor Card item - reads various world data.
  */
-class WorldSensorCardItem(properties: Properties) : Item(properties) {
+class WorldSensorCardItem(properties: Properties) : Item(properties.stacksTo(1)) {
     
     override fun appendHoverText(
         stack: ItemStack,

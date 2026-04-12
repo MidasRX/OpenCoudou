@@ -41,6 +41,9 @@ class SimpleMachine(override val host: MachineHost) : Machine {
     override var totalMemory: Int = 256 * 1024
         private set
     
+    // Components installed in the case (set by CaseBlockEntity before start)
+    var installedComponents: InstalledComponents = InstalledComponents()
+    
     private var _cpuTime: Double = 0.0
     override val cpuTime: Double get() = _cpuTime
     
@@ -118,6 +121,9 @@ class SimpleMachine(override val host: MachineHost) : Machine {
         hasCrashed = false
         crashMessage = null
         signalQueue.clear()
+        
+        // Use actual memory from installed components
+        totalMemory = if (installedComponents.totalMemory > 0) installedComponents.totalMemory else 256 * 1024
         
         // Create LuaJ architecture
         val arch = SimpleLuaArchitecture(this)

@@ -6,7 +6,11 @@ import li.cil.oc.api.machine.MachineState
 import li.cil.oc.api.network.Component
 import li.cil.oc.api.network.Node
 import li.cil.oc.common.init.ModBlockEntities
+import li.cil.oc.common.init.ModItems
 import li.cil.oc.common.container.CaseMenu
+import li.cil.oc.common.container.CaseSlotConfig
+import li.cil.oc.common.item.*
+import li.cil.oc.server.machine.InstalledComponents
 import li.cil.oc.server.machine.SimpleMachine
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
@@ -71,6 +75,22 @@ class CaseBlockEntity(
         
         val m = _machine!!
         return if (m.state == MachineState.STOPPED || m.state == MachineState.CRASHED) {
+            // Scan inventory for installed components
+            val components = scanInventory()
+            
+            // Validate required components (like original OC)
+            if (components.cpuTier < 0) {
+                bootError = "No CPU installed"
+                return bootError
+            }
+            if (components.totalMemory <= 0) {
+                bootError = "No RAM installed"
+                return bootError
+            }
+            
+            // Pass component info to machine
+            m.installedComponents = components
+
             // Auto-connect nearby screens before starting
             connectNearbyScreens(m)
             if (!m.start()) {
@@ -85,6 +105,43 @@ class CaseBlockEntity(
             bootError = null
             null
         }
+    }
+
+    /**
+     * Scan the case inventory and determine what components are installed.
+     * This is used to validate booting and configure the machine.
+     */
+    private fun scanInventory(): InstalledComponents {
+        val slotDefs = CaseSlotConfig.getSlots(tier)
+        var cpuTier = -1
+        var totalMemory = 0
+        var gpuTier = -1
+        var hasEEPROM = false
+        val hddTiers = mutableListOf<Int>()
+        var hasFloppyDrive = false
+        
+        for (i in 0 until inventory.slots.coerceAtMost(slotDefs.size)) {
+            val stack = inventory.getStackInSlot(i)
+            if (stack.isEmpty) continue
+            val item = stack.item
+            
+            when (item) {
+                is CPUItem -> cpuTier = item.tier
+                is MemoryItem -> totalMemory += item.getMemorySize() * 1024
+                is GPUItem -> if (item.tier > gpuTier) gpuTier = item.tier
+                is HDDItem -> hddTiers.add(item.tier)
+                is EEPROMItem -> hasEEPROM = true
+                is FloppyDiskItem -> {} // Floppy disk in floppy slot
+            }
+        }
+        
+        return InstalledComponents(
+            cpuTier = cpuTier,
+            totalMemory = totalMemory,
+            gpuTier = gpuTier,
+            hddTiers = hddTiers,
+            hasEEPROM = hasEEPROM
+        )
     }
 
     private fun connectNearbyScreens(machine: SimpleMachine) {
@@ -115,7 +172,13 @@ class CaseBlockEntity(
     }
     
     fun dropContents(level: Level, pos: BlockPos) {
-        // TODO: Drop inventory contents
+        for (i in 0 until inventory.slots) {
+            val stack = inventory.getStackInSlot(i)
+            if (!stack.isEmpty) {
+                net.minecraft.world.Containers.dropItemStack(level, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(), stack)
+                inventory.setStackInSlot(i, net.minecraft.world.item.ItemStack.EMPTY)
+            }
+        }
     }
 
     override fun getDisplayName(): net.minecraft.network.chat.Component = 

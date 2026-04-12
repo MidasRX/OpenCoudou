@@ -147,17 +147,15 @@ class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
                 player.displayClientMessage(Component.translatable("message.opencomputers.screen.no_keyboard"), true)
             } else if (!isConnected) {
                 player.displayClientMessage(Component.translatable("message.opencomputers.screen.not_connected"), true)
-            } else {
-                // Screen is connected and has keyboard - ready for input
-                player.displayClientMessage(Component.translatable("message.opencomputers.screen.ready"), true)
             }
+            return InteractionResult.CONSUME
         } else {
             // Client side: open the terminal GUI to view screen and capture keyboard events
             net.minecraft.client.Minecraft.getInstance().setScreen(
                 li.cil.oc.client.gui.TerminalScreen(pos)
             )
+            return InteractionResult.SUCCESS
         }
-        return InteractionResult.SUCCESS
     }
 
     override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {

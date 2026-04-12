@@ -984,34 +984,57 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     }
 
     private fun registerVirtualComponents() {
-        // Register virtual gpu, screen, internet, eeprom components so Lua can find them
+        // Register components based on what's actually installed in the case
         val sm = machine as? SimpleMachine ?: return
+        val installed = sm.installedComponents
         val screen = findNearbyScreen()
-        val gpuAddr = "gpu-" + java.util.UUID.randomUUID().toString().take(4)
-        sm.registerComponent(gpuAddr, "gpu")
+
+        // GPU - only if a graphics card is installed
+        if (installed.gpuTier >= 0) {
+            val gpuAddr = "gpu-" + java.util.UUID.randomUUID().toString().take(4)
+            sm.registerComponent(gpuAddr, "gpu")
+        }
+
+        // Screen - if one is nearby
         if (screen != null) {
             sm.registerComponent(screen.address, "screen")
         }
+
+        // Internet card is always available for now
         val inetAddr = "inet-" + java.util.UUID.randomUUID().toString().take(4)
         sm.registerComponent(inetAddr, "internet")
-        val eepromAddr = "eeprom-" + java.util.UUID.randomUUID().toString().take(4)
-        sm.registerComponent(eepromAddr, "eeprom")
+
+        // EEPROM - only if installed
+        if (installed.hasEEPROM) {
+            val eepromAddr = "eeprom-" + java.util.UUID.randomUUID().toString().take(4)
+            sm.registerComponent(eepromAddr, "eeprom")
+        }
 
         // Filesystem components
-        // 1. tmpfs - small volatile storage (only create if not restored from save)
+        // 1. tmpfs - small volatile storage (always available)
         if (!filesystems.containsKey(tmpFsAddress)) {
             filesystems[tmpFsAddress] = VirtualFileSystem(capacity = 64 * 1024, readOnly = false, label = "tmpfs")
         }
         sm.registerComponent(tmpFsAddress, "filesystem")
 
-        // 2. Hard drive - writable persistent storage (only create if not restored from save)
-        if (!filesystems.containsKey(hardDriveAddress)) {
-            val hdd = VirtualFileSystem(capacity = 2 * 1024 * 1024, readOnly = false, label = "")
-            hdd.makeDirectory("home")
-            hdd.makeDirectory("tmp")
-            filesystems[hardDriveAddress] = hdd
+        // 2. Hard drive - only if HDD is installed
+        if (installed.hddTiers.isNotEmpty()) {
+            val hddCapacity = installed.hddTiers.maxOrNull()?.let { tier ->
+                when (tier) {
+                    0 -> 1L * 1024 * 1024   // 1 MB
+                    1 -> 2L * 1024 * 1024   // 2 MB
+                    2 -> 4L * 1024 * 1024   // 4 MB
+                    else -> 2L * 1024 * 1024
+                }
+            } ?: (2L * 1024 * 1024)
+            if (!filesystems.containsKey(hardDriveAddress)) {
+                val hdd = VirtualFileSystem(capacity = hddCapacity, readOnly = false, label = "")
+                hdd.makeDirectory("home")
+                hdd.makeDirectory("tmp")
+                filesystems[hardDriveAddress] = hdd
+            }
+            sm.registerComponent(hardDriveAddress, "filesystem")
         }
-        sm.registerComponent(hardDriveAddress, "filesystem")
 
         // 3. Loot disk - read-only OpenOS floppy
         val lootDisk = VirtualFileSystem(capacity = 2 * 1024 * 1024, readOnly = false, label = "OpenOS")
