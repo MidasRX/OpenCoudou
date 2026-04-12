@@ -27,7 +27,7 @@ object DataGenerators {
     
     @SubscribeEvent
     @JvmStatic
-    fun gatherData(event: GatherDataEvent) {
+    fun gatherData(event: GatherDataEvent.Client) {
         val generator = event.generator
         val output = generator.packOutput
         val lookupProvider = event.lookupProvider
