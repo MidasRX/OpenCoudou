@@ -33,6 +33,9 @@ class CaseBlockEntity(
     var tier: Int = 1
     var bootError: String? = null
     
+    // Persistent component inventory
+    val inventory = ItemStackHandler(10)
+    
     // The machine running in this computer
     private var _machine: SimpleMachine? = null
     val machine: Machine? get() = _machine
@@ -123,11 +126,11 @@ class CaseBlockEntity(
         playerInventory: Inventory,
         player: Player
     ): AbstractContainerMenu {
-        val lvl = level ?: return CaseMenu(containerId, playerInventory, ContainerLevelAccess.NULL, ItemStackHandler(10), tier)
+        val lvl = level ?: return CaseMenu(containerId, playerInventory, ContainerLevelAccess.NULL, inventory, tier)
         return CaseMenu(
             containerId, playerInventory,
             ContainerLevelAccess.create(lvl, blockPos),
-            ItemStackHandler(10),
+            inventory,
             tier
         )
     }
@@ -135,6 +138,7 @@ class CaseBlockEntity(
     override fun saveAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
         super.saveAdditional(tag, registries)
         tag.putInt("tier", tier)
+        tag.put("inventory", inventory.serializeNBT(registries))
         bootError?.let { tag.putString("bootError", it) }
         _machine?.let { machine ->
             val machineTag = CompoundTag()
@@ -146,6 +150,9 @@ class CaseBlockEntity(
     override fun loadAdditional(tag: CompoundTag, registries: HolderLookup.Provider) {
         super.loadAdditional(tag, registries)
         tier = tag.getInt("tier")
+        if (tag.contains("inventory")) {
+            inventory.deserializeNBT(registries, tag.getCompound("inventory"))
+        }
         bootError = if (tag.contains("bootError")) tag.getString("bootError") else null
         if (tag.contains("machine")) {
             if (_machine == null) {
