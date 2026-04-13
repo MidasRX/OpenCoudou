@@ -1210,10 +1210,22 @@ function shell.execute(cmd, ...)
       f:write(table.concat(captured))
       f:close()
     end
+    
+    -- Handle os.exit() terminated errors
+    if not ok and type(err2) == "table" and err2.reason == "terminated" then
+      return true, nil, err2.code or 0
+    end
     return ok, err2
   end
   
-  return pcall(fn, table.unpack(cleanArgs))
+  -- Run without redirection
+  local ok, err2 = pcall(fn, table.unpack(cleanArgs))
+  
+  -- Handle os.exit() terminated errors
+  if not ok and type(err2) == "table" and err2.reason == "terminated" then
+    return true, nil, err2.code or 0
+  end
+  return ok, err2
 end
 
 function shell.getShell()
@@ -2549,8 +2561,8 @@ end
 path = fs.canonical(path)
 
 if not fs.exists(path) then
-  print("ls: cannot access '" .. path .. "': No such file or directory")
-  return
+  io.stderr:write("ls: cannot access '" .. path .. "': No such file or directory\n")
+  return 1
 end
 
 if not fs.isDirectory(path) then
@@ -2622,6 +2634,7 @@ end
 local fs = require("filesystem")
 local shell = require("shell")
 local args, options = shell.parse(...)
+local exitCode = 0
 if #args == 0 then
   -- Read from stdin
   local lineNum = 0
@@ -2634,7 +2647,7 @@ if #args == 0 then
     end
     print(line)
   end
-  return
+  return 0
 end
 for _, file in ipairs(args) do
   local path = file
@@ -2644,7 +2657,8 @@ for _, file in ipairs(args) do
   path = fs.canonical(path)
   local f, err = fs.open(path, "r")
   if not f then
-    io.stderr:write("cat: " .. (err or "cannot open file") .. "\n")
+    io.stderr:write("cat: " .. file .. ": " .. (err or "No such file or directory") .. "\n")
+    exitCode = 1
   else
     if options.n then
       local content = ""
@@ -2670,6 +2684,7 @@ for _, file in ipairs(args) do
     end
   end
 end
+return exitCode
 """.trimIndent()
 
     val CP_LUA = """
@@ -2677,8 +2692,8 @@ local fs = require("filesystem")
 local shell = require("shell")
 local args, options = shell.parse(...)
 if #args < 2 then
-  print("Usage: cp [-r] <source> <target>")
-  return
+  io.stderr:write("Usage: cp [-r] <source> <target>\n")
+  return 1
 end
 local function resolve(p)
   if p:sub(1,1) ~= "/" then p = fs.concat(shell.getWorkingDirectory(), p) end
@@ -2705,71 +2720,115 @@ end
 local src = resolve(args[1])
 local dst = resolve(args[2])
 
+if not fs.exists(src) then
+  io.stderr:write("cp: cannot stat '" .. args[1] .. "': No such file or directory\n")
+  return 1
+end
+
 if fs.isDirectory(src) then
   if not options.r and not options.R then
-    print("cp: -r not specified; omitting directory '" .. args[1] .. "'")
+    io.stderr:write("cp: -r not specified; omitting directory '" .. args[1] .. "'\n")
     return 1
   end
   local ok, err = copyRecursive(src, dst)
-  if not ok then print("cp: " .. (err or "failed")) end
+  if not ok then
+    io.stderr:write("cp: " .. (err or "failed to copy") .. "\n")
+    return 1
+  end
 else
   local ok, err = fs.copy(src, dst)
-  if not ok then print("cp: " .. (err or "failed")) end
+  if not ok then
+    io.stderr:write("cp: " .. (err or "failed to copy") .. "\n")
+    return 1
+  end
 end
+return 0
 """.trimIndent()
 
     val MV_LUA = """
 local fs = require("filesystem")
 local args = {...}
 if #args < 2 then
-  print("Usage: mv <source> <target>")
-  return
+  io.stderr:write("Usage: mv <source> <target>\n")
+  return 1
 end
 local function resolve(p)
   if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
-local ok, err = fs.rename(resolve(args[1]), resolve(args[2]))
+local src = resolve(args[1])
+local dst = resolve(args[2])
+if not fs.exists(src) then
+  io.stderr:write("mv: cannot stat '" .. args[1] .. "': No such file or directory\n")
+  return 1
+end
+local ok, err = fs.rename(src, dst)
 if not ok then
   -- Try copy+delete
-  ok, err = fs.copy(resolve(args[1]), resolve(args[2]))
-  if ok then fs.remove(resolve(args[1])) end
+  ok, err = fs.copy(src, dst)
+  if ok then fs.remove(src) end
 end
-if not ok then print("mv: " .. (err or "failed")) end
+if not ok then
+  io.stderr:write("mv: " .. (err or "failed to move") .. "\n")
+  return 1
+end
+return 0
 """.trimIndent()
 
     val RM_LUA = """
 local fs = require("filesystem")
-local args = {...}
+local shell = require("shell")
+local args, options = shell.parse(...)
 if #args == 0 then
-  print("Usage: rm <path>")
-  return
+  io.stderr:write("Usage: rm [-rf] <path> [...]\n")
+  return 1
 end
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
+  if p:sub(1,1) ~= "/" then p = fs.concat(shell.getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
+local exitCode = 0
 for _, p in ipairs(args) do
-  if not fs.remove(resolve(p)) then
-    print("rm: cannot remove '" .. p .. "'")
+  local path = resolve(p)
+  if not fs.exists(path) then
+    if not options.f then
+      io.stderr:write("rm: cannot remove '" .. p .. "': No such file or directory\n")
+      exitCode = 1
+    end
+  elseif not fs.remove(path) then
+    io.stderr:write("rm: cannot remove '" .. p .. "': Permission denied\n")
+    exitCode = 1
   end
 end
+return exitCode
 """.trimIndent()
 
     val MKDIR_LUA = """
 local fs = require("filesystem")
-local args = {...}
+local shell = require("shell")
+local args, options = shell.parse(...)
 if #args == 0 then
-  print("Usage: mkdir <path>")
-  return
+  io.stderr:write("Usage: mkdir [-p] <path> [...]\n")
+  return 1
 end
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
+  if p:sub(1,1) ~= "/" then p = fs.concat(shell.getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
+local exitCode = 0
 for _, p in ipairs(args) do
-  fs.makeDirectory(resolve(p))
+  local path = resolve(p)
+  if fs.exists(path) then
+    if not options.p then
+      io.stderr:write("mkdir: cannot create directory '" .. p .. "': File exists\n")
+      exitCode = 1
+    end
+  elseif not fs.makeDirectory(path) then
+    io.stderr:write("mkdir: cannot create directory '" .. p .. "': Permission denied\n")
+    exitCode = 1
+  end
 end
+return exitCode
 """.trimIndent()
 
     val EDIT_LUA = """
@@ -3230,12 +3289,17 @@ if path:sub(1, 1) ~= "/" then
   path = fs.concat(shell.getWorkingDirectory(), path)
 end
 path = fs.canonical(path)
+if not fs.exists(path) then
+  io.stderr:write("cd: no such file or directory: " .. (args[1] or "") .. "\n")
+  return 1
+end
 if not fs.isDirectory(path) then
-  io.stderr:write("cd: no such directory: " .. path .. "\n")
-  return
+  io.stderr:write("cd: not a directory: " .. (args[1] or "") .. "\n")
+  return 1
 end
 os.setenv("PWD", path)
 os.setenv("PS1", path .. " # ")
+return 0
 """.trimIndent()
 
     val WGET_LUA = """
@@ -3243,8 +3307,8 @@ local fs = require("filesystem")
 local args = {...}
 
 if #args < 2 then
-  print("Usage: wget <url> <file>")
-  return
+  io.stderr:write("Usage: wget <url> <file>\n")
+  return 1
 end
 
 local url = args[1]
@@ -3256,24 +3320,30 @@ file = require("filesystem").canonical(file)
 
 local inet = component.list("internet")()
 if not inet then
-  print("Error: no internet card")
-  return
+  io.stderr:write("wget: no internet card\n")
+  return 1
 end
 
-print("Downloading " .. url .. " ...")
+io.write("Downloading " .. url .. " ...\n")
 local handle = component.invoke(inet, "request", url)
 if not handle then
-  print("Error: request failed")
-  return
+  io.stderr:write("wget: request failed\n")
+  return 1
 end
 
 local timeout = 0
 while true do
   local ok, err = handle.finishConnect()
   if ok then break end
-  if ok == nil then print("Error: " .. (err or "failed")); return end
+  if ok == nil then
+    io.stderr:write("wget: " .. (err or "connection failed") .. "\n")
+    return 1
+  end
   timeout = timeout + 1
-  if timeout > 200 then print("Error: timeout"); return end
+  if timeout > 200 then
+    io.stderr:write("wget: connection timeout\n")
+    return 1
+  end
   computer.pullSignal(0.05)
 end
 
@@ -3291,8 +3361,10 @@ if f then
   f:write(data)
   f:close()
   print("Saved to " .. file .. " (" .. #data .. " bytes)")
+  return 0
 else
-  print("Error: cannot write to " .. file)
+  io.stderr:write("wget: cannot write to " .. file .. "\n")
+  return 1
 end
 """.trimIndent()
 
@@ -3373,8 +3445,8 @@ local fs = require("filesystem")
 local shell = require("shell")
 local args, options = shell.parse(...)
 if #args < 1 then
-  print("Usage: grep [-invc] <pattern> [file...]")
-  return
+  io.stderr:write("Usage: grep [-invc] <pattern> [file...]\n")
+  return 2
 end
 local pattern = args[1]
 local files = {}
@@ -3392,6 +3464,9 @@ local function testMatch(line, pat)
   return found
 end
 
+local totalMatches = 0
+local hasErrors = false
+
 -- If no files given, read from stdin
 if #files == 0 then
   local count = 0
@@ -3402,6 +3477,7 @@ if #files == 0 then
     lineNum = lineNum + 1
     if testMatch(line, pattern) then
       count = count + 1
+      totalMatches = totalMatches + 1
       if not options.c then
         if options.n then
           io.write(tostring(lineNum) .. ":")
@@ -3411,7 +3487,7 @@ if #files == 0 then
     end
   end
   if options.c then print(count) end
-  return
+  return totalMatches > 0 and 0 or 1
 end
 
 local showFilename = #files > 1
@@ -3422,7 +3498,8 @@ for _, file in ipairs(files) do
   end
   local f = io.open(path, "r")
   if not f then
-    io.stderr:write("grep: " .. file .. ": No such file\n")
+    io.stderr:write("grep: " .. file .. ": No such file or directory\n")
+    hasErrors = true
   else
     local lineNum = 0
     local count = 0
@@ -3430,6 +3507,7 @@ for _, file in ipairs(files) do
       lineNum = lineNum + 1
       if testMatch(line, pattern) then
         count = count + 1
+        totalMatches = totalMatches + 1
         if not options.c then
           if showFilename then
             io.write(file .. ":")
@@ -3448,6 +3526,8 @@ for _, file in ipairs(files) do
     f:close()
   end
 end
+if hasErrors then return 2 end
+return totalMatches > 0 and 0 or 1
 """.trimIndent()
 
     // ================================================================
@@ -3479,8 +3559,8 @@ if #args > 0 then
   end
   local f = io.open(path, "r")
   if not f then
-    io.stderr:write("more: " .. args[1] .. ": No such file\n")
-    return
+    io.stderr:write("more: " .. args[1] .. ": No such file or directory\n")
+    return 1
   end
   for line in f:lines() do
     allLines[#allLines+1] = line
@@ -3645,28 +3725,62 @@ shell.saveAliases()
 """.trimIndent()
 
     val HEAD_LUA = """
+local fs = require("filesystem")
+local shell = require("shell")
 local args = {...}
 local n = 10
-local file = nil
-for _, a in ipairs(args) do
-  local num = tonumber(a:match("^%-(%d+)$"))
-  if num then n = num
-  elseif a == "-n" then -- next arg is count
-  else file = a end
+local files = {}
+local i = 1
+while i <= #args do
+  local a = args[i]
+  local num = a:match("^%-(%d+)$")
+  if num then
+    n = tonumber(num) or 10
+  elseif a == "-n" and i < #args then
+    i = i + 1
+    n = tonumber(args[i]) or 10
+  else
+    files[#files+1] = a
+  end
+  i = i + 1
 end
-if not file then
-  print("Usage: head [-n lines] <file>")
-  return
+if #files == 0 then
+  -- Read from stdin
+  local count = 0
+  while count < n do
+    local line = io.read("*l")
+    if not line then break end
+    print(line)
+    count = count + 1
+  end
+  return 0
 end
-local f = io.open(file, "r")
-if not f then print("head: " .. file .. ": No such file"); return end
-local count = 0
-for line in f:lines() do
-  print(line)
-  count = count + 1
-  if count >= n then break end
+local exitCode = 0
+for idx, file in ipairs(files) do
+  local path = file
+  if path:sub(1,1) ~= "/" then
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  local f = io.open(path, "r")
+  if not f then
+    io.stderr:write("head: " .. file .. ": No such file or directory\n")
+    exitCode = 1
+  else
+    if #files > 1 then
+      if idx > 1 then io.write("\n") end
+      io.write("==> " .. file .. " <==")
+      io.write("\n")
+    end
+    local count = 0
+    for line in f:lines() do
+      print(line)
+      count = count + 1
+      if count >= n then break end
+    end
+    f:close()
+  end
 end
-f:close()
+return exitCode
 """.trimIndent()
 
     val SHUTDOWN_LUA = """
@@ -4073,9 +4187,10 @@ if #args == 0 then
   end
   local l, w, c = countContent(content)
   print(string.format("%8d %8d %8d", l, w, c))
-  return
+  return 0
 end
 
+local exitCode = 0
 local totalL, totalW, totalC = 0, 0, 0
 for _, file in ipairs(args) do
   local path = file
@@ -4085,7 +4200,8 @@ for _, file in ipairs(args) do
   path = fs.canonical(path)
   local f = fs.open(path, "r")
   if not f then
-    io.stderr:write("wc: " .. file .. ": No such file\n")
+    io.stderr:write("wc: " .. file .. ": No such file or directory\n")
+    exitCode = 1
   else
     local content = ""
     while true do
@@ -4104,6 +4220,7 @@ end
 if #args > 1 then
   print(string.format("%8d %8d %8d total", totalL, totalW, totalC))
 end
+return exitCode
 """.trimIndent()
 
     // ================================================================
@@ -4114,7 +4231,7 @@ local fs = require("filesystem")
 local shell = require("shell")
 local args = {...}
 local n = 10
-local file = nil
+local files = {}
 local i = 1
 while i <= #args do
   if args[i] == "-n" and i < #args then
@@ -4124,33 +4241,53 @@ while i <= #args do
     n = tonumber(args[i]:match("^%-(%d+)${'$'}")) or 10
     i = i + 1
   else
-    if not file then file = args[i] end
+    files[#files+1] = args[i]
     i = i + 1
   end
 end
-if not file then
-  print("Usage: tail [-n lines] <file>")
-  return
+if #files == 0 then
+  -- Read from stdin
+  local lines = {}
+  while true do
+    local line = io.read("*l")
+    if not line then break end
+    lines[#lines+1] = line
+  end
+  local start = math.max(1, #lines - n + 1)
+  for j = start, #lines do
+    print(lines[j])
+  end
+  return 0
 end
-local path = file
-if path:sub(1,1) ~= "/" then
-  path = fs.concat(shell.getWorkingDirectory(), path)
+local exitCode = 0
+for idx, file in ipairs(files) do
+  local path = file
+  if path:sub(1,1) ~= "/" then
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  path = fs.canonical(path)
+  local f = io.open(path, "r")
+  if not f then
+    io.stderr:write("tail: " .. file .. ": No such file or directory\n")
+    exitCode = 1
+  else
+    if #files > 1 then
+      if idx > 1 then io.write("\n") end
+      io.write("==> " .. file .. " <==")
+      io.write("\n")
+    end
+    local lines = {}
+    for line in f:lines() do
+      lines[#lines+1] = line
+    end
+    f:close()
+    local start = math.max(1, #lines - n + 1)
+    for j = start, #lines do
+      print(lines[j])
+    end
+  end
 end
-path = fs.canonical(path)
-local f = io.open(path, "r")
-if not f then
-  io.stderr:write("tail: " .. file .. ": No such file\n")
-  return
-end
-local lines = {}
-for line in f:lines() do
-  lines[#lines+1] = line
-end
-f:close()
-local start = math.max(1, #lines - n + 1)
-for j = start, #lines do
-  print(lines[j])
-end
+return exitCode
 """.trimIndent()
 
     // ================================================================
