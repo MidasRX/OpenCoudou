@@ -647,7 +647,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                         "getSize", "getDataSize", "getChecksum")
                     "internet" -> listOf("isHttpEnabled", "isTcpEnabled", "request", "connect")
                     "redstone" -> listOf("getInput", "getOutput", "setOutput", "getBundledInput", "getBundledOutput", "setBundledOutput",
-                        "getComparatorInput", "setWakeThreshold", "getWakeThreshold", "setWirelessFrequency", "getWirelessFrequency", "getWirelessInput", "setWirelessOutput")
+                        "getComparatorInput", "setWakeThreshold", "getWakeThreshold", "setWirelessFrequency", "getWirelessFrequency", 
+                        "getWirelessInput", "getWirelessOutput", "setWirelessOutput")
                     "keyboard" -> listOf("getLayoutName", "setLayoutName", "getPressedKeys", "getPressedCodes",
                         "isAltDown", "isControl", "isControlDown", "isKeyDown", "isShiftDown")
                     "robot" -> listOf("move", "turn", "name", "detect", "use", "swing", "place", "drop", "suck",
@@ -1627,6 +1628,10 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     // Redstone Component API
     // ===========================
     private val redstoneOutput = IntArray(6) { 0 }
+    private val bundledOutput = Array(6) { IntArray(16) { 0 } }  // 6 sides x 16 colors
+    private var wakeThreshold = 0
+    private var wirelessFrequency = 0
+    private var wirelessOutput = false
 
     private fun handleRedstoneInvoke(method: String, args: List<Any?>): Varargs {
         return when (method) {
@@ -1674,9 +1679,137 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     if (s in 0..5) {
                         val old = redstoneOutput[s]
                         redstoneOutput[s] = value.toInt().coerceIn(0, 15)
+                        // Fire redstone_changed signal
+                        if (old != redstoneOutput[s]) {
+                            machine.signal("redstone_changed", s, old, redstoneOutput[s])
+                        }
                         LuaValue.valueOf(old)
                     } else LuaValue.valueOf(0)
                 } else LuaValue.valueOf(0)
+            }
+            // Bundled redstone (for Project Red, etc.) - stubbed
+            "getBundledInput" -> {
+                val side = args.getOrNull(0) as? Number
+                val color = args.getOrNull(1) as? Number
+                when {
+                    side != null && color != null -> {
+                        // getBundledInput(side, color) -> number
+                        LuaValue.valueOf(0)  // Bundled cables not implemented
+                    }
+                    side != null -> {
+                        // getBundledInput(side) -> table of 16 colors
+                        val t = LuaTable()
+                        for (c in 0..15) t.set(c, LuaValue.valueOf(0))
+                        t
+                    }
+                    else -> {
+                        // getBundledInput() -> table of 6 sides, each with 16 colors
+                        val t = LuaTable()
+                        for (s in 0..5) {
+                            val sideTable = LuaTable()
+                            for (c in 0..15) sideTable.set(c, LuaValue.valueOf(0))
+                            t.set(s, sideTable)
+                        }
+                        t
+                    }
+                }
+            }
+            "getBundledOutput" -> {
+                val side = args.getOrNull(0) as? Number
+                val color = args.getOrNull(1) as? Number
+                when {
+                    side != null && color != null -> {
+                        val s = side.toInt()
+                        val c = color.toInt()
+                        if (s in 0..5 && c in 0..15) {
+                            LuaValue.valueOf(bundledOutput[s][c])
+                        } else LuaValue.valueOf(0)
+                    }
+                    side != null -> {
+                        val s = side.toInt()
+                        val t = LuaTable()
+                        if (s in 0..5) {
+                            for (c in 0..15) t.set(c, LuaValue.valueOf(bundledOutput[s][c]))
+                        }
+                        t
+                    }
+                    else -> {
+                        val t = LuaTable()
+                        for (s in 0..5) {
+                            val sideTable = LuaTable()
+                            for (c in 0..15) sideTable.set(c, LuaValue.valueOf(bundledOutput[s][c]))
+                            t.set(s, sideTable)
+                        }
+                        t
+                    }
+                }
+            }
+            "setBundledOutput" -> {
+                val side = args.getOrNull(0) as? Number
+                val color = args.getOrNull(1) as? Number
+                val value = args.getOrNull(2) as? Number
+                if (side != null && color != null && value != null) {
+                    val s = side.toInt()
+                    val c = color.toInt()
+                    if (s in 0..5 && c in 0..15) {
+                        val old = bundledOutput[s][c]
+                        bundledOutput[s][c] = value.toInt().coerceIn(0, 255)
+                        if (old != bundledOutput[s][c]) {
+                            machine.signal("redstone_changed", s, old, bundledOutput[s][c], c)
+                        }
+                        LuaValue.valueOf(old)
+                    } else LuaValue.valueOf(0)
+                } else LuaValue.valueOf(0)
+            }
+            // Comparator input
+            "getComparatorInput" -> {
+                val side = args.getOrNull(0) as? Number
+                if (side != null) {
+                    val s = side.toInt()
+                    val level = machine.host.world()
+                    val pos = machine.host.hostPosition()
+                    if (level != null && s in 0..5) {
+                        val dir = net.minecraft.core.Direction.values()[s]
+                        val neighborPos = pos.relative(dir)
+                        val state = level.getBlockState(neighborPos)
+                        // Get analog (comparator) output from the neighbor block
+                        val signal = state.getAnalogOutputSignal(level, neighborPos)
+                        LuaValue.valueOf(signal)
+                    } else LuaValue.valueOf(0)
+                } else LuaValue.valueOf(0)
+            }
+            // Wake threshold - triggers computer wakeup when redstone crosses threshold
+            "getWakeThreshold" -> LuaValue.valueOf(wakeThreshold)
+            "setWakeThreshold" -> {
+                val threshold = args.getOrNull(0) as? Number
+                if (threshold != null) {
+                    val old = wakeThreshold
+                    wakeThreshold = threshold.toInt().coerceIn(0, 15)
+                    LuaValue.valueOf(old)
+                } else LuaValue.valueOf(wakeThreshold)
+            }
+            // Wireless redstone (for WR-CBE, etc.) - stubbed
+            "getWirelessInput" -> LuaValue.valueOf(false)  // No wireless mod support
+            "getWirelessOutput" -> LuaValue.valueOf(wirelessOutput)
+            "setWirelessOutput" -> {
+                val value = args.getOrNull(0)
+                val newValue = when (value) {
+                    is Boolean -> value
+                    is Number -> value.toInt() != 0
+                    else -> false
+                }
+                val old = wirelessOutput
+                wirelessOutput = newValue
+                LuaValue.valueOf(old)
+            }
+            "getWirelessFrequency" -> LuaValue.valueOf(wirelessFrequency)
+            "setWirelessFrequency" -> {
+                val freq = args.getOrNull(0) as? Number
+                if (freq != null) {
+                    val old = wirelessFrequency
+                    wirelessFrequency = freq.toInt()
+                    LuaValue.valueOf(old)
+                } else LuaValue.valueOf(wirelessFrequency)
             }
             else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such method: $method")))
         }
@@ -2874,6 +3007,17 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             "getInput" to "function([side:number]):number or table -- Returns the redstone input.",
             "getOutput" to "function([side:number]):number or table -- Returns the redstone output.",
             "setOutput" to "function(side:number, value:number):number -- Sets the redstone output.",
+            "getBundledInput" to "function([side:number[, color:number]]):number or table -- Returns bundled redstone input.",
+            "getBundledOutput" to "function([side:number[, color:number]]):number or table -- Returns bundled redstone output.",
+            "setBundledOutput" to "function(side:number, color:number, value:number):number -- Sets bundled redstone output.",
+            "getComparatorInput" to "function(side:number):number -- Returns comparator input from a side.",
+            "getWakeThreshold" to "function():number -- Returns the wake threshold.",
+            "setWakeThreshold" to "function(threshold:number):number -- Sets the wake threshold. Returns old value.",
+            "getWirelessInput" to "function():boolean -- Returns wireless redstone input.",
+            "getWirelessOutput" to "function():boolean -- Returns wireless redstone output.",
+            "setWirelessOutput" to "function(value:boolean):boolean -- Sets wireless redstone output. Returns old value.",
+            "getWirelessFrequency" to "function():number -- Returns wireless redstone frequency.",
+            "setWirelessFrequency" to "function(frequency:number):number -- Sets wireless frequency. Returns old value.",
             
             // Modem methods
             "isWireless" to "function():boolean -- Returns whether this is a wireless modem.",
