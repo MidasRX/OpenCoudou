@@ -108,6 +108,14 @@ object OpenOSContent {
         fs.writeFile("bin/true.lua", TRUE_LUA)
         fs.writeFile("bin/false.lua", FALSE_LUA)
         fs.writeFile("bin/rc.lua", RC_CMD_LUA)
+        fs.writeFile("bin/address.lua", ADDRESS_LUA)
+        fs.writeFile("bin/resolution.lua", RESOLUTION_LUA)
+        fs.writeFile("bin/flash.lua", FLASH_LUA)
+        fs.writeFile("bin/primary.lua", PRIMARY_LUA)
+        fs.writeFile("bin/uptime.lua", UPTIME_LUA)
+        fs.writeFile("bin/redstone.lua", REDSTONE_LUA)
+        fs.writeFile("bin/time.lua", TIME_LUA)
+        fs.writeFile("bin/source.lua", SOURCE_LUA)
 
         // ============ Config ============
         fs.writeFile("etc/profile.lua", PROFILE_LUA)
@@ -1374,6 +1382,76 @@ function shell.setWorkingDirectory(dir)
   os.setenv("PWD", dir)
 end
 
+-- Get info about currently running program
+local currentProgram = nil
+function shell.running(level)
+  return currentProgram
+end
+
+function shell.setRunning(path)
+  currentProgram = path
+end
+
+-- List available programs in PATH
+function shell.programs(includeHidden)
+  local result = {}
+  local seen = {}
+  local fs = require("filesystem")
+  local path = os.getenv("PATH") or "/bin"
+  for dir in path:gmatch("[^:]+") do
+    if fs.isDirectory(dir) then
+      for file in fs.list(dir) do
+        local name = file:gsub("%.lua${'$'}", "")
+        if not seen[name] then
+          if includeHidden or not name:match("^%.") then
+            result[#result + 1] = name
+            seen[name] = true
+          end
+        end
+      end
+    end
+  end
+  table.sort(result)
+  return result
+end
+
+-- Save aliases to file
+function shell.saveAliases()
+  local fs = require("filesystem")
+  local path = "/home/.aliases"
+  local f = fs.open(path, "w")
+  if f then
+    for k, v in pairs(aliases) do
+      f:write(k .. "=" .. v .. "\n")
+    end
+    f:close()
+    return true
+  end
+  return false
+end
+
+-- Load aliases from file
+function shell.loadAliases()
+  local fs = require("filesystem")
+  local path = "/home/.aliases"
+  if not fs.exists(path) then return end
+  local f = fs.open(path, "r")
+  if f then
+    local content = ""
+    repeat
+      local data = f:read(math.huge)
+      content = content .. (data or "")
+    until not data
+    f:close()
+    for line in content:gmatch("[^\r\n]+") do
+      local k, v = line:match("^([^=]+)=(.+)${'$'}")
+      if k and v then
+        aliases[k] = v
+      end
+    end
+  end
+end
+
 return shell
 """.trimIndent()
 
@@ -2596,17 +2674,48 @@ end
 
     val CP_LUA = """
 local fs = require("filesystem")
-local args = {...}
+local shell = require("shell")
+local args, options = shell.parse(...)
 if #args < 2 then
-  print("Usage: cp <source> <target>")
+  print("Usage: cp [-r] <source> <target>")
   return
 end
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
+  if p:sub(1,1) ~= "/" then p = fs.concat(shell.getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
-local ok, err = fs.copy(resolve(args[1]), resolve(args[2]))
-if not ok then print("cp: " .. (err or "failed")) end
+
+local function copyRecursive(src, dst)
+  if fs.isDirectory(src) then
+    if not fs.exists(dst) then
+      fs.makeDirectory(dst)
+    end
+    for file in fs.list(src) do
+      local srcPath = fs.concat(src, file)
+      local dstPath = fs.concat(dst, file)
+      local ok, err = copyRecursive(srcPath, dstPath)
+      if not ok then return nil, err end
+    end
+    return true
+  else
+    return fs.copy(src, dst)
+  end
+end
+
+local src = resolve(args[1])
+local dst = resolve(args[2])
+
+if fs.isDirectory(src) then
+  if not options.r and not options.R then
+    print("cp: -r not specified; omitting directory '" .. args[1] .. "'")
+    return 1
+  end
+  local ok, err = copyRecursive(src, dst)
+  if not ok then print("cp: " .. (err or "failed")) end
+else
+  local ok, err = fs.copy(src, dst)
+  if not ok then print("cp: " .. (err or "failed")) end
+end
 """.trimIndent()
 
     val MV_LUA = """
@@ -3510,7 +3619,7 @@ end
 local shell = require("shell")
 local args = {...}
 if #args == 0 then
-  for k, v in pairs(shell.aliases()) do
+  for k, v in shell.aliases() do
     print(k .. "=" .. v)
   end
 elseif #args == 1 then
@@ -3518,6 +3627,8 @@ elseif #args == 1 then
   if v then print(args[1] .. "=" .. v) else print("No alias: " .. args[1]) end
 elseif #args >= 2 then
   shell.setAlias(args[1], args[2])
+  -- Persist aliases to disk
+  shell.saveAliases()
 end
 """.trimIndent()
 
@@ -3529,6 +3640,8 @@ if #args == 0 then
   return
 end
 shell.setAlias(args[1], nil)
+-- Persist aliases to disk
+shell.saveAliases()
 """.trimIndent()
 
     val HEAD_LUA = """
@@ -3577,6 +3690,12 @@ if gpu then
   component.invoke(gpu, "setForeground", 0xFFFFFF)
 end
 os.setenv("PWD", "/home")
+
+-- Load user aliases
+local shell = require("shell")
+if shell.loadAliases then
+  pcall(shell.loadAliases)
+end
 """.trimIndent()
 
     // ================================================================
@@ -4910,6 +5029,441 @@ event.listen("init", function()
   
   return false -- unregister this listener
 end)
+""".trimIndent()
+
+    // ================================================================
+    // /bin/address.lua - Show component address by type
+    // ================================================================
+    val ADDRESS_LUA = """
+local args = {...}
+if #args == 0 then
+  -- Show computer address by default
+  io.write(computer.address() .. "\n")
+else
+  local ctype = args[1]
+  local addr = component.list(ctype)()
+  if addr then
+    io.write(addr .. "\n")
+  else
+    io.stderr:write("no component of type: " .. ctype .. "\n")
+    return 1
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/resolution.lua - Get/set GPU resolution
+    // ================================================================
+    val RESOLUTION_LUA = """
+local shell = require("shell")
+local term = require("term")
+local args = shell.parse(...)
+
+local gpu = component.list("gpu")()
+if not gpu then
+  io.stderr:write("no GPU available\n")
+  return 1
+end
+
+if #args == 0 then
+  local w, h = component.invoke(gpu, "getResolution")
+  io.write(w .. " " .. h .. "\n")
+  return
+end
+
+if #args ~= 2 then
+  io.write("Usage: resolution [<width> <height>]\n")
+  return 1
+end
+
+local w = tonumber(args[1])
+local h = tonumber(args[2])
+if not w or not h then
+  io.stderr:write("invalid width or height\n")
+  return 1
+end
+
+local ok, reason = component.invoke(gpu, "setResolution", w, h)
+if not ok then
+  if reason then
+    io.stderr:write(reason .. "\n")
+  end
+  return 1
+end
+term.clear()
+""".trimIndent()
+
+    // ================================================================
+    // /bin/flash.lua - Flash EEPROM
+    // ================================================================
+    val FLASH_LUA = """
+local shell = require("shell")
+local fs = require("filesystem")
+local args, options = shell.parse(...)
+
+if #args < 1 and not options.l and not options.r then
+  io.write("Usage: flash [-qlr] [<bios.lua>] [label]\n")
+  io.write(" q: quiet mode, don't ask questions.\n")
+  io.write(" l: print current contents of installed EEPROM.\n")
+  io.write(" r: save the current contents of installed EEPROM to file.\n")
+  return
+end
+
+local eeprom = component.list("eeprom")()
+if not eeprom then
+  io.stderr:write("no EEPROM found\n")
+  return 1
+end
+
+if options.l then
+  -- Print EEPROM contents
+  local data = component.invoke(eeprom, "get")
+  io.write(data or "")
+  return
+end
+
+if options.r then
+  -- Read EEPROM to file
+  if #args < 1 then
+    io.stderr:write("specify output file\n")
+    return 1
+  end
+  local fileName = shell.resolve(args[1]) or args[1]
+  if not options.q then
+    if fs.exists(fileName) then
+      io.write("Are you sure you want to overwrite " .. fileName .. "?\n")
+      io.write("Type 'y' to confirm: ")
+      local response = io.read()
+      if not response or response:lower():sub(1,1) ~= "y" then
+        return
+      end
+    end
+    io.write("Reading EEPROM " .. eeprom .. "\n")
+  end
+  local data = component.invoke(eeprom, "get")
+  local f = fs.open(fileName, "w")
+  if not f then
+    io.stderr:write("cannot open file for writing\n")
+    return 1
+  end
+  f:write(data or "")
+  f:close()
+  if not options.q then
+    local label = component.invoke(eeprom, "getLabel") or ""
+    io.write("All done! The label is '" .. label .. "'.\n")
+  end
+  return
+end
+
+-- Flash file to EEPROM
+local fileName = shell.resolve(args[1]) or args[1]
+if not fs.exists(fileName) then
+  io.stderr:write("file not found: " .. fileName .. "\n")
+  return 1
+end
+
+local f = fs.open(fileName, "r")
+if not f then
+  io.stderr:write("cannot open file\n")
+  return 1
+end
+local data = ""
+repeat
+  local chunk = f:read(math.huge)
+  data = data .. (chunk or "")
+until not chunk
+f:close()
+
+if not options.q then
+  io.write("Insert the EEPROM you would like to flash.\n")
+  io.write("Type 'y' to confirm: ")
+  local response = io.read()
+  if not response or response:lower():sub(1,1) ~= "y" then
+    return
+  end
+  io.write("Flashing EEPROM " .. eeprom .. "\n")
+  io.write("Please do NOT power down or restart during this operation!\n")
+end
+
+local ok, reason = component.invoke(eeprom, "set", data)
+if reason then
+  io.stderr:write("flash failed: " .. reason .. "\n")
+  return 1
+end
+
+local label = args[2]
+if not options.q and not label then
+  io.write("Enter new label (blank to keep current): ")
+  label = io.read()
+end
+if label and #label > 0 then
+  component.invoke(eeprom, "setLabel", label)
+  if not options.q then
+    io.write("Set label to '" .. component.invoke(eeprom, "getLabel") .. "'.\n")
+  end
+end
+
+if not options.q then
+  io.write("All done!\n")
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/primary.lua - Set primary component for a type
+    // ================================================================
+    val PRIMARY_LUA = """
+local shell = require("shell")
+local args = shell.parse(...)
+
+if #args == 0 then
+  io.write("Usage: primary <type> [<address>]\n")
+  io.write("Note that the address may be abbreviated.\n")
+  return 1
+end
+
+local componentType = args[1]
+
+if #args > 1 then
+  local address = args[2]
+  -- Find matching component
+  local found = nil
+  for addr in component.list(componentType) do
+    if addr:sub(1, #address) == address then
+      found = addr
+      break
+    end
+  end
+  if not found then
+    io.stderr:write("no component with this address\n")
+    return 1
+  end
+  component.setPrimary(componentType, found)
+  os.sleep(0.1) -- allow signals to be processed
+end
+
+-- Show current primary
+local primary = component.list(componentType)()
+if primary then
+  io.write(primary .. "\n")
+else
+  io.stderr:write("no primary component for this type\n")
+  return 1
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/uptime.lua - Show system uptime
+    // ================================================================
+    val UPTIME_LUA = """
+local seconds = math.floor(computer.uptime())
+local minutes, hours = 0, 0
+if seconds >= 60 then
+  minutes = math.floor(seconds / 60)
+  seconds = seconds % 60
+end
+if minutes >= 60 then
+  hours = math.floor(minutes / 60)
+  minutes = minutes % 60
+end
+io.write(string.format("%02d:%02d:%02d\n", hours, minutes, seconds))
+""".trimIndent()
+
+    // ================================================================
+    // /bin/redstone.lua - Redstone control
+    // ================================================================
+    val REDSTONE_LUA = """
+local colors = require("colors")
+local sides = require("sides")
+local shell = require("shell")
+local args, options = shell.parse(...)
+
+local rs = component.list("redstone")()
+if not rs then
+  io.stderr:write("This program requires a redstone card or redstone I/O block.\n")
+  return 1
+end
+
+if #args == 0 and not options.w and not options.f then
+  io.write("Usage:\n")
+  io.write("  redstone <side> [<value>]\n")
+  local hasBundled = pcall(component.invoke, rs, "getBundledInput", 0, 0)
+  if hasBundled then
+    io.write("  redstone -b <side> <color> [<value>]\n")
+  end
+  local hasWireless = pcall(component.invoke, rs, "getWirelessInput")
+  if hasWireless then
+    io.write("  redstone -w [<value>]\n")
+    io.write("  redstone -f [<frequency>]\n")
+  end
+  return
+end
+
+if options.w then
+  -- Wireless redstone
+  local hasWireless = pcall(component.invoke, rs, "setWirelessOutput", false)
+  if not hasWireless then
+    io.stderr:write("wireless redstone not available\n")
+    return 1
+  end
+  if #args > 0 then
+    local value = args[1]
+    if tonumber(value) then
+      value = tonumber(value) > 0
+    else
+      value = ({["true"]=true, ["on"]=true, ["yes"]=true})[value:lower()] ~= nil
+    end
+    component.invoke(rs, "setWirelessOutput", value)
+  end
+  local inVal = component.invoke(rs, "getWirelessInput")
+  local outVal = component.invoke(rs, "getWirelessOutput")
+  io.write("in: " .. tostring(inVal) .. "\n")
+  io.write("out: " .. tostring(outVal) .. "\n")
+  return
+end
+
+if options.f then
+  -- Wireless frequency
+  local ok = pcall(component.invoke, rs, "getWirelessFrequency")
+  if not ok then
+    io.stderr:write("wireless redstone not available\n")
+    return 1
+  end
+  if #args > 0 then
+    local value = tonumber(args[1])
+    if not value then
+      io.stderr:write("invalid frequency\n")
+      return 1
+    end
+    component.invoke(rs, "setWirelessFrequency", value)
+  end
+  local freq = component.invoke(rs, "getWirelessFrequency")
+  io.write("freq: " .. tostring(freq) .. "\n")
+  return
+end
+
+-- Normal redstone
+local side = sides[args[1]]
+if not side then
+  io.stderr:write("invalid side\n")
+  return 1
+end
+if type(side) == "string" then
+  side = sides[side]
+end
+
+if options.b then
+  -- Bundled redstone
+  local ok = pcall(component.invoke, rs, "getBundledInput", side, 0)
+  if not ok then
+    io.stderr:write("bundled redstone not available\n")
+    return 1
+  end
+  local color = colors[args[2]]
+  if not color then
+    io.stderr:write("invalid color\n")
+    return 1
+  end
+  if type(color) == "string" then
+    color = colors[color]
+  end
+  if #args > 2 then
+    local value = tonumber(args[3]) or 0
+    component.invoke(rs, "setBundledOutput", side, color, value)
+  end
+  local inVal = component.invoke(rs, "getBundledInput", side, color)
+  local outVal = component.invoke(rs, "getBundledOutput", side, color)
+  io.write("in: " .. tostring(inVal) .. "\n")
+  io.write("out: " .. tostring(outVal) .. "\n")
+else
+  -- Simple redstone
+  if #args > 1 then
+    local value = tonumber(args[2]) or 0
+    component.invoke(rs, "setOutput", side, value)
+  end
+  local inVal = component.invoke(rs, "getInput", side)
+  local outVal = component.invoke(rs, "getOutput", side)
+  io.write("in: " .. tostring(inVal) .. "\n")
+  io.write("out: " .. tostring(outVal) .. "\n")
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/time.lua - Time a command's execution
+    // ================================================================
+    val TIME_LUA = """
+local shell = require("shell")
+local args = {...}
+
+if #args == 0 then
+  io.write("Usage: time <command> [args...]\n")
+  return
+end
+
+local realBefore = computer.uptime()
+local cpuBefore = os.clock()
+
+-- Execute the command
+local cmd = args[1]
+local cmdArgs = {}
+for i = 2, #args do
+  cmdArgs[#cmdArgs + 1] = args[i]
+end
+shell.execute(cmd, table.unpack(cmdArgs))
+
+local realAfter = computer.uptime()
+local cpuAfter = os.clock()
+
+local realDiff = realAfter - realBefore
+local cpuDiff = cpuAfter - cpuBefore
+
+print(string.format("real %5dm%.3fs", math.floor(realDiff / 60), realDiff % 60))
+print(string.format("cpu  %5dm%.3fs", math.floor(cpuDiff / 60), cpuDiff % 60))
+""".trimIndent()
+
+    // ================================================================
+    // /bin/source.lua - Source a script file
+    // ================================================================
+    val SOURCE_LUA = """
+local shell = require("shell")
+local fs = require("filesystem")
+local args, options = shell.parse(...)
+
+if #args ~= 1 then
+  io.stderr:write("specify a single file to source\n")
+  return 1
+end
+
+local path = shell.resolve(args[1]) or args[1]
+if not fs.exists(path) then
+  if not options.q then
+    io.stderr:write("file not found: " .. args[1] .. "\n")
+  end
+  return 1
+end
+
+local f = fs.open(path, "r")
+if not f then
+  if not options.q then
+    io.stderr:write("cannot open file: " .. args[1] .. "\n")
+  end
+  return 1
+end
+
+local content = ""
+repeat
+  local data = f:read(math.huge)
+  content = content .. (data or "")
+until not data
+f:close()
+
+-- Execute each line as a shell command
+for line in content:gmatch("[^\r\n]+") do
+  line = line:match("^%s*(.-)%s*${'$'}") or ""
+  -- Skip empty lines and comments
+  if #line > 0 and line:sub(1, 1) ~= "#" then
+    shell.execute(line)
+  end
+end
 """.trimIndent()
 
 }
