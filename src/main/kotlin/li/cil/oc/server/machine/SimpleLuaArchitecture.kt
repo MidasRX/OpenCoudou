@@ -249,6 +249,24 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             override fun call(arg1: LuaValue, arg2: LuaValue): LuaValue = LuaValue.NIL
         })
 
+        // component.getPrimary(type) → proxy for first component of that type
+        comp.set("getPrimary", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue {
+                val type = arg.checkjstring()
+                val addr = machine.components.entries.firstOrNull { it.value == type }?.key
+                    ?: return LuaValue.NIL
+                return comp.get("proxy").call(LuaValue.valueOf(addr))
+            }
+        })
+
+        // component.isAvailable(type) → boolean
+        comp.set("isAvailable", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue {
+                val type = arg.checkjstring()
+                return LuaValue.valueOf(machine.components.values.any { it == type })
+            }
+        })
+
         g.set("component", comp)
     }
 
@@ -752,7 +770,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     val count = (args.getOrNull(1) as? Number)?.toInt() ?: Int.MAX_VALUE
                     val data = vfs.read(handle, count)
                     if (data != null && data.isNotEmpty()) {
-                        LuaValue.valueOf(String(data))
+                        LuaString.valueOf(data)
                     } else {
                         LuaValue.NIL
                     }

@@ -76,6 +76,9 @@ object OpenOSContent {
         fs.writeFile("bin/df.lua", DF_LUA)
         fs.writeFile("bin/sleep.lua", SLEEP_LUA)
         fs.writeFile("bin/wget.lua", WGET_LUA)
+        fs.writeFile("bin/lua.lua", LUA_LUA)
+        fs.writeFile("bin/grep.lua", GREP_LUA)
+        fs.writeFile("bin/more.lua", MORE_LUA)
 
         // ============ Config ============
         fs.writeFile("etc/profile.lua", PROFILE_LUA)
@@ -185,30 +188,54 @@ function require(name)
   if loading[name] then error("circular dependency: " .. name) end
   loading[name] = true
   
-  -- Try lib paths
+  -- Build search paths
+  local cwd = os.getenv and os.getenv("PWD") or "/"
   local paths = {
     "/lib/" .. name .. ".lua",
     "/lib/" .. name .. "/init.lua",
     "/usr/lib/" .. name .. ".lua",
+    "/usr/lib/" .. name .. "/init.lua",
+    "/home/lib/" .. name .. ".lua",
+    "/home/lib/" .. name .. "/init.lua",
+    cwd .. "/" .. name .. ".lua",
+    cwd .. "/" .. name .. "/init.lua",
   }
   
   local addr = computer.getBootAddress()
-  for _, path in ipairs(paths) do
-    local ok, handle = pcall(component.invoke, addr, "open", path)
-    if ok and handle then
+  local tryLoad = function(path)
+    -- Use filesystem lib if available
+    local fs = loaded["filesystem"]
+    if fs and fs.open then
+      local f = fs.open(path, "r")
+      if not f then return nil end
+      local buffer = ""
+      repeat
+        local data = f:read(math.huge)
+        buffer = buffer .. (data or "")
+      until not data
+      f:close()
+      return load(buffer, "=" .. path, "t", _G)
+    else
+      -- Fallback during early boot
+      local ok, handle = pcall(component.invoke, addr, "open", path)
+      if not ok or not handle then return nil end
       local buffer = ""
       repeat
         local data = component.invoke(addr, "read", handle, math.huge)
         buffer = buffer .. (data or "")
       until not data
       component.invoke(addr, "close", handle)
-      local fn, err = load(buffer, "=" .. path, "t", _G)
-      if fn then
-        local result = fn()
-        loaded[name] = result or true
-        loading[name] = nil
-        return loaded[name]
-      end
+      return load(buffer, "=" .. path, "t", _G)
+    end
+  end
+  
+  for _, path in ipairs(paths) do
+    local fn = tryLoad(path)
+    if fn then
+      local result = fn()
+      loaded[name] = result or true
+      loading[name] = nil
+      return loaded[name]
     end
   end
   
@@ -222,6 +249,7 @@ _G.require = require
 local env = {
   HOME = "/home",
   PATH = "/bin:/usr/bin",
+  PWD = "/home",
   PS1 = "/home # ",
   SHELL = "/bin/sh.lua",
   TMPDIR = "/tmp",
@@ -250,6 +278,36 @@ _G.print = function(...)
 end
 
 _G.loadfile = function(path)
+  -- Resolve relative paths
+  if path:sub(1, 1) ~= "/" then
+    path = (os.getenv("PWD") or "/") .. "/" .. path
+  end
+  -- Canonicalize path
+  local parts = {}
+  for part in path:gmatch("[^/]+") do
+    if part == ".." then
+      if #parts > 0 then table.remove(parts) end
+    elseif part ~= "." then
+      parts[#parts+1] = part
+    end
+  end
+  path = "/" .. table.concat(parts, "/")
+
+  -- Try loading through filesystem if available
+  local fs = loaded and loaded["filesystem"]
+  if fs and fs.open then
+    local f, err = fs.open(path, "r")
+    if not f then return nil, "file not found: " .. path end
+    local buffer = ""
+    repeat
+      local data = f:read(math.huge)
+      buffer = buffer .. (data or "")
+    until not data
+    f:close()
+    return load(buffer, "=" .. path, "t", _G)
+  end
+
+  -- Fallback to direct component access (during early boot)
   local addr = computer.getBootAddress()
   local ok, handle = pcall(component.invoke, addr, "open", path)
   if not ok or not handle then return nil, "file not found: " .. path end
@@ -516,6 +574,59 @@ return event
 local filesystem = {}
 local mounts = {}
 
+local function segments(path)
+  local parts = {}
+  for part in path:gmatch("[^\\/]+") do
+    local current, up = part:find("^%.?%.${'$'}")
+    if current then
+      if up == 2 then
+        table.remove(parts)
+      end
+    else
+      table.insert(parts, part)
+    end
+  end
+  return parts
+end
+
+function filesystem.canonical(path)
+  local result = table.concat(segments(path), "/")
+  if path:sub(1, 1) == "/" then
+    return "/" .. result
+  else
+    return result
+  end
+end
+
+function filesystem.segments(path)
+  return segments(path)
+end
+
+function filesystem.concat(...)
+  local set = table.pack(...)
+  for index, value in ipairs(set) do
+    if type(value) ~= "string" then
+      error("bad argument #" .. index .. " (string expected, got " .. type(value) .. ")")
+    end
+  end
+  return filesystem.canonical(table.concat(set, "/"))
+end
+
+function filesystem.path(path)
+  local parts = segments(path)
+  local result = table.concat(parts, "/", 1, #parts - 1) .. "/"
+  if path:sub(1, 1) == "/" and result:sub(1, 1) ~= "/" then
+    return "/" .. result
+  else
+    return result
+  end
+end
+
+function filesystem.name(path)
+  local parts = segments(path)
+  return parts[#parts]
+end
+
 function filesystem.mount(address, path)
   mounts[path] = address
   return true
@@ -548,18 +659,6 @@ local function resolve(path)
   end
   -- Fallback to boot address
   return computer.getBootAddress(), path
-end
-
-function filesystem.canonical(path)
-  local parts = {}
-  for part in path:gmatch("[^/]+") do
-    if part == ".." then
-      if #parts > 0 then table.remove(parts) end
-    elseif part ~= "." then
-      parts[#parts+1] = part
-    end
-  end
-  return "/" .. table.concat(parts, "/")
 end
 
 function filesystem.exists(path)
@@ -696,23 +795,134 @@ local aliases = {
   md = "mkdir",
 }
 
-function shell.resolve(cmd)
-  if cmd:sub(1,1) == "/" then return cmd end
-  local path = os.getenv("PATH") or "/bin"
-  for dir in path:gmatch("[^:]+") do
-    local full = dir .. "/" .. cmd .. ".lua"
-    if require("filesystem").exists(full) then
-      return full
-    end
-    -- Check alias
-    if aliases[cmd] then
-      full = dir .. "/" .. aliases[cmd] .. ".lua"
-      if require("filesystem").exists(full) then
-        return full
+function shell.getAlias(name)
+  return aliases[name]
+end
+
+function shell.setAlias(name, value)
+  aliases[name] = value
+end
+
+function shell.aliases()
+  return pairs(aliases)
+end
+
+function shell.getPath()
+  return os.getenv("PATH")
+end
+
+function shell.setPath(value)
+  os.setenv("PATH", value)
+end
+
+function shell.parse(...)
+  local params = table.pack(...)
+  local args = {}
+  local options = {}
+  local doneWithOptions = false
+  for i = 1, params.n do
+    local param = params[i]
+    if not doneWithOptions and type(param) == "string" then
+      if param == "--" then
+        doneWithOptions = true
+      elseif param:sub(1, 2) == "--" then
+        local key, value = param:match("%-%-(.-)=(.*)")
+        if not key then
+          key, value = param:sub(3), true
+        end
+        options[key] = value
+      elseif param:sub(1, 1) == "-" and param ~= "-" then
+        for j = 2, #param do
+          options[param:sub(j, j)] = true
+        end
+      else
+        table.insert(args, param)
       end
+    else
+      table.insert(args, param)
     end
   end
+  return args, options
+end
+
+function shell.resolve(cmd, ext)
+  if cmd:sub(1, 1) == "/" then
+    if require("filesystem").exists(cmd) then return cmd end
+    if ext and not cmd:match("%.%w+${'$'}") then
+      local full = cmd .. (ext or ".lua")
+      if require("filesystem").exists(full) then return full end
+    end
+    return cmd
+  end
+  
+  -- Check relative to working directory first
+  local fs = require("filesystem")
+  local cwd = shell.getWorkingDirectory()
+  local relPath = fs.concat(cwd, cmd)
+  if fs.exists(relPath) then return relPath end
+  if not cmd:match("%.%w+${'$'}") then
+    local relLua = relPath .. ".lua"
+    if fs.exists(relLua) then return relLua end
+  end
+  
+  -- Check alias
+  local alias = aliases[cmd]
+  if alias then
+    return shell.resolve(alias, ext)
+  end
+  
+  -- Search PATH
+  local path = os.getenv("PATH") or "/bin"
+  for dir in path:gmatch("[^:]+") do
+    local full = fs.concat(dir, cmd)
+    if fs.exists(full) then return full end
+    if not cmd:match("%.%w+${'$'}") then
+      local fullLua = full .. ".lua"
+      if fs.exists(fullLua) then return fullLua end
+    end
+  end
+  
   return nil
+end
+
+-- Tokenize a line respecting quotes
+local function tokenize(line)
+  local tokens = {}
+  local current = ""
+  local inQuote = nil
+  local i = 1
+  while i <= #line do
+    local c = line:sub(i, i)
+    if inQuote then
+      if c == inQuote then
+        inQuote = nil
+      elseif c == "\\" and i < #line then
+        i = i + 1
+        current = current .. line:sub(i, i)
+      else
+        current = current .. c
+      end
+    else
+      if c == '"' or c == "'" then
+        inQuote = c
+      elseif c == " " or c == "\t" then
+        if #current > 0 then
+          table.insert(tokens, current)
+          current = ""
+        end
+      elseif c == "\\" and i < #line then
+        i = i + 1
+        current = current .. line:sub(i, i)
+      else
+        current = current .. c
+      end
+    end
+    i = i + 1
+  end
+  if #current > 0 then
+    table.insert(tokens, current)
+  end
+  return tokens
 end
 
 function shell.execute(cmd, ...)
@@ -748,16 +958,15 @@ function shell.getShell()
     -- Main shell loop
     local shellHistory = {}
     while true do
-      local cwd = os.getenv("CWD") or "/home"
+      local cwd = os.getenv("PWD") or "/home"
       local prompt = cwd .. " # "
       term.write(prompt)
       local line = term.read(shellHistory)
       if line then
-        line = line:match("^%s*(.-)%s*$") or ""
+        line = line:match("^%s*(.-)%s*${'$'}") or ""
         if #line > 0 then
-          -- Parse command and args
-          local parts = {}
-          for w in line:gmatch("%S+") do parts[#parts+1] = w end
+          -- Tokenize with quote support
+          local parts = tokenize(line)
           local cmd = parts[1]
           
           if cmd == "exit" then
@@ -783,11 +992,11 @@ function shell.getShell()
 end
 
 function shell.getWorkingDirectory()
-  return os.getenv("CWD") or "/home"
+  return os.getenv("PWD") or "/home"
 end
 
 function shell.setWorkingDirectory(dir)
-  os.setenv("CWD", dir)
+  os.setenv("PWD", dir)
 end
 
 return shell
@@ -1016,6 +1225,7 @@ return text
     // ================================================================
     val IO_LUA = """
 local io = _G.io or {}
+local fs = require("filesystem")
 
 local stdout = {}
 function stdout:write(...)
@@ -1027,6 +1237,10 @@ function stdout:write(...)
 end
 function stdout:close() end
 function stdout:flush() end
+function stdout:lines() return function() return nil end end
+function stdout:read() return nil end
+function stdout:seek() return nil, "not seekable" end
+function stdout:setvbuf() end
 
 local stderr = {}
 function stderr:write(...)
@@ -1043,6 +1257,11 @@ function stderr:write(...)
   return self
 end
 function stderr:close() end
+function stderr:flush() end
+function stderr:lines() return function() return nil end end
+function stderr:read() return nil end
+function stderr:seek() return nil, "not seekable" end
+function stderr:setvbuf() end
 
 local stdin = {}
 function stdin:read(mode)
@@ -1051,14 +1270,108 @@ function stdin:read(mode)
     return term.read()
   elseif mode == "*a" or mode == "a" then
     return term.read()
+  elseif mode == "*n" or mode == "n" then
+    local s = term.read()
+    return tonumber(s)
   end
   return term.read()
 end
 function stdin:close() end
+function stdin:flush() end
+function stdin:lines()
+  return function()
+    return self:read("*l")
+  end
+end
+function stdin:write() return nil, "not writable" end
+function stdin:seek() return nil, "not seekable" end
+function stdin:setvbuf() end
 
 io.stdout = stdout
 io.stderr = stderr
 io.stdin = stdin
+
+-- Wrap a raw filesystem handle into a proper io file handle
+local function wrapHandle(rawHandle, mode)
+  local handle = {}
+  handle._raw = rawHandle
+  handle._closed = false
+
+  function handle:read(fmt)
+    if self._closed then return nil, "closed file" end
+    fmt = fmt or "*l"
+    if fmt == "*a" or fmt == "a" then
+      local chunks = {}
+      while true do
+        local data = self._raw:read(4096)
+        if not data then break end
+        chunks[#chunks+1] = data
+      end
+      return #chunks > 0 and table.concat(chunks) or nil
+    elseif fmt == "*l" or fmt == "l" then
+      local chars = {}
+      while true do
+        local ch = self._raw:read(1)
+        if not ch then
+          return #chars > 0 and table.concat(chars) or nil
+        end
+        if ch == "\n" then
+          return table.concat(chars)
+        end
+        chars[#chars+1] = ch
+      end
+    elseif fmt == "*n" or fmt == "n" then
+      local chars = {}
+      while true do
+        local ch = self._raw:read(1)
+        if not ch then break end
+        if ch:match("[%d%.%-eE]") then
+          chars[#chars+1] = ch
+        else
+          break
+        end
+      end
+      return tonumber(table.concat(chars))
+    elseif type(fmt) == "number" then
+      return self._raw:read(fmt)
+    end
+    return self._raw:read(4096)
+  end
+
+  function handle:write(...)
+    if self._closed then return nil, "closed file" end
+    for _, v in ipairs({...}) do
+      self._raw:write(tostring(v))
+    end
+    return self
+  end
+
+  function handle:close()
+    if self._closed then return end
+    self._closed = true
+    return self._raw:close()
+  end
+
+  function handle:flush()
+    return self
+  end
+
+  function handle:seek(whence, offset)
+    if self._closed then return nil, "closed file" end
+    return self._raw:seek(whence or "cur", offset or 0)
+  end
+
+  function handle:lines(fmt)
+    fmt = fmt or "*l"
+    return function()
+      return self:read(fmt)
+    end
+  end
+
+  function handle:setvbuf() end
+
+  return handle
+end
 
 function io.write(...)
   return stdout:write(...)
@@ -1069,8 +1382,80 @@ function io.read(mode)
 end
 
 function io.open(path, mode)
-  return require("filesystem").open(path, mode)
+  mode = mode or "r"
+  -- Resolve relative paths
+  if path:sub(1, 1) ~= "/" then
+    local shell = require("shell")
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  local rawHandle, err = fs.open(path, mode)
+  if not rawHandle then return nil, err end
+  return wrapHandle(rawHandle, mode)
 end
+
+function io.close(file)
+  if file then
+    return file:close()
+  end
+  return nil, "no file to close"
+end
+
+function io.flush()
+  return stdout:flush()
+end
+
+function io.lines(filename, fmt)
+  if filename then
+    local f, err = io.open(filename, "r")
+    if not f then error(err) end
+    fmt = fmt or "*l"
+    return function()
+      local line = f:read(fmt)
+      if not line then f:close() end
+      return line
+    end
+  else
+    return stdin:lines()
+  end
+end
+
+function io.type(obj)
+  if type(obj) ~= "table" then return nil end
+  if obj == stdout or obj == stderr or obj == stdin then return "file" end
+  if obj._raw then
+    if obj._closed then return "closed file" end
+    return "file"
+  end
+  return nil
+end
+
+function io.input(file)
+  if file then
+    if type(file) == "string" then
+      io.stdin = io.open(file, "r")
+    else
+      io.stdin = file
+    end
+  end
+  return io.stdin
+end
+
+function io.output(file)
+  if file then
+    if type(file) == "string" then
+      io.stdout = io.open(file, "w")
+    else
+      io.stdout = file
+    end
+  end
+  return io.stdout
+end
+
+function io.tmpfile()
+  return io.open("/tmp/.tmpfile_" .. math.floor(computer.uptime() * 1000), "w")
+end
+
+function io.popen() return nil, "not supported" end
 
 _G.io = io
 return io
@@ -1121,7 +1506,7 @@ if computer.tmpAddress then
   end
 end
 
-os.setenv("CWD", "/home")
+os.setenv("PWD", "/home")
 """.trimIndent()
 
     val BOOT_03_KEYBOARD = """
@@ -1160,11 +1545,12 @@ sh()
 
     val LS_LUA = """
 local fs = require("filesystem")
+local shell = require("shell")
 local term = require("term")
 local args = {...}
-local path = args[1] or (os.getenv("CWD") or "/")
+local path = args[1] or shell.getWorkingDirectory()
 if path:sub(1,1) ~= "/" then
-  path = (os.getenv("CWD") or "/") .. "/" .. path
+  path = fs.concat(shell.getWorkingDirectory(), path)
 end
 path = fs.canonical(path)
 
@@ -1194,6 +1580,7 @@ end
 
     val CAT_LUA = """
 local fs = require("filesystem")
+local shell = require("shell")
 local args = {...}
 if #args == 0 then
   print("Usage: cat <file>")
@@ -1201,7 +1588,7 @@ if #args == 0 then
 end
 local path = args[1]
 if path:sub(1,1) ~= "/" then
-  path = (os.getenv("CWD") or "/") .. "/" .. path
+  path = fs.concat(shell.getWorkingDirectory(), path)
 end
 path = fs.canonical(path)
 local f, err = fs.open(path, "r")
@@ -1225,7 +1612,7 @@ if #args < 2 then
   return
 end
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = (os.getenv("CWD") or "/") .. "/" .. p end
+  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
 local ok, err = fs.copy(resolve(args[1]), resolve(args[2]))
@@ -1240,7 +1627,7 @@ if #args < 2 then
   return
 end
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = (os.getenv("CWD") or "/") .. "/" .. p end
+  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
 local ok, err = fs.rename(resolve(args[1]), resolve(args[2]))
@@ -1260,7 +1647,7 @@ if #args == 0 then
   return
 end
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = (os.getenv("CWD") or "/") .. "/" .. p end
+  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
 for _, p in ipairs(args) do
@@ -1278,7 +1665,7 @@ if #args == 0 then
   return
 end
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = (os.getenv("CWD") or "/") .. "/" .. p end
+  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
 for _, p in ipairs(args) do
@@ -1295,7 +1682,7 @@ if #args == 0 then
   return
 end
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = (os.getenv("CWD") or "/") .. "/" .. p end
+  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
 local path = resolve(args[1])
@@ -1442,7 +1829,7 @@ local term = require("term")
 local args = {...}
 
 local function resolve(p)
-  if p:sub(1,1) ~= "/" then p = (os.getenv("CWD") or "/") .. "/" .. p end
+  if p:sub(1,1) ~= "/" then p = require("filesystem").concat(require("shell").getWorkingDirectory(), p) end
   return fs.canonical(p)
 end
 
@@ -1717,17 +2104,18 @@ print(table.concat(args, " "))
 
     val CD_LUA = """
 local fs = require("filesystem")
+local shell = require("shell")
 local args = {...}
 local path = args[1] or os.getenv("HOME") or "/"
 if path:sub(1, 1) ~= "/" then
-  path = (os.getenv("CWD") or "/") .. "/" .. path
+  path = fs.concat(shell.getWorkingDirectory(), path)
 end
 path = fs.canonical(path)
 if not fs.isDirectory(path) then
   io.stderr:write("cd: no such directory: " .. path .. "\n")
   return
 end
-os.setenv("CWD", path)
+os.setenv("PWD", path)
 """.trimIndent()
 
     val WGET_LUA = """
@@ -1742,9 +2130,9 @@ end
 local url = args[1]
 local file = args[2]
 if file:sub(1,1) ~= "/" then
-  file = (os.getenv("CWD") or "/") .. "/" .. file
+  file = require("filesystem").concat(require("shell").getWorkingDirectory(), file)
 end
-file = fs.canonical(file)
+file = require("filesystem").canonical(file)
 
 local inet = component.list("internet")()
 if not inet then
@@ -1789,6 +2177,170 @@ end
 """.trimIndent()
 
     // ================================================================
+    // /bin/lua.lua - Interactive Lua REPL
+    // ================================================================
+    val LUA_LUA = """
+local term = require("term")
+local args = {...}
+local shell = require("shell")
+local env = setmetatable({}, {__index = _G})
+
+print("Lua 5.3 interpreter. Type 'exit' to quit.")
+while true do
+  io.write("lua> ")
+  local line = term.read()
+  if not line then break end
+  line = line:match("^%s*(.-)%s*${'$'}") or ""
+  if line == "exit" or line == "quit" then break end
+  if #line > 0 then
+    -- Try as expression first
+    local fn, err = load("return " .. line, "=stdin", "t", env)
+    if not fn then
+      fn, err = load(line, "=stdin", "t", env)
+    end
+    if fn then
+      local results = table.pack(pcall(fn))
+      if results[1] then
+        if results.n > 1 then
+          local parts = {}
+          for i = 2, results.n do
+            parts[#parts+1] = tostring(results[i])
+          end
+          print(table.concat(parts, "\t"))
+        end
+      else
+        io.stderr:write(tostring(results[2]) .. "\n")
+      end
+    else
+      io.stderr:write(tostring(err) .. "\n")
+    end
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/grep.lua - Text search in files
+    // ================================================================
+    val GREP_LUA = """
+local fs = require("filesystem")
+local shell = require("shell")
+local args, options = shell.parse(...)
+if #args < 1 then
+  print("Usage: grep <pattern> [file...]")
+  return
+end
+local pattern = args[1]
+local files = {}
+for i = 2, #args do files[#files+1] = args[i] end
+
+-- If no files given, read from stdin
+if #files == 0 then
+  while true do
+    local line = io.read("*l")
+    if not line then break end
+    if line:find(pattern) then
+      print(line)
+    end
+  end
+  return
+end
+
+local showFilename = #files > 1
+for _, file in ipairs(files) do
+  local path = file
+  if path:sub(1,1) ~= "/" then
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  local f = io.open(path, "r")
+  if not f then
+    io.stderr:write("grep: " .. file .. ": No such file\n")
+  else
+    local lineNum = 0
+    for line in f:lines() do
+      lineNum = lineNum + 1
+      if line:find(pattern) then
+        if showFilename then
+          io.write(file .. ":")
+        end
+        if options.n then
+          io.write(tostring(lineNum) .. ":")
+        end
+        print(line)
+      end
+    end
+    f:close()
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/more.lua - Pager
+    // ================================================================
+    val MORE_LUA = """
+local fs = require("filesystem")
+local shell = require("shell")
+local term = require("term")
+local args = {...}
+local gpu = component.list("gpu")()
+local _, screenH = 25, 25
+if gpu then
+  _, screenH = component.invoke(gpu, "getResolution")
+end
+local pageSize = screenH - 1
+
+local function showPage(lines, start)
+  for i = start, math.min(start + pageSize - 1, #lines) do
+    print(lines[i])
+  end
+end
+
+local allLines = {}
+if #args > 0 then
+  local path = args[1]
+  if path:sub(1,1) ~= "/" then
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  local f = io.open(path, "r")
+  if not f then
+    io.stderr:write("more: " .. args[1] .. ": No such file\n")
+    return
+  end
+  for line in f:lines() do
+    allLines[#allLines+1] = line
+  end
+  f:close()
+else
+  -- Read from stdin
+  while true do
+    local line = io.read("*l")
+    if not line then break end
+    allLines[#allLines+1] = line
+  end
+end
+
+if #allLines <= pageSize then
+  for _, line in ipairs(allLines) do print(line) end
+  return
+end
+
+local pos = 1
+while pos <= #allLines do
+  showPage(allLines, pos)
+  pos = pos + pageSize
+  if pos <= #allLines then
+    io.write("-- More (" .. math.floor(pos / #allLines * 100) .. "%) --")
+    local event = require("event")
+    while true do
+      local _, _, _, code = event.pull("key_down")
+      if code == 28 or code == 57 then break end  -- Enter or Space
+      if code == 16 then return end  -- Q
+    end
+    print()
+  end
+end
+""".trimIndent()
+
+    // ================================================================
     // /etc/profile.lua
     // ================================================================
     val PROFILE_LUA = """
@@ -1807,7 +2359,7 @@ print("Note: Your home directory is readonly. Run 'install' and reboot.")
 if gpu then
   component.invoke(gpu, "setForeground", 0xFFFFFF)
 end
-os.setenv("CWD", "/home")
+os.setenv("PWD", "/home")
 """.trimIndent()
 
     // ================================================================
@@ -2019,14 +2571,14 @@ return colors
     // Additional commands
     // ================================================================
     val PWD_LUA = """
-print(os.getenv("CWD") or "/")
+print(os.getenv("PWD") or "/")
 """.trimIndent()
 
     val SET_LUA = """
 local args = {...}
 if #args == 0 then
   -- print all env vars (not possible to enumerate, just print known ones)
-  local known = {"HOME", "PATH", "PS1", "SHELL", "TMPDIR", "TERM", "CWD"}
+  local known = {"HOME", "PATH", "PS1", "SHELL", "TMPDIR", "TERM", "PWD"}
   for _, k in ipairs(known) do
     local v = os.getenv(k)
     if v then print(k .. "=" .. v) end
