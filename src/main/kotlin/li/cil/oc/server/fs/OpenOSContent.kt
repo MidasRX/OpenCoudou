@@ -49,6 +49,7 @@ object OpenOSContent {
         fs.writeFile("boot/00_base.lua", BOOT_00_BASE)
         fs.writeFile("boot/01_term.lua", BOOT_01_TERM)
         fs.writeFile("boot/02_fs.lua", BOOT_02_FS)
+        fs.writeFile("boot/03_keyboard.lua", BOOT_03_KEYBOARD)
 
         // ============ Programs ============
         fs.writeFile("bin/sh.lua", SH_LUA)
@@ -909,7 +910,7 @@ function term.read(history, dobreak)
     local sig, _, char, code = computer.pullSignal(0.5)
     
     if sig == "key_down" then
-      if char == 13 or code == 257 then -- Enter
+      if char == 13 or code == 28 then -- Enter
         redraw()
         cursorX = 1
         cursorY = cursorY + 1
@@ -920,30 +921,30 @@ function term.read(history, dobreak)
         return buffer
       elseif char == 4 then -- Ctrl+D
         if #buffer == 0 then return nil end
-      elseif char == 8 or code == 259 then -- Backspace
+      elseif char == 8 or code == 14 then -- Backspace
         if pos > 0 then
           buffer = buffer:sub(1, pos - 1) .. buffer:sub(pos + 1)
           pos = pos - 1
         end
-      elseif code == 261 then -- Delete
+      elseif code == 211 then -- Delete
         if pos < #buffer then
           buffer = buffer:sub(1, pos) .. buffer:sub(pos + 2)
         end
-      elseif code == 263 then -- Left
+      elseif code == 203 then -- Left
         if pos > 0 then pos = pos - 1 end
-      elseif code == 262 then -- Right
+      elseif code == 205 then -- Right
         if pos < #buffer then pos = pos + 1 end
-      elseif code == 268 then -- Home
+      elseif code == 199 then -- Home
         pos = 0
-      elseif code == 269 then -- End
+      elseif code == 207 then -- End
         pos = #buffer
-      elseif code == 265 then -- Up (history)
+      elseif code == 200 then -- Up (history)
         if histIdx > 1 then
           histIdx = histIdx - 1
           buffer = history[histIdx] or ""
           pos = #buffer
         end
-      elseif code == 264 then -- Down (history)
+      elseif code == 208 then -- Down (history)
         if histIdx <= #history then
           histIdx = histIdx + 1
           buffer = history[histIdx] or ""
@@ -1121,6 +1122,30 @@ if computer.tmpAddress then
 end
 
 os.setenv("CWD", "/home")
+""".trimIndent()
+
+    val BOOT_03_KEYBOARD = """
+-- Track keyboard pressed state
+local keyboard = require("keyboard")
+local event = require("event")
+
+event.listen("key_down", function(_, _, char, code)
+  if type(char) == "number" and char > 0 then
+    keyboard.pressedChars[char] = true
+  end
+  if type(code) == "number" then
+    keyboard.pressedCodes[code] = true
+  end
+end)
+
+event.listen("key_up", function(_, _, char, code)
+  if type(char) == "number" then
+    keyboard.pressedChars[char] = nil
+  end
+  if type(code) == "number" then
+    keyboard.pressedCodes[code] = nil
+  end
+end)
 """.trimIndent()
 
     // ================================================================
@@ -1340,14 +1365,14 @@ while true do
         component.invoke(gpu, "set", 1, h, " Saved!                    ")
         computer.pullSignal(0.5)
       end
-    elseif char == 13 or code == 257 then -- Enter
+    elseif char == 13 or code == 28 then -- Enter
       local rest = lines[curLine]:sub(curCol)
       lines[curLine] = lines[curLine]:sub(1, curCol - 1)
       table.insert(lines, curLine + 1, rest)
       curLine = curLine + 1
       curCol = 1
       draw()
-    elseif char == 8 or code == 259 then -- Backspace
+    elseif char == 8 or code == 14 then -- Backspace
       if curCol > 1 then
         lines[curLine] = lines[curLine]:sub(1, curCol - 2) .. lines[curLine]:sub(curCol)
         curCol = curCol - 1
@@ -1359,6 +1384,43 @@ while true do
         curLine = curLine - 1
         draw()
       end
+    elseif code == 203 then -- Left
+      if curCol > 1 then curCol = curCol - 1; draw() end
+    elseif code == 205 then -- Right
+      if curCol <= #lines[curLine] then curCol = curCol + 1; draw() end
+    elseif code == 200 then -- Up
+      if curLine > 1 then
+        curLine = curLine - 1
+        curCol = math.min(curCol, #lines[curLine] + 1)
+        draw()
+      end
+    elseif code == 208 then -- Down
+      if curLine < #lines then
+        curLine = curLine + 1
+        curCol = math.min(curCol, #lines[curLine] + 1)
+        draw()
+      end
+    elseif code == 199 then -- Home
+      curCol = 1; draw()
+    elseif code == 207 then -- End
+      curCol = #lines[curLine] + 1; draw()
+    elseif code == 211 then -- Delete
+      if curCol <= #lines[curLine] then
+        lines[curLine] = lines[curLine]:sub(1, curCol - 1) .. lines[curLine]:sub(curCol + 1)
+        draw()
+      elseif curLine < #lines then
+        lines[curLine] = lines[curLine] .. lines[curLine + 1]
+        table.remove(lines, curLine + 1)
+        draw()
+      end
+    elseif code == 201 then -- Page Up
+      curLine = math.max(1, curLine - (h - 2))
+      curCol = math.min(curCol, #lines[curLine] + 1)
+      draw()
+    elseif code == 209 then -- Page Down
+      curLine = math.min(#lines, curLine + (h - 2))
+      curCol = math.min(curCol, #lines[curLine] + 1)
+      draw()
     elseif char >= 32 and char < 127 then
       lines[curLine] = lines[curLine]:sub(1, curCol - 1) .. string.char(char) .. lines[curLine]:sub(curCol)
       curCol = curCol + 1
