@@ -129,6 +129,9 @@ while true do
       while true do
         term.write(os.getenv("PS1") or "# ")
         local line = term.read()
+        if line then
+          line = line:gsub("[\r\n]+${'$'}", "")
+        end
         if line and #line > 0 then
           local fn, err = load(line, "=stdin")
           if fn then
@@ -1094,6 +1097,35 @@ local function tokenize(line)
 end
 
 function shell.execute(cmd, ...)
+  local cmdArgs = {...}
+  
+  -- Check for output redirection in arguments
+  local redirectFile = nil
+  local redirectAppend = false
+  local cleanArgs = {}
+  local i = 1
+  while i <= #cmdArgs do
+    local a = tostring(cmdArgs[i])
+    if a == ">>" then
+      redirectAppend = true
+      i = i + 1
+      if i <= #cmdArgs then redirectFile = tostring(cmdArgs[i]) end
+    elseif a == ">" then
+      redirectAppend = false
+      i = i + 1
+      if i <= #cmdArgs then redirectFile = tostring(cmdArgs[i]) end
+    elseif a:sub(1, 2) == ">>" then
+      redirectAppend = true
+      redirectFile = a:sub(3)
+    elseif a:sub(1, 1) == ">" then
+      redirectAppend = false
+      redirectFile = a:sub(2)
+    else
+      cleanArgs[#cleanArgs + 1] = cmdArgs[i]
+    end
+    i = i + 1
+  end
+  
   local path = shell.resolve(cmd)
   if not path then
     return false, cmd .. ": command not found"
@@ -1101,7 +1133,57 @@ function shell.execute(cmd, ...)
   local env = setmetatable({}, {__index = _G})
   local fn, err = loadfile(path, "t", env)
   if not fn then return false, err end
-  return pcall(fn, ...)
+  
+  if redirectFile then
+    -- Resolve redirect path
+    local fs = require("filesystem")
+    if redirectFile:sub(1, 1) ~= "/" then
+      redirectFile = fs.concat(shell.getWorkingDirectory(), redirectFile)
+    end
+    redirectFile = fs.canonical(redirectFile)
+    
+    -- Capture output by temporarily replacing print, io.write, term.write
+    local captured = {}
+    local oldPrint = _G.print
+    local term = require("term")
+    local oldTermWrite = term.write
+    local ioLib = require("io")
+    local oldIoWrite = ioLib and ioLib.write
+    
+    local function capture(text)
+      captured[#captured + 1] = tostring(text)
+    end
+    
+    _G.print = function(...)
+      local args = table.pack(...)
+      local s = ""
+      for j = 1, args.n do
+        if j > 1 then s = s .. "\t" end
+        s = s .. tostring(args[j])
+      end
+      capture(s .. "\n")
+    end
+    term.write = function(text) capture(text) end
+    if ioLib then ioLib.write = function(text) capture(text) end end
+    
+    local ok, err2 = pcall(fn, table.unpack(cleanArgs))
+    
+    -- Restore
+    _G.print = oldPrint
+    term.write = oldTermWrite
+    if ioLib and oldIoWrite then ioLib.write = oldIoWrite end
+    
+    -- Write captured output to file
+    local mode = redirectAppend and "a" or "w"
+    local f = fs.open(redirectFile, mode)
+    if f then
+      f:write(table.concat(captured))
+      f:close()
+    end
+    return ok, err2
+  end
+  
+  return pcall(fn, table.unpack(cleanArgs))
 end
 
 function shell.getShell()
@@ -1132,6 +1214,8 @@ function shell.getShell()
       term.write(prompt)
       local line = term.read(shellHistory)
       if line then
+        -- Trim trailing newline/whitespace
+        line = line:gsub("[\r\n]+${'$'}", "")
         line = line:match("^%s*(.-)%s*${'$'}") or ""
         if #line > 0 then
           -- Tokenize with quote support
@@ -2171,7 +2255,7 @@ local function draw()
   component.invoke(gpu, "setBackground", 0x002244)
   component.invoke(gpu, "fill", 1, 1, w, 1, " ")
   component.invoke(gpu, "setForeground", 0x55CCFF)
-  component.invoke(gpu, "set", 1, 1, " EDIT: " .. path .. " | Ctrl+S save | Ctrl+Q quit")
+  component.invoke(gpu, "set", 1, 1, " EDIT: " .. path .. " | Ctrl+S save | Ctrl+W/Q quit")
   component.invoke(gpu, "setBackground", 0x000000)
   component.invoke(gpu, "setForeground", 0xFFFFFF)
   
@@ -2195,13 +2279,26 @@ while true do
   if sig == "key_down" then
     if code == 16 and char == 17 then -- Ctrl+Q (KEY_Q=16, ctrl char=17)
       break
+    elseif code == 17 and char == 23 then -- Ctrl+W (KEY_W=17, ctrl char=23)
+      break
     elseif code == 31 and char == 19 then -- Ctrl+S
-      local f = fs.open(path, "w")
+      local f, saveErr = fs.open(path, "w")
       if f then
         f:write(table.concat(lines, "\n"))
         f:close()
+        component.invoke(gpu, "setBackground", 0x222222)
+        component.invoke(gpu, "fill", 1, h, w, 1, " ")
         component.invoke(gpu, "set", 1, h, " Saved!                    ")
+        component.invoke(gpu, "setBackground", 0x000000)
         computer.pullSignal(0.5)
+      else
+        component.invoke(gpu, "setBackground", 0x222222)
+        component.invoke(gpu, "fill", 1, h, w, 1, " ")
+        component.invoke(gpu, "setForeground", 0xFF5555)
+        component.invoke(gpu, "set", 1, h, " Save failed: " .. tostring(saveErr or "unknown error"))
+        component.invoke(gpu, "setForeground", 0xFFFFFF)
+        component.invoke(gpu, "setBackground", 0x000000)
+        computer.pullSignal(1.5)
       end
     elseif char == 13 or code == 28 then -- Enter
       local rest = lines[curLine]:sub(curCol)

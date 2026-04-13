@@ -472,7 +472,75 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         })
 
         comp.set("getDeviceInfo", object : ZeroArgFunction() {
-            override fun call(): LuaValue = LuaTable()
+            override fun call(): LuaValue {
+                val result = LuaTable()
+                for ((addr, type) in machine.components) {
+                    val info = LuaTable()
+                    when (type) {
+                        "gpu" -> {
+                            info.set("class", LuaValue.valueOf("display"))
+                            info.set("description", LuaValue.valueOf("Graphics controller"))
+                            info.set("vendor", LuaValue.valueOf("MightyPirates GmbH & Co. KG"))
+                            info.set("product", LuaValue.valueOf("ATI Accelerated GPU"))
+                            info.set("capacity", LuaValue.valueOf("8"))
+                            info.set("width", LuaValue.valueOf("3"))
+                        }
+                        "screen" -> {
+                            info.set("class", LuaValue.valueOf("display"))
+                            info.set("description", LuaValue.valueOf("Text screen"))
+                            info.set("vendor", LuaValue.valueOf("MightyPirates GmbH & Co. KG"))
+                            info.set("product", LuaValue.valueOf("Hard-Mond T3"))
+                            info.set("width", LuaValue.valueOf("3"))
+                        }
+                        "filesystem" -> {
+                            info.set("class", LuaValue.valueOf("volume"))
+                            info.set("description", LuaValue.valueOf("Disk drive"))
+                            info.set("vendor", LuaValue.valueOf("MightyPirates GmbH & Co. KG"))
+                            info.set("product", LuaValue.valueOf("MightyHDD"))
+                            info.set("capacity", LuaValue.valueOf("2097152"))
+                        }
+                        "keyboard" -> {
+                            info.set("class", LuaValue.valueOf("input"))
+                            info.set("description", LuaValue.valueOf("Keyboard"))
+                            info.set("vendor", LuaValue.valueOf("MightyPirates GmbH & Co. KG"))
+                            info.set("product", LuaValue.valueOf("Keyboard"))
+                        }
+                        "computer" -> {
+                            info.set("class", LuaValue.valueOf("system"))
+                            info.set("description", LuaValue.valueOf("Computer"))
+                            info.set("vendor", LuaValue.valueOf("MightyPirates GmbH & Co. KG"))
+                            info.set("product", LuaValue.valueOf("Blocker T3"))
+                        }
+                        "internet" -> {
+                            info.set("class", LuaValue.valueOf("network"))
+                            info.set("description", LuaValue.valueOf("Internet card"))
+                            info.set("vendor", LuaValue.valueOf("MightyPirates GmbH & Co. KG"))
+                            info.set("product", LuaValue.valueOf("MPNet"))
+                        }
+                        "eeprom" -> {
+                            info.set("class", LuaValue.valueOf("memory"))
+                            info.set("description", LuaValue.valueOf("EEPROM"))
+                            info.set("vendor", LuaValue.valueOf("MightyPirates GmbH & Co. KG"))
+                            info.set("product", LuaValue.valueOf("FlashStick2k"))
+                            info.set("capacity", LuaValue.valueOf("4096"))
+                        }
+                        "redstone" -> {
+                            info.set("class", LuaValue.valueOf("redstone"))
+                            info.set("description", LuaValue.valueOf("Redstone I/O"))
+                            info.set("vendor", LuaValue.valueOf("MightyPirates GmbH & Co. KG"))
+                            info.set("product", LuaValue.valueOf("RS"))
+                        }
+                        else -> {
+                            info.set("class", LuaValue.valueOf("generic"))
+                            info.set("description", LuaValue.valueOf(type))
+                            info.set("vendor", LuaValue.valueOf("unknown"))
+                            info.set("product", LuaValue.valueOf(type))
+                        }
+                    }
+                    result.set(addr, info)
+                }
+                return result
+            }
         })
 
         comp.set("getProgramLocations", object : ZeroArgFunction() {
@@ -566,6 +634,10 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     private var gpuDepth: Int = 8
     private var viewportW: Int = -1  // -1 means same as resolution
     private var viewportH: Int = -1
+    private val gpuPalette = intArrayOf(
+        0x000000, 0x000040, 0x004000, 0x004040, 0x400000, 0x400040, 0x404000, 0xAAAAAA,
+        0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
+    )
 
     private fun setupGpuAPI() {
         val g = globals ?: return
@@ -662,19 +734,20 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         gpu.set("getPaletteColor", object : OneArgFunction() {
             override fun call(arg: LuaValue): LuaValue {
                 val index = arg.checkint()
-                // Default T3 palette: 16 colors
-                val defaultPalette = intArrayOf(
-                    0x000000, 0x000040, 0x004000, 0x004040, 0x400000, 0x400040, 0x404000, 0xAAAAAA,
-                    0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
-                )
-                return if (index in 0..15) LuaValue.valueOf(defaultPalette[index]) else LuaValue.valueOf(0)
+                return if (index in 0..15) LuaValue.valueOf(gpuPalette[index]) else LuaValue.valueOf(0)
             }
         })
 
         gpu.set("setPaletteColor", object : TwoArgFunction() {
             override fun call(arg1: LuaValue, arg2: LuaValue): LuaValue {
-                // Stub — palette customization not supported yet
-                return LuaValue.valueOf(arg2.checkint())
+                val index = arg1.checkint()
+                val color = arg2.checkint()
+                if (index in 0..15) {
+                    val old = gpuPalette[index]
+                    gpuPalette[index] = color
+                    return LuaValue.valueOf(old)
+                }
+                return LuaValue.valueOf(0)
             }
         })
 
