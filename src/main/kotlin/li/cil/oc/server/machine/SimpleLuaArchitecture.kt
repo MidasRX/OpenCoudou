@@ -545,7 +545,13 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         gpu.set("maxResolution", object : VarArgFunction() {
             override fun invoke(args: Varargs): Varargs {
-                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(160), LuaValue.valueOf(50)))
+                val screen = findNearbyScreen()
+                val sw = screen?.buffer?.width ?: 80
+                val sh = screen?.buffer?.height ?: 25
+                return LuaValue.varargsOf(arrayOf(
+                    LuaValue.valueOf(minOf(160, sw)),
+                    LuaValue.valueOf(minOf(50, sh))
+                ))
             }
         })
 
@@ -553,6 +559,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             override fun invoke(args: Varargs): Varargs {
                 val w = args.arg1().checkint()
                 val h = args.arg(2).checkint()
+                if (w < 1 || h < 1 || w > 160 || h > 50) {
+                    return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("unsupported resolution")))
+                }
                 val screen = findNearbyScreen()
                 if (screen != null) {
                     val oldW = screen.buffer.width
@@ -674,7 +683,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen()
                 val old = screen?.buffer?.foreground ?: 0xFFFFFF
                 if (screen != null) screen.buffer.foreground = color
-                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.FALSE))
+                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.NIL))
             }
         })
 
@@ -684,7 +693,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen()
                 val old = screen?.buffer?.background ?: 0x000000
                 if (screen != null) screen.buffer.background = color
-                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.FALSE))
+                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.NIL))
             }
         })
 
@@ -693,7 +702,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen()
                 return LuaValue.varargsOf(arrayOf(
                     LuaValue.valueOf(screen?.buffer?.foreground ?: 0xFFFFFF),
-                    LuaValue.FALSE
+                    LuaValue.NIL
                 ))
             }
         })
@@ -703,7 +712,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen()
                 return LuaValue.varargsOf(arrayOf(
                     LuaValue.valueOf(screen?.buffer?.background ?: 0x000000),
-                    LuaValue.FALSE
+                    LuaValue.NIL
                 ))
             }
         })
@@ -740,35 +749,53 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             "getAspectRatio" -> LuaValue.varargsOf(arrayOf(LuaValue.valueOf(1), LuaValue.valueOf(1)))
             "getKeyboards" -> {
                 val t = LuaTable()
-                // Return keyboard address if screen has one
                 screen.keyboardAddress?.let { t.set(1, LuaValue.valueOf(it)) }
                 t
             }
-            "turnOn" -> LuaValue.TRUE
-            "turnOff" -> LuaValue.TRUE
+            "turnOn" -> LuaValue.varargsOf(arrayOf(LuaValue.TRUE, LuaValue.TRUE))
+            "turnOff" -> LuaValue.varargsOf(arrayOf(LuaValue.TRUE, LuaValue.FALSE))
             "isOn" -> LuaValue.TRUE
-            "setPrecise" -> LuaValue.TRUE
+            "setPrecise" -> {
+                // Return old value (always false since we don't track it)
+                LuaValue.FALSE
+            }
             "isPrecise" -> LuaValue.FALSE
-            "setTouchModeInverted" -> LuaValue.TRUE
+            "setTouchModeInverted" -> {
+                LuaValue.FALSE
+            }
             "isTouchModeInverted" -> LuaValue.FALSE
             else -> LuaValue.NIL
         }
     }
 
+    private var eepromCode: String = BIOS_CODE
+    private var eepromLabel: String = "EEPROM"
+
     private fun handleEepromInvoke(method: String, args: List<Any?>): Varargs {
         return when (method) {
-            "get" -> LuaValue.valueOf("") // return empty BIOS code
-            "set" -> LuaValue.TRUE
-            "getLabel" -> LuaValue.valueOf("EEPROM")
-            "setLabel" -> LuaValue.TRUE
+            "get" -> LuaValue.valueOf(eepromCode)
+            "set" -> {
+                eepromCode = args.getOrNull(0)?.toString() ?: ""
+                LuaValue.NONE
+            }
+            "getLabel" -> LuaValue.valueOf(eepromLabel)
+            "setLabel" -> {
+                eepromLabel = (args.getOrNull(0)?.toString() ?: "EEPROM").trim().take(24).ifEmpty { "EEPROM" }
+                LuaValue.valueOf(eepromLabel)
+            }
             "getData" -> LuaValue.valueOf(bootAddress ?: "")
             "setData" -> {
-                bootAddress = args.getOrNull(0)?.toString()
-                LuaValue.TRUE
+                val data = args.getOrNull(0)?.toString() ?: ""
+                if (data.length <= 256) bootAddress = data
+                LuaValue.NONE
             }
             "getSize" -> LuaValue.valueOf(4096)
             "getDataSize" -> LuaValue.valueOf(256)
-            "getChecksum" -> LuaValue.valueOf("00000000")
+            "getChecksum" -> {
+                val crc = java.util.zip.CRC32()
+                crc.update(eepromCode.toByteArray())
+                LuaValue.valueOf(String.format("%08x", crc.value))
+            }
             "makeReadonly" -> LuaValue.TRUE
             else -> LuaValue.NIL
         }
@@ -902,17 +929,32 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         val g = globals ?: return
         val inet = LuaTable()
 
-        // internet.request(url, [postData], [headers]) → handle
+        // internet.request(url, [postData], [headers], [method]) → handle
         inet.set("request", object : VarArgFunction() {
             override fun invoke(args: Varargs): Varargs {
                 val url = args.arg1().checkjstring()
                 val postData = if (args.narg() >= 2 && !args.arg(2).isnil()) args.arg(2).tojstring() else null
+                val headers = mutableMapOf<String, String>()
+                if (args.narg() >= 3 && args.arg(3).istable()) {
+                    val t = args.arg(3).checktable()
+                    var key: LuaValue = LuaValue.NIL
+                    while (true) {
+                        val n = t.next(key)
+                        if (n.arg1().isnil()) break
+                        key = n.arg1()
+                        headers[key.tojstring()] = n.arg(2).tojstring()
+                    }
+                }
+                val httpMethod = if (args.narg() >= 4 && !args.arg(4).isnil()) args.arg(4).tojstring() else null
 
                 // Return a response handle table
                 val handle = LuaTable()
                 var responseData: String? = null
                 var error: String? = null
                 var finished = false
+                var respCode = 0
+                var respMessage = ""
+                val respHeaders = LuaTable()
 
                 // Perform HTTP request on a background thread
                 val thread = Thread({
@@ -921,12 +963,22 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                         conn.connectTimeout = 10000
                         conn.readTimeout = 10000
                         conn.setRequestProperty("User-Agent", "OpenCoudou/3.0")
+                        for ((k, v) in headers) conn.setRequestProperty(k, v)
+                        if (httpMethod != null) conn.requestMethod = httpMethod
                         if (postData != null) {
-                            conn.requestMethod = "POST"
+                            if (httpMethod == null) conn.requestMethod = "POST"
                             conn.doOutput = true
                             conn.outputStream.use { it.write(postData.toByteArray()) }
                         }
-                        val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                        respCode = conn.responseCode
+                        respMessage = conn.responseMessage ?: ""
+                        conn.headerFields?.forEach { (k, v) ->
+                            if (k != null && v != null) {
+                                respHeaders.set(k, LuaValue.valueOf(v.joinToString(", ")))
+                            }
+                        }
+                        val stream = if (respCode in 200..299) conn.inputStream else conn.errorStream
+                        val reader = BufferedReader(InputStreamReader(stream ?: conn.inputStream))
                         responseData = reader.readText()
                         reader.close()
                         finished = true
@@ -972,9 +1024,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                             LuaValue.NIL, LuaValue.valueOf(error)
                         ))
                         return LuaValue.varargsOf(arrayOf(
-                            LuaValue.valueOf(200),
-                            LuaValue.valueOf("OK"),
-                            LuaTable()
+                            LuaValue.valueOf(respCode),
+                            LuaValue.valueOf(respMessage),
+                            respHeaders
                         ))
                     }
                 })
@@ -994,6 +1046,12 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         inet.set("isTcpEnabled", object : ZeroArgFunction() {
             override fun call(): LuaValue = LuaValue.FALSE
+        })
+
+        inet.set("connect", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("tcp connections are not available")))
+            }
         })
 
         g.set("internet", inet)
