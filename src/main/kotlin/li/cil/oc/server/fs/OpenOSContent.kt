@@ -40,6 +40,10 @@ object OpenOSContent {
         fs.writeFile("lib/term.lua", TERM_LUA)
         fs.writeFile("lib/text.lua", TEXT_LUA)
         fs.writeFile("lib/io.lua", IO_LUA)
+        fs.writeFile("lib/keyboard.lua", KEYBOARD_LUA)
+        fs.writeFile("lib/serialization.lua", SERIALIZATION_LUA)
+        fs.writeFile("lib/sides.lua", SIDES_LUA)
+        fs.writeFile("lib/colors.lua", COLORS_LUA)
 
         // ============ Boot scripts ============
         fs.writeFile("boot/00_base.lua", BOOT_00_BASE)
@@ -61,6 +65,15 @@ object OpenOSContent {
         fs.writeFile("bin/clear.lua", CLEAR_LUA)
         fs.writeFile("bin/echo.lua", ECHO_LUA)
         fs.writeFile("bin/cd.lua", CD_LUA)
+        fs.writeFile("bin/pwd.lua", PWD_LUA)
+        fs.writeFile("bin/set.lua", SET_LUA)
+        fs.writeFile("bin/which.lua", WHICH_LUA)
+        fs.writeFile("bin/hostname.lua", HOSTNAME_LUA)
+        fs.writeFile("bin/components.lua", COMPONENTS_LUA)
+        fs.writeFile("bin/label.lua", LABEL_LUA)
+        fs.writeFile("bin/free.lua", FREE_LUA)
+        fs.writeFile("bin/df.lua", DF_LUA)
+        fs.writeFile("bin/sleep.lua", SLEEP_LUA)
         fs.writeFile("bin/wget.lua", WGET_LUA)
 
         // ============ Config ============
@@ -1733,6 +1746,313 @@ if gpu then
   component.invoke(gpu, "setForeground", 0xFFFFFF)
 end
 os.setenv("CWD", "/home")
+""".trimIndent()
+
+    // ================================================================
+    // /lib/keyboard.lua - Keyboard constants
+    // ================================================================
+    val KEYBOARD_LUA = """
+local keyboard = {pressedChars = {}, pressedCodes = {}}
+
+keyboard.keys = {
+  c               = 0x2E,
+  d               = 0x20,
+  q               = 0x10,
+  w               = 0x11,
+  back            = 0x0E,
+  delete          = 0xD3,
+  down            = 0xD0,
+  enter           = 0x1C,
+  home            = 0xC7,
+  lcontrol        = 0x1D,
+  left            = 0xCB,
+  lmenu           = 0x38,
+  lshift          = 0x2A,
+  pageDown        = 0xD1,
+  pageUp          = 0xC9,
+  rcontrol        = 0x9D,
+  right           = 0xCD,
+  rmenu           = 0xB8,
+  rshift          = 0x36,
+  space           = 0x39,
+  tab             = 0x0F,
+  up              = 0xC8,
+  ["end"]         = 0xCF,
+  numpadenter     = 0x9C,
+  a               = 0x1E,
+  b               = 0x30,
+  e               = 0x12,
+  f               = 0x21,
+  g               = 0x22,
+  h               = 0x23,
+  i               = 0x17,
+  j               = 0x24,
+  k               = 0x25,
+  l               = 0x26,
+  m               = 0x32,
+  n               = 0x31,
+  o               = 0x18,
+  p               = 0x19,
+  r               = 0x13,
+  s               = 0x1F,
+  t               = 0x14,
+  u               = 0x16,
+  v               = 0x2F,
+  x               = 0x2D,
+  y               = 0x15,
+  z               = 0x2C,
+  F1              = 0x3B,
+  F2              = 0x3C,
+  F3              = 0x3D,
+  F4              = 0x3E,
+  F5              = 0x3F,
+  F6              = 0x40,
+  F7              = 0x41,
+  F8              = 0x42,
+  F9              = 0x43,
+  F10             = 0x44,
+  F11             = 0x57,
+  F12             = 0x58,
+}
+
+function keyboard.isAltDown()
+  return keyboard.pressedCodes[keyboard.keys.lmenu] or keyboard.pressedCodes[keyboard.keys.rmenu]
+end
+
+function keyboard.isControl(char)
+  return type(char) == "number" and (char < 0x20 or (char >= 0x7F and char <= 0x9F))
+end
+
+function keyboard.isControlDown()
+  return keyboard.pressedCodes[keyboard.keys.lcontrol] or keyboard.pressedCodes[keyboard.keys.rcontrol]
+end
+
+function keyboard.isKeyDown(charOrCode)
+  checkArg(1, charOrCode, "string", "number")
+  if type(charOrCode) == "string" then
+    return keyboard.pressedChars[charOrCode:byte()]
+  elseif type(charOrCode) == "number" then
+    return keyboard.pressedCodes[charOrCode]
+  end
+end
+
+function keyboard.isShiftDown()
+  return keyboard.pressedCodes[keyboard.keys.lshift] or keyboard.pressedCodes[keyboard.keys.rshift]
+end
+
+return keyboard
+""".trimIndent()
+
+    // ================================================================
+    // /lib/serialization.lua
+    // ================================================================
+    val SERIALIZATION_LUA = """
+local serialization = {}
+
+function serialization.serialize(value, pretty)
+  local seen = {}
+  local function ser(v, indent)
+    local t = type(v)
+    if t == "nil" then return "nil"
+    elseif t == "boolean" then return tostring(v)
+    elseif t == "number" then return tostring(v)
+    elseif t == "string" then return string.format("%q", v)
+    elseif t == "table" then
+      if seen[v] then return "{...}" end
+      seen[v] = true
+      local parts = {}
+      local indent2 = (indent or "") .. "  "
+      local isArray = #v > 0
+      if isArray then
+        for i = 1, #v do
+          parts[#parts + 1] = ser(v[i], indent2)
+        end
+      end
+      for k, val in pairs(v) do
+        if not (isArray and type(k) == "number" and k >= 1 and k <= #v) then
+          local key
+          if type(k) == "string" and k:match("^[%a_][%w_]*${'$'}") then
+            key = k
+          else
+            key = "[" .. ser(k, indent2) .. "]"
+          end
+          parts[#parts + 1] = key .. "=" .. ser(val, indent2)
+        end
+      end
+      if pretty then
+        return "{\n" .. indent2 .. table.concat(parts, ",\n" .. indent2) .. "\n" .. (indent or "") .. "}"
+      else
+        return "{" .. table.concat(parts, ",") .. "}"
+      end
+    else
+      return tostring(v)
+    end
+  end
+  return ser(value, "")
+end
+
+function serialization.unserialize(str)
+  local fn, err = load("return " .. str, "=unserialize", "t", {})
+  if fn then
+    local ok, result = pcall(fn)
+    if ok then return result end
+  end
+  return nil, err
+end
+
+return serialization
+""".trimIndent()
+
+    // ================================================================
+    // /lib/sides.lua
+    // ================================================================
+    val SIDES_LUA = """
+local sides = {
+  bottom = 0, down  = 0, negy = 0,
+  top    = 1, up    = 1, posy = 1,
+  back   = 2, north = 2, negz = 2,
+  front  = 3, south = 3, posz = 3,
+  right  = 4, west  = 4, negx = 4,
+  left   = 5, east  = 5, posx = 5,
+}
+sides[0] = "bottom"
+sides[1] = "top"
+sides[2] = "back"
+sides[3] = "front"
+sides[4] = "right"
+sides[5] = "left"
+return sides
+""".trimIndent()
+
+    // ================================================================
+    // /lib/colors.lua
+    // ================================================================
+    val COLORS_LUA = """
+local colors = {
+  white     = 0, orange    = 1, magenta   = 2, lightblue = 3,
+  yellow    = 4, lime      = 5, pink      = 6, gray      = 7,
+  silver    = 8, cyan      = 9, purple    = 10, blue      = 11,
+  brown     = 12, green     = 13, red       = 14, black     = 15,
+}
+colors[0]  = "white"
+colors[1]  = "orange"
+colors[2]  = "magenta"
+colors[3]  = "lightblue"
+colors[4]  = "yellow"
+colors[5]  = "lime"
+colors[6]  = "pink"
+colors[7]  = "gray"
+colors[8]  = "silver"
+colors[9]  = "cyan"
+colors[10] = "purple"
+colors[11] = "blue"
+colors[12] = "brown"
+colors[13] = "green"
+colors[14] = "red"
+colors[15] = "black"
+return colors
+""".trimIndent()
+
+    // ================================================================
+    // Additional commands
+    // ================================================================
+    val PWD_LUA = """
+print(os.getenv("CWD") or "/")
+""".trimIndent()
+
+    val SET_LUA = """
+local args = {...}
+if #args == 0 then
+  -- print all env vars (not possible to enumerate, just print known ones)
+  local known = {"HOME", "PATH", "PS1", "SHELL", "TMPDIR", "TERM", "CWD"}
+  for _, k in ipairs(known) do
+    local v = os.getenv(k)
+    if v then print(k .. "=" .. v) end
+  end
+elseif #args == 1 then
+  local k, v = args[1]:match("([^=]+)=(.*)")
+  if k then
+    os.setenv(k, v)
+  else
+    local val = os.getenv(args[1])
+    if val then print(args[1] .. "=" .. val) else print(args[1] .. " not set") end
+  end
+end
+""".trimIndent()
+
+    val WHICH_LUA = """
+local shell = require("shell")
+local args = {...}
+if #args == 0 then print("Usage: which <command>"); return end
+local path = shell.resolve(args[1])
+if path then print(path) else print(args[1] .. ": not found") end
+""".trimIndent()
+
+    val HOSTNAME_LUA = """
+local args = {...}
+if #args > 0 then
+  os.setenv("HOSTNAME", args[1])
+else
+  print(os.getenv("HOSTNAME") or "localhost")
+end
+""".trimIndent()
+
+    val COMPONENTS_LUA = """
+for addr, ctype in component.list() do
+  print(addr:sub(1, 8) .. "... " .. ctype)
+end
+""".trimIndent()
+
+    val LABEL_LUA = """
+local args = {...}
+local fs = require("filesystem")
+if #args == 0 then
+  -- Show label of boot drive
+  local addr = computer.getBootAddress()
+  local label = ""
+  pcall(function() label = component.invoke(addr, "getLabel") or "" end)
+  print(addr:sub(1, 8) .. ": " .. (label ~= "" and label or "(no label)"))
+elseif #args == 2 then
+  local addr = args[1]
+  local label = args[2]
+  -- Find full address
+  for a, t in component.list("filesystem") do
+    if a:sub(1, #addr) == addr then
+      pcall(function() component.invoke(a, "setLabel", label) end)
+      print("Label set to: " .. label)
+      return
+    end
+  end
+  print("No filesystem found matching: " .. addr)
+else
+  print("Usage: label [<address> <name>]")
+end
+""".trimIndent()
+
+    val FREE_LUA = """
+local total = computer.totalMemory()
+local free = computer.freeMemory()
+local used = total - free
+print(string.format("Total: %d bytes", total))
+print(string.format("Used:  %d bytes (%.1f%%)", used, used / total * 100))
+print(string.format("Free:  %d bytes (%.1f%%)", free, free / total * 100))
+""".trimIndent()
+
+    val DF_LUA = """
+local fs = require("filesystem")
+print(string.format("%-12s %-10s %-10s %-10s %s", "Filesystem", "Total", "Used", "Free", "Mounted on"))
+for path, addr in fs.mounts() do
+  local total = fs.spaceTotal(path)
+  local used = fs.spaceUsed(path)
+  local free = total - used
+  print(string.format("%-12s %-10d %-10d %-10d %s", addr:sub(1, 8) .. "..", total, used, free, path))
+end
+""".trimIndent()
+
+    val SLEEP_LUA = """
+local args = {...}
+local seconds = tonumber(args[1]) or 1
+os.sleep(seconds)
 """.trimIndent()
 
 }

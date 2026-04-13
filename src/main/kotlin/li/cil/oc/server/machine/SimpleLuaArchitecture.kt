@@ -214,8 +214,34 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         // component.methods(address)
         comp.set("methods", object : OneArgFunction() {
             override fun call(arg: LuaValue): LuaValue {
-                return LuaTable() // stub
+                val addr = arg.checkjstring()
+                val type = machine.components[addr] ?: return LuaValue.NIL
+                val t = LuaTable()
+                val methods = when (type) {
+                    "gpu" -> listOf("bind", "getScreen", "getResolution", "setResolution", "maxResolution",
+                        "getDepth", "setDepth", "maxDepth", "get", "set", "fill", "copy", "getBackground",
+                        "setBackground", "getForeground", "setForeground", "getPaletteColor", "setPaletteColor",
+                        "getViewport", "setViewport")
+                    "screen" -> listOf("isOn", "turnOn", "turnOff", "getAspectRatio", "getKeyboards",
+                        "isPrecise", "setTouchModeInverted", "isTouchModeInverted")
+                    "filesystem" -> listOf("open", "close", "read", "write", "seek", "exists",
+                        "isDirectory", "list", "makeDirectory", "remove", "rename", "size",
+                        "lastModified", "spaceTotal", "spaceUsed", "isReadOnly", "getLabel", "setLabel")
+                    "computer" -> listOf("start", "stop", "isRunning", "beep")
+                    "eeprom" -> listOf("get", "set", "getLabel", "setLabel", "getData", "setData",
+                        "getSize", "getDataSize", "getChecksum")
+                    "internet" -> listOf("isHttpEnabled", "isTcpEnabled", "request", "connect")
+                    "keyboard" -> listOf()
+                    else -> listOf()
+                }
+                for (m in methods) t.set(m, LuaValue.TRUE)
+                return t
             }
+        })
+
+        // component.fields(address)
+        comp.set("fields", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue = LuaTable()
         })
 
         // component.doc(address, method)
@@ -432,7 +458,16 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val w = args.arg1().checkint()
                 val h = args.arg(2).checkint()
                 val screen = findNearbyScreen()
-                screen?.buffer?.resize(w, h)
+                if (screen != null) {
+                    val oldW = screen.buffer.width
+                    val oldH = screen.buffer.height
+                    if (w != oldW || h != oldH) {
+                        screen.buffer.resize(w, h)
+                        screen.setChanged()
+                        screen.markForSync()
+                        machine.signal("screen_resized", boundScreenAddr ?: "", w, h)
+                    }
+                }
                 return LuaValue.TRUE
             }
         })
@@ -447,6 +482,25 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         gpu.set("setDepth", object : OneArgFunction() {
             override fun call(arg: LuaValue): LuaValue = LuaValue.TRUE
+        })
+
+        gpu.set("getPaletteColor", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue {
+                val index = arg.checkint()
+                // Default T3 palette: 16 colors
+                val defaultPalette = intArrayOf(
+                    0x000000, 0x000040, 0x004000, 0x004040, 0x400000, 0x400040, 0x404000, 0xAAAAAA,
+                    0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
+                )
+                return if (index in 0..15) LuaValue.valueOf(defaultPalette[index]) else LuaValue.valueOf(0)
+            }
+        })
+
+        gpu.set("setPaletteColor", object : TwoArgFunction() {
+            override fun call(arg1: LuaValue, arg2: LuaValue): LuaValue {
+                // Stub — palette customization not supported yet
+                return LuaValue.valueOf(arg2.checkint())
+            }
         })
 
         gpu.set("set", object : VarArgFunction() {
@@ -889,6 +943,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val n = arg2.checkint()
                 return LuaValue.valueOf(s.take(n))
             }
+        })
+        uni.set("reverse", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue = LuaValue.valueOf(arg.checkjstring().reversed())
         })
         uni.set("isWide", object : OneArgFunction() {
             override fun call(arg: LuaValue): LuaValue = LuaValue.FALSE
