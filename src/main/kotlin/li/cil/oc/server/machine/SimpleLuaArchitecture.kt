@@ -1492,6 +1492,12 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     private var tmpFsAddress = java.util.UUID.randomUUID().toString().take(8)
     private var hardDriveAddress = java.util.UUID.randomUUID().toString()
     private var lootDiskAddress = java.util.UUID.randomUUID().toString()
+    // Virtual component addresses (persisted so they survive world save/load)
+    private var gpuAddress: String = ""
+    private var internetAddress: String = ""
+    private var redstoneAddress: String = ""
+    private var eepromAddress: String = ""
+    private val signalSemaphore = java.util.concurrent.Semaphore(0)
     private val filesystems = mutableMapOf<String, VirtualFileSystem>()
 
     override fun recomputeMemory(memory: Iterable<ItemStack>): Boolean = true
@@ -1549,24 +1555,38 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             val timeout = if (result.narg() >= 2 && result.arg(2).isnumber())
                 result.arg(2).todouble() else 1.0
 
-            // Check for shutdown/reboot signals
+            // Wait for signals with proper timeout (woken immediately by onSignal)
             val sm = machine as? SimpleMachine
-            val signal = sm?.pollSignal()
-            if (signal != null) {
-                if (signal.name == "__shutdown") return ExecutionResult.Shutdown
-                if (signal.name == "__reboot") {
-                    sm?.pendingReboot = true
+            val sleepMs = (timeout * 1000).toLong().coerceIn(0, 5000)
+            val deadline = System.currentTimeMillis() + sleepMs
+            var delivered = false
+            signalSemaphore.drainPermits()
+
+            do {
+                val signal = sm?.pollSignal()
+                if (signal != null) {
+                    if (signal.name == "__shutdown") return ExecutionResult.Shutdown
+                    if (signal.name == "__reboot") {
+                        sm?.pendingReboot = true
+                        return ExecutionResult.Shutdown
+                    }
+                    val sigArgs = mutableListOf<LuaValue>(LuaValue.valueOf(signal.name))
+                    signal.args.forEach { sigArgs.add(convertToLua(it)) }
+                    pendingSignal = LuaValue.varargsOf(sigArgs.toTypedArray())
+                    delivered = true
+                    break
+                }
+                val remaining = deadline - System.currentTimeMillis()
+                if (remaining <= 0) break
+                try {
+                    signalSemaphore.tryAcquire(minOf(remaining, 50), TimeUnit.MILLISECONDS)
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
                     return ExecutionResult.Shutdown
                 }
+            } while (true)
 
-                // Convert signal to Lua values
-                val sigArgs = mutableListOf<LuaValue>(LuaValue.valueOf(signal.name))
-                signal.args.forEach { sigArgs.add(convertToLua(it)) }
-                pendingSignal = LuaValue.varargsOf(sigArgs.toTypedArray())
-            } else {
-                // No signal - sleep briefly then resume with nil (timeout)
-                val sleepMs = (timeout * 1000).toLong().coerceIn(1, 1000)
-                Thread.sleep(minOf(sleepMs, 50))
+            if (!delivered) {
                 pendingSignal = LuaValue.NONE
             }
 
@@ -1589,8 +1609,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         // GPU - only if a graphics card is installed
         if (installed.gpuTier >= 0) {
-            val gpuAddr = "gpu-" + java.util.UUID.randomUUID().toString().take(4)
-            sm.registerComponent(gpuAddr, "gpu")
+            if (gpuAddress.isEmpty()) gpuAddress = "gpu-" + java.util.UUID.randomUUID().toString().take(8)
+            sm.registerComponent(gpuAddress, "gpu")
         }
 
         // Screen - if one is nearby
@@ -1602,17 +1622,17 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         }
 
         // Internet card is always available for now
-        val inetAddr = "inet-" + java.util.UUID.randomUUID().toString().take(4)
-        sm.registerComponent(inetAddr, "internet")
+        if (internetAddress.isEmpty()) internetAddress = "inet-" + java.util.UUID.randomUUID().toString().take(8)
+        sm.registerComponent(internetAddress, "internet")
 
         // Redstone - basic vanilla redstone I/O
-        val redstoneAddr = "redstone-" + java.util.UUID.randomUUID().toString().take(4)
-        sm.registerComponent(redstoneAddr, "redstone")
+        if (redstoneAddress.isEmpty()) redstoneAddress = "redstone-" + java.util.UUID.randomUUID().toString().take(8)
+        sm.registerComponent(redstoneAddress, "redstone")
 
         // EEPROM - only if installed
         if (installed.hasEEPROM) {
-            val eepromAddr = "eeprom-" + java.util.UUID.randomUUID().toString().take(4)
-            sm.registerComponent(eepromAddr, "eeprom")
+            if (eepromAddress.isEmpty()) eepromAddress = "eeprom-" + java.util.UUID.randomUUID().toString().take(8)
+            sm.registerComponent(eepromAddress, "eeprom")
         }
 
         // Filesystem components
@@ -1655,7 +1675,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     }
 
     override fun runSynchronized() {}
-    override fun onSignal() {}
+    override fun onSignal() {
+        signalSemaphore.release()
+    }
 
     fun saveData(tag: CompoundTag) {}
     fun loadData(tag: CompoundTag) {}
@@ -1666,6 +1688,24 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         tag.putString("tmpFsAddress", tmpFsAddress)
         tag.putString("hardDriveAddress", hardDriveAddress)
         tag.putString("lootDiskAddress", lootDiskAddress)
+
+        // Persist virtual component addresses (so they survive restart)
+        tag.putString("gpuAddress", gpuAddress)
+        tag.putString("internetAddress", internetAddress)
+        tag.putString("redstoneAddress", redstoneAddress)
+        tag.putString("eepromAddress", eepromAddress)
+
+        // Persist EEPROM state (user's BIOS code and label)
+        tag.putString("eepromCode", eepromCode)
+        tag.putString("eepromLabel", eepromLabel)
+
+        // Persist GPU/screen state
+        tag.putInt("gpuDepth", gpuDepth)
+        tag.putBoolean("screenIsOn", screenIsOn)
+        tag.putString("boundScreenAddr", boundScreenAddr ?: "")
+
+        // Persist redstone output levels
+        tag.putIntArray("redstoneOutput", redstoneOutput)
 
         // Persist the hard drive filesystem (the user's data)
         val hdd = filesystems[hardDriveAddress]
@@ -1690,6 +1730,32 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         if (ha.isNotEmpty()) hardDriveAddress = ha
         val la = tag.getString("lootDiskAddress")
         if (la.isNotEmpty()) lootDiskAddress = la
+
+        // Restore virtual component addresses
+        val ga = tag.getString("gpuAddress")
+        if (ga.isNotEmpty()) gpuAddress = ga
+        val ia = tag.getString("internetAddress")
+        if (ia.isNotEmpty()) internetAddress = ia
+        val ra = tag.getString("redstoneAddress")
+        if (ra.isNotEmpty()) redstoneAddress = ra
+        val ea = tag.getString("eepromAddress")
+        if (ea.isNotEmpty()) eepromAddress = ea
+
+        // Restore EEPROM state
+        if (tag.contains("eepromCode")) eepromCode = tag.getString("eepromCode")
+        if (tag.contains("eepromLabel")) eepromLabel = tag.getString("eepromLabel")
+
+        // Restore GPU/screen state
+        if (tag.contains("gpuDepth")) gpuDepth = tag.getInt("gpuDepth")
+        if (tag.contains("screenIsOn")) screenIsOn = tag.getBoolean("screenIsOn")
+        val bsa = tag.getString("boundScreenAddr")
+        if (bsa.isNotEmpty()) boundScreenAddr = bsa
+
+        // Restore redstone output
+        if (tag.contains("redstoneOutput")) {
+            val saved = tag.getIntArray("redstoneOutput")
+            if (saved.size == 6) saved.copyInto(redstoneOutput)
+        }
 
         // Restore hard drive filesystem
         if (tag.contains("hardDriveData")) {
