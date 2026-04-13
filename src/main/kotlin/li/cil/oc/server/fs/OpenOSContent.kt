@@ -885,6 +885,10 @@ function filesystem.rename(from, to)
 end
 
 function filesystem.copy(from, to)
+  -- Check if source is a directory (filesystem.copy only works on files)
+  if filesystem.isDirectory(from) then
+    return false, "cannot copy a directory"
+  end
   local fin = filesystem.open(from, "r")
   if not fin then return false, "source not found" end
   local fout = filesystem.open(to, "w")

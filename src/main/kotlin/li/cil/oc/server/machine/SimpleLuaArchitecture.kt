@@ -485,6 +485,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                         } else LuaValue.NONE
                     }
                 })
+                // Protect metatable from getmetatable() (returns "component" instead of real mt)
+                mt.set("__metatable", LuaValue.valueOf("component"))
                 table.setmetatable(mt)
                 return table
             }
@@ -611,6 +613,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                         }
                     }
                 })
+                // Protect metatable from getmetatable() (returns "component" instead of real mt)
+                mt.set("__metatable", LuaValue.valueOf("component"))
                 proxy.setmetatable(mt)
                 return proxy
             }
