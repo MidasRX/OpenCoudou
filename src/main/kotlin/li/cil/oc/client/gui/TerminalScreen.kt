@@ -191,6 +191,11 @@ class TerminalScreen(private val screenPos: BlockPos) : Screen(Component.literal
             pendingKeyCode = -1
         } else if (keyCode < 256 && (modifiers and (1 or 2 or 4)) == 0) {
             pendingKeyCode = keyCode
+        } else if (keyCode in 65..90 && (modifiers and 2) != 0) {
+            // Ctrl+letter: compute ASCII control character (Ctrl+A=1, Ctrl+B=2, etc.)
+            val ctrlChar = (keyCode - 64).toChar()
+            KeyboardInputHandler.sendKeyDown(ctrlChar, keyCode)
+            pendingKeyCode = -1
         } else {
             KeyboardInputHandler.sendKeyDown('\u0000', keyCode)
             pendingKeyCode = -1

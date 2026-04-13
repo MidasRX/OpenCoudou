@@ -136,6 +136,7 @@ class VirtualFileSystem(
         }
         val targetDir = targetParent as? VFSNode.Directory ?: return false
         fromParent.children.remove(fromName)
+        node.name = toName
         targetDir.children[toName] = node
         return true
     }
@@ -192,7 +193,10 @@ class VirtualFileSystem(
     fun write(handle: Int, data: ByteArray): Boolean {
         val fh = handles[handle] ?: return false
         if (!fh.writable) return false
-        if (spaceUsed + data.size > capacity && !readOnly) return false
+        val currentFileSize = fh.file.data.size.toLong()
+        val newFileSize = maxOf(currentFileSize, (fh.offset + data.size).toLong())
+        val sizeIncrease = newFileSize - currentFileSize
+        if (sizeIncrease > 0 && spaceUsed + sizeIncrease > capacity && !readOnly) return false
         val file = fh.file
         // Extend if needed
         while (file.data.size < fh.offset) file.data.add(0)
@@ -321,16 +325,16 @@ class VirtualFileSystem(
 }
 
 sealed class VFSNode {
-    abstract val name: String
+    abstract var name: String
 
     class File(
-        override val name: String,
+        override var name: String,
         val data: MutableList<Byte>,
         var lastModified: Long
     ) : VFSNode()
 
     class Directory(
-        override val name: String,
+        override var name: String,
         val children: MutableMap<String, VFSNode>
     ) : VFSNode()
 }

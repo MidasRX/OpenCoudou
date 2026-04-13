@@ -220,7 +220,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                             override fun invoke(args: Varargs): Varargs {
                                 val compInvoke = globals?.get("component")?.get("invoke") ?: return LuaValue.NIL
                                 val invokeArgs = arrayListOf<LuaValue>(LuaValue.valueOf(addr), LuaValue.valueOf(methodName))
-                                for (i in 1..args.narg()) invokeArgs.add(args.arg(i))
+                                // Skip first arg if it's the proxy table itself (colon syntax: proxy:method())
+                                val startIdx = if (args.narg() > 0 && args.arg(1).istable() && args.arg(1).get("address").tojstring() == addr) 2 else 1
+                                for (i in startIdx..args.narg()) invokeArgs.add(args.arg(i))
                                 return compInvoke.invoke(LuaValue.varargsOf(invokeArgs.toTypedArray()))
                             }
                         }

@@ -2077,7 +2077,7 @@ draw()
 while true do
   local sig, _, char, code = computer.pullSignal(0.5)
   if sig == "key_down" then
-    if code == 17 and char == 17 then -- Ctrl+Q
+    if code == 16 and char == 17 then -- Ctrl+Q (KEY_Q=16, ctrl char=17)
       break
     elseif code == 31 and char == 19 then -- Ctrl+S
       local f = fs.open(path, "w")
@@ -2093,6 +2093,7 @@ while true do
       table.insert(lines, curLine + 1, rest)
       curLine = curLine + 1
       curCol = 1
+      if curLine > scrollY + h - 2 then scrollY = curLine - (h - 2) end
       draw()
     elseif char == 8 or code == 14 then -- Backspace
       if curCol > 1 then
@@ -2104,6 +2105,7 @@ while true do
         lines[curLine - 1] = lines[curLine - 1] .. lines[curLine]
         table.remove(lines, curLine)
         curLine = curLine - 1
+        if curLine - 1 < scrollY then scrollY = curLine - 1 end
         draw()
       end
     elseif code == 203 then -- Left
@@ -2114,12 +2116,14 @@ while true do
       if curLine > 1 then
         curLine = curLine - 1
         curCol = math.min(curCol, #lines[curLine] + 1)
+        if curLine - 1 < scrollY then scrollY = curLine - 1 end
         draw()
       end
     elseif code == 208 then -- Down
       if curLine < #lines then
         curLine = curLine + 1
         curCol = math.min(curCol, #lines[curLine] + 1)
+        if curLine > scrollY + h - 2 then scrollY = curLine - (h - 2) end
         draw()
       end
     elseif code == 199 then -- Home
@@ -2138,10 +2142,13 @@ while true do
     elseif code == 201 then -- Page Up
       curLine = math.max(1, curLine - (h - 2))
       curCol = math.min(curCol, #lines[curLine] + 1)
+      scrollY = math.max(0, curLine - 1)
       draw()
     elseif code == 209 then -- Page Down
       curLine = math.min(#lines, curLine + (h - 2))
       curCol = math.min(curCol, #lines[curLine] + 1)
+      scrollY = math.max(0, curLine - (h - 2))
+      if scrollY > #lines - (h - 2) then scrollY = math.max(0, #lines - (h - 2)) end
       draw()
     elseif char >= 32 and char < 127 then
       lines[curLine] = lines[curLine]:sub(1, curCol - 1) .. string.char(char) .. lines[curLine]:sub(curCol)
