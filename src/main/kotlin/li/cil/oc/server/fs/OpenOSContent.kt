@@ -44,6 +44,12 @@ object OpenOSContent {
         fs.writeFile("lib/serialization.lua", SERIALIZATION_LUA)
         fs.writeFile("lib/sides.lua", SIDES_LUA)
         fs.writeFile("lib/colors.lua", COLORS_LUA)
+        fs.writeFile("lib/uuid.lua", UUID_LUA)
+        fs.writeFile("lib/buffer.lua", BUFFER_LUA)
+        fs.writeFile("lib/process.lua", PROCESS_LUA)
+        fs.writeFile("lib/thread.lua", THREAD_LUA)
+        fs.writeFile("lib/rc.lua", RC_LUA)
+        fs.writeFile("lib/devfs.lua", DEVFS_LUA)
 
         // ============ Boot scripts ============
         fs.writeFile("boot/00_base.lua", BOOT_00_BASE)
@@ -53,6 +59,8 @@ object OpenOSContent {
         fs.writeFile("boot/04_component.lua", BOOT_04_COMPONENT)
         fs.writeFile("boot/90_filesystem.lua", BOOT_90_FILESYSTEM)
         fs.writeFile("boot/91_gpu.lua", BOOT_91_GPU)
+        fs.writeFile("boot/05_devfs.lua", BOOT_05_DEVFS)
+        fs.writeFile("boot/89_rc.lua", BOOT_89_RC)
 
         // ============ Programs ============
         fs.writeFile("bin/sh.lua", SH_LUA)
@@ -99,6 +107,7 @@ object OpenOSContent {
         fs.writeFile("bin/env.lua", ENV_LUA)
         fs.writeFile("bin/true.lua", TRUE_LUA)
         fs.writeFile("bin/false.lua", FALSE_LUA)
+        fs.writeFile("bin/rc.lua", RC_CMD_LUA)
 
         // ============ Config ============
         fs.writeFile("etc/profile.lua", PROFILE_LUA)
@@ -1369,7 +1378,7 @@ return shell
 """.trimIndent()
 
     // ================================================================
-    // /lib/term.lua - Terminal library
+    // /lib/term.lua - Terminal library with VT100/ANSI support
     // ================================================================
     val TERM_LUA = """
 local term = {}
@@ -1379,6 +1388,8 @@ local cursorY = 1
 local gpuAddr = nil
 local screenW = 80
 local screenH = 25
+local currentFg = 0xFFFFFF
+local currentBg = 0x000000
 
 local function getGpu()
   if not gpuAddr then gpuAddr = component.list("gpu")() end
@@ -1391,6 +1402,27 @@ local function refreshSize()
     screenW, screenH = component.invoke(gpu, "getResolution")
   end
 end
+
+-- ANSI color code to RGB mapping
+local ansiColors = {
+  [0] = 0x000000,  -- black
+  [1] = 0xCC0000,  -- red
+  [2] = 0x00CC00,  -- green
+  [3] = 0xCCCC00,  -- yellow
+  [4] = 0x0000CC,  -- blue
+  [5] = 0xCC00CC,  -- magenta
+  [6] = 0x00CCCC,  -- cyan
+  [7] = 0xCCCCCC,  -- white
+  -- Bright colors (90-97 / 100-107)
+  [8] = 0x555555,  -- bright black (gray)
+  [9] = 0xFF5555,  -- bright red
+  [10] = 0x55FF55, -- bright green
+  [11] = 0xFFFF55, -- bright yellow
+  [12] = 0x5555FF, -- bright blue
+  [13] = 0xFF55FF, -- bright magenta
+  [14] = 0x55FFFF, -- bright cyan
+  [15] = 0xFFFFFF, -- bright white
+}
 
 function term.clear()
   local gpu = getGpu()
@@ -1420,23 +1452,145 @@ local function scroll()
   cursorY = screenH
 end
 
+-- Handle ANSI/VT100 escape sequences
+local function handleEscape(seq, gpu)
+  -- CSI sequences: ESC [ <params> <command>
+  -- Common sequences:
+  -- ESC[nA - cursor up n
+  -- ESC[nB - cursor down n
+  -- ESC[nC - cursor forward n
+  -- ESC[nD - cursor back n
+  -- ESC[n;mH - cursor position (row;col)
+  -- ESC[2J - clear screen
+  -- ESC[K - clear to end of line
+  -- ESC[nm - SGR (colors)
+  
+  if seq:sub(1, 1) ~= "[" then return end
+  local body = seq:sub(2)
+  local cmd = body:sub(-1)
+  local params = body:sub(1, -2)
+  
+  if cmd == "A" then
+    local n = tonumber(params) or 1
+    cursorY = math.max(1, cursorY - n)
+  elseif cmd == "B" then
+    local n = tonumber(params) or 1
+    cursorY = math.min(screenH, cursorY + n)
+  elseif cmd == "C" then
+    local n = tonumber(params) or 1
+    cursorX = math.min(screenW, cursorX + n)
+  elseif cmd == "D" then
+    local n = tonumber(params) or 1
+    cursorX = math.max(1, cursorX - n)
+  elseif cmd == "H" or cmd == "f" then
+    local row, col = params:match("(%d*);?(%d*)")
+    cursorY = tonumber(row) or 1
+    cursorX = tonumber(col) or 1
+    cursorY = math.max(1, math.min(screenH, cursorY))
+    cursorX = math.max(1, math.min(screenW, cursorX))
+  elseif cmd == "J" then
+    local n = tonumber(params) or 0
+    if n == 2 then
+      component.invoke(gpu, "fill", 1, 1, screenW, screenH, " ")
+      cursorX = 1
+      cursorY = 1
+    elseif n == 0 then
+      -- Clear from cursor to end of screen
+      component.invoke(gpu, "fill", cursorX, cursorY, screenW - cursorX + 1, 1, " ")
+      if cursorY < screenH then
+        component.invoke(gpu, "fill", 1, cursorY + 1, screenW, screenH - cursorY, " ")
+      end
+    elseif n == 1 then
+      -- Clear from start to cursor
+      component.invoke(gpu, "fill", 1, 1, screenW, cursorY - 1, " ")
+      component.invoke(gpu, "fill", 1, cursorY, cursorX, 1, " ")
+    end
+  elseif cmd == "K" then
+    local n = tonumber(params) or 0
+    if n == 0 then
+      component.invoke(gpu, "fill", cursorX, cursorY, screenW - cursorX + 1, 1, " ")
+    elseif n == 1 then
+      component.invoke(gpu, "fill", 1, cursorY, cursorX, 1, " ")
+    elseif n == 2 then
+      component.invoke(gpu, "fill", 1, cursorY, screenW, 1, " ")
+    end
+  elseif cmd == "m" then
+    -- SGR - Select Graphic Rendition (colors)
+    local codes = {}
+    for code in (params .. ";"):gmatch("(%d*);") do
+      codes[#codes + 1] = tonumber(code) or 0
+    end
+    if #codes == 0 then codes = {0} end
+    
+    for _, code in ipairs(codes) do
+      if code == 0 then
+        currentFg = 0xFFFFFF
+        currentBg = 0x000000
+        component.invoke(gpu, "setForeground", currentFg)
+        component.invoke(gpu, "setBackground", currentBg)
+      elseif code >= 30 and code <= 37 then
+        currentFg = ansiColors[code - 30]
+        component.invoke(gpu, "setForeground", currentFg)
+      elseif code >= 40 and code <= 47 then
+        currentBg = ansiColors[code - 40]
+        component.invoke(gpu, "setBackground", currentBg)
+      elseif code >= 90 and code <= 97 then
+        currentFg = ansiColors[code - 90 + 8]
+        component.invoke(gpu, "setForeground", currentFg)
+      elseif code >= 100 and code <= 107 then
+        currentBg = ansiColors[code - 100 + 8]
+        component.invoke(gpu, "setBackground", currentBg)
+      elseif code == 39 then
+        currentFg = 0xFFFFFF
+        component.invoke(gpu, "setForeground", currentFg)
+      elseif code == 49 then
+        currentBg = 0x000000
+        component.invoke(gpu, "setBackground", currentBg)
+      end
+    end
+  elseif cmd == "s" then
+    -- Save cursor position (not fully implemented, simple store)
+    term._savedX = cursorX
+    term._savedY = cursorY
+  elseif cmd == "u" then
+    -- Restore cursor position
+    cursorX = term._savedX or 1
+    cursorY = term._savedY or 1
+  end
+end
+
 function term.write(text)
   local gpu = getGpu()
   if not gpu then return end
   refreshSize()
   
-  for i = 1, #text do
+  local i = 1
+  while i <= #text do
     local ch = text:sub(i, i)
-    if ch == "\n" then
+    
+    -- Check for escape sequence
+    if ch == "\27" then
+      local escEnd = text:find("[A-Za-z]", i + 1)
+      if escEnd then
+        local seq = text:sub(i + 1, escEnd)
+        handleEscape(seq, gpu)
+        i = escEnd + 1
+      else
+        i = i + 1
+      end
+    elseif ch == "\n" then
       cursorX = 1
       cursorY = cursorY + 1
       if cursorY > screenH then scroll() end
+      i = i + 1
     elseif ch == "\r" then
       cursorX = 1
+      i = i + 1
     elseif ch == "\b" then
       if cursorX > 1 then
         cursorX = cursorX - 1
       end
+      i = i + 1
     elseif ch == "\t" then
       cursorX = cursorX + (4 - ((cursorX - 1) % 4))
       if cursorX > screenW then
@@ -1444,6 +1598,7 @@ function term.write(text)
         cursorY = cursorY + 1
         if cursorY > screenH then scroll() end
       end
+      i = i + 1
     else
       if cursorX > screenW then
         cursorX = 1
@@ -1452,6 +1607,7 @@ function term.write(text)
       end
       component.invoke(gpu, "set", cursorX, cursorY, ch)
       cursorX = cursorX + 1
+      i = i + 1
     end
   end
 end
@@ -1634,6 +1790,28 @@ function term.screen()
   return ok and screen or nil
 end
 
+function term.setForeground(color)
+  local gpu = getGpu()
+  if not gpu then return end
+  currentFg = color
+  component.invoke(gpu, "setForeground", color)
+end
+
+function term.setBackground(color)
+  local gpu = getGpu()
+  if not gpu then return end
+  currentBg = color
+  component.invoke(gpu, "setBackground", color)
+end
+
+function term.getForeground()
+  return currentFg
+end
+
+function term.getBackground()
+  return currentBg
+end
+
 return term
 """.trimIndent()
 
@@ -1644,45 +1822,131 @@ return term
 local text = {}
 
 function text.trim(s)
-  return s:match("^%s*(.-)%s*$")
+  checkArg(1, s, "string")
+  local from = s:match("^%s*()")
+  return from > #s and "" or s:match(".*%S", from)
 end
 
-function text.tokenize(s)
+function text.tokenize(s, delimiters)
+  checkArg(1, s, "string")
+  delimiters = delimiters or "%s"
   local tokens = {}
-  for token in s:gmatch("%S+") do
+  for token in s:gmatch("[^" .. delimiters .. "]+") do
     tokens[#tokens+1] = token
   end
   return tokens
 end
 
-function text.padRight(s, len)
-  return s .. string.rep(" ", math.max(0, len - #s))
+function text.padRight(s, len, char)
+  checkArg(1, s, "string")
+  checkArg(2, len, "number")
+  char = char or " "
+  return s .. string.rep(char, math.max(0, len - #s))
 end
 
-function text.padLeft(s, len)
-  return string.rep(" ", math.max(0, len - #s)) .. s
+function text.padLeft(s, len, char)
+  checkArg(1, s, "string")
+  checkArg(2, len, "number")
+  char = char or " "
+  return string.rep(char, math.max(0, len - #s)) .. s
 end
 
-function text.wrap(value, width)
+function text.wrap(value, width, maxWidth)
+  checkArg(1, value, "string")
+  checkArg(2, width, "number")
+  checkArg(3, maxWidth, "number", "nil")
+  maxWidth = maxWidth or width
+  
   local lines = {}
   local line = ""
-  for word in value:gmatch("%S+") do
-    if #line + #word + 1 > width then
+  
+  -- Split by existing newlines first
+  for segment in (value .. "\n"):gmatch("(.-)\n") do
+    -- Wrap within segment
+    for word in segment:gmatch("%S+") do
+      if #line + #word + 1 > width then
+        if #line > 0 then
+          lines[#lines+1] = line
+        end
+        -- Handle words longer than width
+        while #word > maxWidth do
+          lines[#lines+1] = word:sub(1, maxWidth)
+          word = word:sub(maxWidth + 1)
+        end
+        line = word
+      elseif #line > 0 then
+        line = line .. " " .. word
+      else
+        line = word
+      end
+    end
+    if #line > 0 or #segment == 0 then
       lines[#lines+1] = line
-      line = word
-    elseif #line > 0 then
-      line = line .. " " .. word
-    else
-      line = word
+      line = ""
     end
   end
-  if #line > 0 then lines[#lines+1] = line end
+  
   return lines
 end
 
 function text.detab(value, tabWidth)
+  checkArg(1, value, "string")
   tabWidth = tabWidth or 8
-  return value:gsub("\t", string.rep(" ", tabWidth))
+  local result = ""
+  local col = 0
+  for i = 1, #value do
+    local c = value:sub(i, i)
+    if c == "\t" then
+      local spaces = tabWidth - (col % tabWidth)
+      result = result .. string.rep(" ", spaces)
+      col = col + spaces
+    elseif c == "\n" then
+      result = result .. c
+      col = 0
+    else
+      result = result .. c
+      col = col + 1
+    end
+  end
+  return result
+end
+
+-- Escape magic pattern characters
+function text.escapeMagic(txt)
+  return txt:gsub('[%(%)%.%%%+%-%*%?%[%^%$]', '%%%1')
+end
+
+function text.removeEscapes(txt)
+  return txt:gsub("%%([%(%)%.%%%+%-%*%?%[%^%$])","%1")
+end
+
+-- Split a string by a separator
+function text.split(s, sep)
+  checkArg(1, s, "string")
+  sep = sep or "%s"
+  local parts = {}
+  local pattern = string.format("([^%s]+)", sep)
+  for part in s:gmatch(pattern) do
+    parts[#parts+1] = part
+  end
+  return parts
+end
+
+-- Join an array with separator
+function text.join(arr, sep)
+  checkArg(1, arr, "table")
+  sep = sep or " "
+  return table.concat(arr, sep)
+end
+
+-- Check if string starts with prefix
+function text.startsWith(s, prefix)
+  return s:sub(1, #prefix) == prefix
+end
+
+-- Check if string ends with suffix
+function text.endsWith(s, suffix)
+  return suffix == "" or s:sub(-#suffix) == suffix
 end
 
 return text
@@ -3895,6 +4159,757 @@ return 0
     // ================================================================
     val FALSE_LUA = """
 return 1
+""".trimIndent()
+
+    // ================================================================
+    // /bin/rc.lua - Service management command
+    // ================================================================
+    val RC_CMD_LUA = """
+local rc = require("rc")
+local args = {...}
+
+if #args == 0 then
+  print("Usage: rc <command> [service]")
+  print("Commands:")
+  print("  list     - list loaded services")
+  print("  start    - start a service")
+  print("  stop     - stop a service")
+  print("  restart  - restart a service")
+  print("  status   - show service status")
+  print("  enable   - enable service at boot")
+  print("  disable  - disable service at boot")
+  return
+end
+
+local cmd = args[1]
+local service = args[2]
+
+if cmd == "list" then
+  local loaded = rc.loaded()
+  if #loaded == 0 then
+    print("No services loaded")
+  else
+    print("Loaded services:")
+    for _, name in ipairs(loaded) do
+      print("  " .. name .. ": " .. rc.status(name))
+    end
+  end
+elseif cmd == "start" then
+  if not service then
+    print("Usage: rc start <service>")
+    return
+  end
+  local ok, err = rc.start(service)
+  if ok then
+    print("Started: " .. service)
+  else
+    print("Failed to start " .. service .. ": " .. tostring(err))
+  end
+elseif cmd == "stop" then
+  if not service then
+    print("Usage: rc stop <service>")
+    return
+  end
+  local ok, err = rc.stop(service)
+  if ok then
+    print("Stopped: " .. service)
+  else
+    print("Failed to stop " .. service .. ": " .. tostring(err))
+  end
+elseif cmd == "restart" then
+  if not service then
+    print("Usage: rc restart <service>")
+    return
+  end
+  local ok, err = rc.restart(service)
+  if ok then
+    print("Restarted: " .. service)
+  else
+    print("Failed to restart " .. service .. ": " .. tostring(err))
+  end
+elseif cmd == "status" then
+  if not service then
+    -- Show all
+    local loaded = rc.loaded()
+    for _, name in ipairs(loaded) do
+      print(name .. ": " .. rc.status(name))
+    end
+  else
+    print(service .. ": " .. rc.status(service))
+  end
+elseif cmd == "enable" or cmd == "disable" then
+  print("Enable/disable requires editing /etc/rc.cfg")
+else
+  print("Unknown command: " .. cmd)
+end
+""".trimIndent()
+
+    // ================================================================
+    // /lib/uuid.lua - UUID generation
+    // ================================================================
+    val UUID_LUA = """
+local uuid = {}
+
+function uuid.next()
+  -- Generate UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+  -- where y is one of 8, 9, a, b
+  local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+  return string.gsub(template, '[xy]', function(c)
+    local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
+    return string.format('%x', v)
+  end)
+end
+
+return uuid
+""".trimIndent()
+
+    // ================================================================
+    // /lib/buffer.lua - Stream buffering wrapper
+    // ================================================================
+    val BUFFER_LUA = """
+local buffer = {}
+local metatable = {
+  __index = buffer,
+  __metatable = "file"
+}
+
+function buffer.new(mode, stream)
+  local result = {
+    closed = false,
+    tty = false,
+    mode = {},
+    stream = stream,
+    bufferRead = "",
+    bufferWrite = "",
+    bufferSize = 512,
+    bufferMode = "full",
+    readTimeout = math.huge,
+  }
+  mode = mode or "r"
+  for i = 1, #mode do
+    result.mode[mode:sub(i, i)] = true
+  end
+  return setmetatable(result, metatable)
+end
+
+function buffer:close()
+  if self.mode.w or self.mode.a then
+    self:flush()
+  end
+  self.closed = true
+  if self.stream and self.stream.close then
+    return self.stream:close()
+  end
+  return true
+end
+
+function buffer:flush()
+  if #self.bufferWrite > 0 then
+    local tmp = self.bufferWrite
+    self.bufferWrite = ""
+    if self.stream and self.stream.write then
+      local result, reason = self.stream:write(tmp)
+      if not result then
+        return nil, reason or "bad file descriptor"
+      end
+    end
+  end
+  return self
+end
+
+function buffer:lines(...)
+  local args = table.pack(...)
+  return function()
+    local result = table.pack(self:read(table.unpack(args, 1, args.n)))
+    if not result[1] and result[2] then
+      error(result[2])
+    end
+    return table.unpack(result, 1, result.n)
+  end
+end
+
+local function readChunk(self)
+  if not self.stream or not self.stream.read then
+    return nil, "no stream"
+  end
+  local result, reason = self.stream:read(math.max(1, self.bufferSize))
+  if result then
+    self.bufferRead = self.bufferRead .. result
+    return self
+  else
+    return result, reason
+  end
+end
+
+function buffer:read(...)
+  if not self.mode.r then
+    return nil, "read mode was not enabled for this stream"
+  end
+  if self.mode.w or self.mode.a then
+    self:flush()
+  end
+  
+  local args = table.pack(...)
+  if args.n == 0 then
+    args = {"*l"}
+    args.n = 1
+  end
+  
+  local results = {}
+  for i = 1, args.n do
+    local fmt = args[i]
+    local result
+    
+    if fmt == "*l" or fmt == "l" then
+      -- Read line without newline
+      while true do
+        local nl = self.bufferRead:find("\n")
+        if nl then
+          result = self.bufferRead:sub(1, nl - 1)
+          if result:sub(-1) == "\r" then result = result:sub(1, -2) end
+          self.bufferRead = self.bufferRead:sub(nl + 1)
+          break
+        end
+        local ok = readChunk(self)
+        if not ok then
+          if #self.bufferRead > 0 then
+            result = self.bufferRead
+            self.bufferRead = ""
+          end
+          break
+        end
+      end
+    elseif fmt == "*L" or fmt == "L" then
+      -- Read line with newline
+      while true do
+        local nl = self.bufferRead:find("\n")
+        if nl then
+          result = self.bufferRead:sub(1, nl)
+          self.bufferRead = self.bufferRead:sub(nl + 1)
+          break
+        end
+        local ok = readChunk(self)
+        if not ok then
+          if #self.bufferRead > 0 then
+            result = self.bufferRead
+            self.bufferRead = ""
+          end
+          break
+        end
+      end
+    elseif fmt == "*a" or fmt == "a" then
+      -- Read all
+      while readChunk(self) do end
+      if #self.bufferRead > 0 then
+        result = self.bufferRead
+        self.bufferRead = ""
+      end
+    elseif fmt == "*n" or fmt == "n" then
+      -- Read number
+      while #self.bufferRead < 64 do
+        if not readChunk(self) then break end
+      end
+      local s, e = self.bufferRead:find("^%s*[%-]?%d+%.?%d*[eE]?[%-+]?%d*")
+      if s then
+        local numStr = self.bufferRead:sub(s, e)
+        self.bufferRead = self.bufferRead:sub(e + 1)
+        result = tonumber(numStr)
+      end
+    elseif type(fmt) == "number" then
+      -- Read N bytes
+      while #self.bufferRead < fmt do
+        if not readChunk(self) then break end
+      end
+      if #self.bufferRead > 0 then
+        local n = math.min(fmt, #self.bufferRead)
+        result = self.bufferRead:sub(1, n)
+        self.bufferRead = self.bufferRead:sub(n + 1)
+      end
+    end
+    
+    results[i] = result
+  end
+  
+  return table.unpack(results, 1, args.n)
+end
+
+function buffer:setvbuf(mode, size)
+  mode = mode or self.bufferMode
+  size = size or self.bufferSize
+  self.bufferMode = mode
+  self.bufferSize = size
+  return self.bufferMode, self.bufferSize
+end
+
+function buffer:write(...)
+  if self.closed then
+    return nil, "bad file descriptor"
+  end
+  if not self.mode.w and not self.mode.a then
+    return nil, "write mode was not enabled for this stream"
+  end
+  
+  local args = table.pack(...)
+  for i = 1, args.n do
+    local arg = tostring(args[i])
+    if self.bufferMode == "no" then
+      if self.stream and self.stream.write then
+        local result, reason = self.stream:write(arg)
+        if not result then
+          return nil, reason
+        end
+      end
+    else
+      self.bufferWrite = self.bufferWrite .. arg
+      if self.bufferMode == "line" and arg:find("\n") then
+        self:flush()
+      elseif #self.bufferWrite >= self.bufferSize then
+        self:flush()
+      end
+    end
+  end
+  
+  return self
+end
+
+function buffer:seek(whence, offset)
+  if self.stream and self.stream.seek then
+    self:flush()
+    self.bufferRead = ""
+    return self.stream:seek(whence, offset)
+  end
+  return nil, "not seekable"
+end
+
+return buffer
+""".trimIndent()
+
+    // ================================================================
+    // /lib/process.lua - Process management (simplified)
+    // ================================================================
+    val PROCESS_LUA = """
+local process = {}
+local processes = {}
+local currentProcess = nil
+
+function process.load(path, env, init, name)
+  checkArg(1, path, "string", "function")
+  checkArg(2, env, "table", "nil")
+  checkArg(3, init, "function", "nil")
+  checkArg(4, name, "string", "nil")
+  
+  env = env or _G
+  local code
+  if type(path) == "string" then
+    local shell = require("shell")
+    local program = shell.resolve(path, "lua")
+    if not program then
+      return nil, "program not found: " .. path
+    end
+    local fn, err = loadfile(program, "t", env)
+    if not fn then return nil, err end
+    code = fn
+  else
+    code = path
+  end
+  
+  local thread = coroutine.create(function(...)
+    if init then
+      return code(init(...))
+    else
+      return code(...)
+    end
+  end)
+  
+  processes[thread] = {
+    path = path,
+    command = name or tostring(path),
+    env = env,
+    data = {
+      handles = {},
+      io = {},
+    },
+  }
+  
+  return thread
+end
+
+function process.info(levelOrThread)
+  checkArg(1, levelOrThread, "thread", "number", "nil")
+  
+  if type(levelOrThread) == "thread" then
+    return processes[levelOrThread]
+  end
+  
+  -- Return info about current process
+  local co = coroutine.running()
+  if co and processes[co] then
+    return processes[co]
+  end
+  
+  -- Return a default process info
+  return {
+    path = "/bin/sh.lua",
+    command = "sh",
+    env = _G,
+    data = {
+      handles = {},
+      io = {},
+    },
+  }
+end
+
+function process.running(level)
+  local info = process.info(level)
+  if info then
+    return info.path, info.env, info.command
+  end
+end
+
+function process.findProcess(co)
+  co = co or coroutine.running()
+  return processes[co]
+end
+
+return process
+""".trimIndent()
+
+    // ================================================================
+    // /lib/thread.lua - Thread library (stub)
+    // ================================================================
+    val THREAD_LUA = """
+-- Thread library stub for compatibility
+-- Full threading requires coroutine management not available in simplified OpenOS
+local thread = {}
+
+function thread.create(fn, ...)
+  checkArg(1, fn, "function")
+  return nil, "threading not supported in simplified OpenOS"
+end
+
+function thread.waitForAll(threads, timeout)
+  return nil, "threading not supported in simplified OpenOS"
+end
+
+function thread.waitForAny(threads, timeout)
+  return nil, "threading not supported in simplified OpenOS"
+end
+
+function thread.current()
+  return nil
+end
+
+return thread
+""".trimIndent()
+
+    // ================================================================
+    // /lib/rc.lua - Run control (services)
+    // ================================================================
+    val RC_LUA = """
+-- RC (run control) library for managing services
+local rc = {}
+local fs = require("filesystem")
+local running = {}
+
+rc.path = "/etc/rc.d/"
+
+function rc.loaded()
+  local result = {}
+  for name in pairs(running) do
+    result[#result + 1] = name
+  end
+  return result
+end
+
+function rc.load(name, reason)
+  if running[name] then
+    return true -- already loaded
+  end
+  
+  local path = rc.path .. name .. ".lua"
+  if not fs.exists(path) then
+    return nil, "rc script not found: " .. name
+  end
+  
+  local fn, err = loadfile(path)
+  if not fn then
+    return nil, err
+  end
+  
+  local service = {}
+  local env = setmetatable({}, {__index = _G})
+  setfenv(fn, env)
+  
+  local ok, err2 = pcall(fn)
+  if not ok then
+    return nil, err2
+  end
+  
+  service.start = env.start
+  service.stop = env.stop
+  service.status = env.status
+  
+  running[name] = service
+  
+  if service.start and reason ~= "load" then
+    local ok2, err3 = pcall(service.start)
+    if not ok2 then
+      return nil, "failed to start: " .. tostring(err3)
+    end
+  end
+  
+  return true
+end
+
+function rc.unload(name)
+  local service = running[name]
+  if not service then
+    return nil, "not loaded: " .. name
+  end
+  
+  if service.stop then
+    pcall(service.stop)
+  end
+  
+  running[name] = nil
+  return true
+end
+
+function rc.start(name)
+  local service = running[name]
+  if not service then
+    local ok, err = rc.load(name, "start")
+    if not ok then return nil, err end
+    return true
+  end
+  
+  if service.start then
+    local ok, err = pcall(service.start)
+    if not ok then return nil, err end
+  end
+  return true
+end
+
+function rc.stop(name)
+  local service = running[name]
+  if not service then
+    return nil, "not loaded: " .. name
+  end
+  
+  if service.stop then
+    local ok, err = pcall(service.stop)
+    if not ok then return nil, err end
+  end
+  return true
+end
+
+function rc.restart(name)
+  rc.stop(name)
+  return rc.start(name)
+end
+
+function rc.status(name)
+  local service = running[name]
+  if not service then
+    return "not loaded"
+  end
+  
+  if service.status then
+    local ok, result = pcall(service.status)
+    if ok then return result end
+  end
+  
+  return "running"
+end
+
+return rc
+""".trimIndent()
+
+    // ================================================================
+    // /lib/devfs.lua - Virtual /dev filesystem
+    // ================================================================
+    val DEVFS_LUA = """
+-- Virtual device filesystem
+local devfs = {}
+
+devfs.devices = {}
+
+-- /dev/null - discards all writes, returns EOF on read
+devfs.devices["null"] = {
+  read = function() return nil end,
+  write = function(data) return #data end,
+}
+
+-- /dev/zero - returns infinite zeros
+devfs.devices["zero"] = {
+  read = function(count)
+    count = math.min(count or 1, 4096)
+    return string.rep("\0", count)
+  end,
+  write = function(data) return #data end,
+}
+
+-- /dev/random - returns random bytes
+devfs.devices["random"] = {
+  read = function(count)
+    count = math.min(count or 1, 4096)
+    local bytes = {}
+    for i = 1, count do
+      bytes[i] = string.char(math.random(0, 255))
+    end
+    return table.concat(bytes)
+  end,
+  write = function(data) return #data end,
+}
+
+-- /dev/urandom - same as random for our purposes
+devfs.devices["urandom"] = devfs.devices["random"]
+
+-- /dev/full - returns EOF on read, returns ENOSPC on write
+devfs.devices["full"] = {
+  read = function() return nil end,
+  write = function() return nil, "no space left on device" end,
+}
+
+function devfs.open(device, mode)
+  local dev = devfs.devices[device]
+  if not dev then
+    return nil, "no such device: " .. device
+  end
+  
+  return {
+    device = device,
+    dev = dev,
+    read = function(self, n)
+      if self.dev.read then
+        return self.dev.read(n)
+      end
+      return nil
+    end,
+    write = function(self, data)
+      if self.dev.write then
+        return self.dev.write(data)
+      end
+      return nil, "not writable"
+    end,
+    close = function() return true end,
+    seek = function() return nil, "not seekable" end,
+  }
+end
+
+function devfs.list()
+  local result = {}
+  for name in pairs(devfs.devices) do
+    result[#result + 1] = name
+  end
+  table.sort(result)
+  return result
+end
+
+function devfs.exists(device)
+  return devfs.devices[device] ~= nil
+end
+
+return devfs
+""".trimIndent()
+
+    // ================================================================
+    // /boot/05_devfs.lua - Initialize devfs
+    // ================================================================
+    val BOOT_05_DEVFS = """
+-- Set up devfs access via filesystem hooks
+local fs = require("filesystem")
+local devfs = require("devfs")
+
+-- Patch filesystem.open to handle /dev/ paths
+local originalOpen = fs.open
+fs.open = function(path, mode)
+  path = fs.canonical(path)
+  if path:sub(1, 5) == "/dev/" then
+    local device = path:sub(6)
+    return devfs.open(device, mode)
+  end
+  return originalOpen(path, mode)
+end
+
+-- Patch filesystem.exists to handle /dev/ paths
+local originalExists = fs.exists
+fs.exists = function(path)
+  path = fs.canonical(path)
+  if path == "/dev" then return true end
+  if path:sub(1, 5) == "/dev/" then
+    local device = path:sub(6)
+    return devfs.exists(device)
+  end
+  return originalExists(path)
+end
+
+-- Patch filesystem.isDirectory to handle /dev/
+local originalIsDir = fs.isDirectory
+fs.isDirectory = function(path)
+  path = fs.canonical(path)
+  if path == "/dev" then return true end
+  if path:sub(1, 5) == "/dev/" then return false end
+  return originalIsDir(path)
+end
+
+-- Patch filesystem.list to handle /dev/
+local originalList = fs.list
+fs.list = function(path)
+  path = fs.canonical(path)
+  if path == "/dev" or path == "/dev/" then
+    local devices = devfs.list()
+    local i = 0
+    return function()
+      i = i + 1
+      return devices[i]
+    end
+  end
+  return originalList(path)
+end
+""".trimIndent()
+
+    // ================================================================
+    // /boot/89_rc.lua - Load RC services
+    // ================================================================
+    val BOOT_89_RC = """
+-- RC boot script - load enabled services
+local event = require("event")
+
+event.listen("init", function()
+  local fs = require("filesystem")
+  local rc = require("rc")
+  
+  -- Create rc.d directory if it doesn't exist
+  if not fs.exists("/etc/rc.d") then
+    fs.makeDirectory("/etc/rc.d")
+  end
+  
+  -- Load enabled services from /etc/rc.cfg if it exists
+  if fs.exists("/etc/rc.cfg") then
+    local f = fs.open("/etc/rc.cfg", "r")
+    if f then
+      local content = ""
+      repeat
+        local data = f:read(math.huge)
+        content = content .. (data or "")
+      until not data
+      f:close()
+      
+      local cfg = load("return " .. content)
+      if cfg then
+        local ok, services = pcall(cfg)
+        if ok and type(services) == "table" and services.enabled then
+          for _, name in ipairs(services.enabled) do
+            pcall(rc.load, name)
+          end
+        end
+      end
+    end
+  end
+  
+  return false -- unregister this listener
+end)
 """.trimIndent()
 
 }
