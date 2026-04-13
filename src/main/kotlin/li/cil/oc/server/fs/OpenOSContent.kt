@@ -890,6 +890,7 @@ local function tokenize(line)
   local tokens = {}
   local current = ""
   local inQuote = nil
+  local hasQuote = false
   local i = 1
   while i <= #line do
     local c = line:sub(i, i)
@@ -905,10 +906,12 @@ local function tokenize(line)
     else
       if c == '"' or c == "'" then
         inQuote = c
+        hasQuote = true
       elseif c == " " or c == "\t" then
-        if #current > 0 then
+        if #current > 0 or hasQuote then
           table.insert(tokens, current)
           current = ""
+          hasQuote = false
         end
       elseif c == "\\" and i < #line then
         i = i + 1
@@ -919,7 +922,7 @@ local function tokenize(line)
     end
     i = i + 1
   end
-  if #current > 0 then
+  if #current > 0 or hasQuote then
     table.insert(tokens, current)
   end
   return tokens
@@ -1067,6 +1070,10 @@ function term.write(text)
       if cursorY > screenH then scroll() end
     elseif ch == "\r" then
       cursorX = 1
+    elseif ch == "\b" then
+      if cursorX > 1 then
+        cursorX = cursorX - 1
+      end
     elseif ch == "\t" then
       cursorX = cursorX + (4 - ((cursorX - 1) % 4))
       if cursorX > screenW then
@@ -1378,12 +1385,26 @@ local function wrapHandle(rawHandle, mode)
   local handle = {}
   handle._raw = rawHandle
   handle._closed = false
+  handle._buf = ""
+
+  local function fillBuf(self)
+    local data = self._raw:read(4096)
+    if data then
+      self._buf = self._buf .. data
+      return true
+    end
+    return false
+  end
 
   function handle:read(fmt)
     if self._closed then return nil, "closed file" end
     fmt = fmt or "*l"
     if fmt == "*a" or fmt == "a" then
       local chunks = {}
+      if #self._buf > 0 then
+        chunks[#chunks+1] = self._buf
+        self._buf = ""
+      end
       while true do
         local data = self._raw:read(4096)
         if not data then break end
@@ -1391,31 +1412,41 @@ local function wrapHandle(rawHandle, mode)
       end
       return #chunks > 0 and table.concat(chunks) or nil
     elseif fmt == "*l" or fmt == "l" then
-      local chars = {}
       while true do
-        local ch = self._raw:read(1)
-        if not ch then
-          return #chars > 0 and table.concat(chars) or nil
+        local nl = self._buf:find("\n")
+        if nl then
+          local line = self._buf:sub(1, nl - 1)
+          self._buf = self._buf:sub(nl + 1)
+          return line
         end
-        if ch == "\n" then
-          return table.concat(chars)
+        if not fillBuf(self) then
+          if #self._buf > 0 then
+            local line = self._buf
+            self._buf = ""
+            return line
+          end
+          return nil
         end
-        chars[#chars+1] = ch
       end
     elseif fmt == "*n" or fmt == "n" then
-      local chars = {}
-      while true do
-        local ch = self._raw:read(1)
-        if not ch then break end
-        if ch:match("[%d%.%-eE]") then
-          chars[#chars+1] = ch
-        else
-          break
-        end
+      -- Skip whitespace then read number
+      while #self._buf == 0 do
+        if not fillBuf(self) then return nil end
       end
-      return tonumber(table.concat(chars))
+      local s, e = self._buf:find("^%s*[%-]?%d+%.?%d*[eE]?[%-+]?%d*")
+      if not s then return nil end
+      local numStr = self._buf:sub(s, e)
+      self._buf = self._buf:sub(e + 1)
+      return tonumber(numStr)
     elseif type(fmt) == "number" then
-      return self._raw:read(fmt)
+      while #self._buf < fmt do
+        if not fillBuf(self) then break end
+      end
+      if #self._buf == 0 then return nil end
+      local n = math.min(fmt, #self._buf)
+      local data = self._buf:sub(1, n)
+      self._buf = self._buf:sub(n + 1)
+      return data
     end
     return self._raw:read(4096)
   end
@@ -2138,19 +2169,19 @@ local function copyRecursive(srcAddr, dstAddr, path)
       -- File
       local handle = component.invoke(srcAddr, "open", fullPath, "r")
       if handle then
-        local data = ""
-        repeat
-          local chunk = component.invoke(srcAddr, "read", handle, math.huge)
-          data = data .. (chunk or "")
-        until not chunk
-        component.invoke(srcAddr, "close", handle)
-        
         local wh = component.invoke(dstAddr, "open", fullPath, "w")
         if wh then
-          component.invoke(dstAddr, "write", wh, data)
+          local total = 0
+          while true do
+            local chunk = component.invoke(srcAddr, "read", handle, 4096)
+            if not chunk then break end
+            component.invoke(dstAddr, "write", wh, chunk)
+            total = total + #chunk
+          end
           component.invoke(dstAddr, "close", wh)
-          print("  " .. fullPath .. " (" .. #data .. " bytes)")
+          print("  " .. fullPath .. " (" .. total .. " bytes)")
         end
+        component.invoke(srcAddr, "close", handle)
       end
     end
   end
