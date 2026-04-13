@@ -184,9 +184,10 @@ class VirtualFileSystem(
         val fh = handles[handle] ?: return null
         val file = fh.file
         if (fh.offset >= file.data.size) return null // EOF
-        val end = minOf(fh.offset + count, file.data.size)
-        val data = ByteArray(end - fh.offset) { file.data[fh.offset + it] }
-        fh.offset = end
+        val remaining = file.data.size - fh.offset
+        val toRead = minOf(count, remaining)
+        val data = ByteArray(toRead) { file.data[fh.offset + it] }
+        fh.offset += toRead
         return data
     }
 

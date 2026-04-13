@@ -911,6 +911,12 @@ function filesystem.isReadOnly(path)
   return ok and result
 end
 
+function filesystem.lastModified(path)
+  local addr, rel = resolve(path)
+  local ok, result = pcall(component.invoke, addr, "lastModified", rel)
+  return ok and result or 0
+end
+
 function filesystem.getLabel(addr)
   local ok, result = pcall(component.invoke, addr, "getLabel")
   return ok and result or ""

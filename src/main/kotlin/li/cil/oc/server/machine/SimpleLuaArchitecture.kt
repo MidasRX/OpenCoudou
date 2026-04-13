@@ -289,33 +289,19 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             }
         })
 
-        // component.get(address, [componentType]) → fullAddress, type
-        // Matches partial addresses (prefix matching)
+        // component.get(address, [componentType]) → fullAddress or (nil, error)
+        // Matches partial addresses (prefix matching), returns just the address like original OC
         comp.set("get", object : VarArgFunction() {
             override fun invoke(args: Varargs): Varargs {
                 val partialAddr = args.arg1().checkjstring()
                 val filterType = if (args.narg() > 1 && !args.arg(2).isnil()) args.arg(2).tojstring() else null
                 
-                val matches = machine.components.filter { (addr, type) ->
-                    addr.startsWith(partialAddr) && (filterType == null || type == filterType)
-                }
-                
-                return when {
-                    matches.size == 1 -> {
-                        val (addr, type) = matches.entries.first()
-                        LuaValue.varargsOf(arrayOf(LuaValue.valueOf(addr), LuaValue.valueOf(type)))
-                    }
-                    matches.isEmpty() -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such component")))
-                    else -> {
-                        // Multiple matches — find exact match or error
-                        val exact = matches.entries.firstOrNull { it.key == partialAddr }
-                        if (exact != null) {
-                            LuaValue.varargsOf(arrayOf(LuaValue.valueOf(exact.key), LuaValue.valueOf(exact.value)))
-                        } else {
-                            LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("ambiguous address")))
-                        }
+                for ((addr, type) in machine.components) {
+                    if (addr.startsWith(partialAddr) && (filterType == null || type == filterType)) {
+                        return LuaValue.valueOf(addr)
                     }
                 }
+                return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such component")))
             }
         })
 
@@ -346,7 +332,17 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         })
 
         comp.set("freeMemory", object : ZeroArgFunction() {
-            override fun call(): LuaValue = LuaValue.valueOf(machine.totalMemory.toDouble())
+            override fun call(): LuaValue {
+                val g = globals ?: return LuaValue.valueOf(machine.totalMemory.toDouble())
+                // Estimate Lua memory usage from LuaJ's global table size
+                System.gc()
+                val runtime = Runtime.getRuntime()
+                val jvmUsed = runtime.totalMemory() - runtime.freeMemory()
+                // Rough estimate: attribute a fraction to this Lua instance
+                val estimate = (machine.totalMemory - (jvmUsed / 8).coerceAtMost(machine.totalMemory.toLong()))
+                    .coerceAtLeast(0).toDouble()
+                return LuaValue.valueOf(estimate)
+            }
         })
 
         comp.set("energy", object : ZeroArgFunction() {
@@ -470,8 +466,38 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         })
         os.set("date", object : VarArgFunction() {
             override fun invoke(args: Varargs): Varargs {
-                val time = if (args.narg() > 1) args.arg(2).checklong() * 1000L else System.currentTimeMillis()
-                return LuaValue.valueOf(java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date(time)))
+                val format = if (args.narg() > 0 && args.arg1().isstring()) args.arg1().tojstring() else "%c"
+                val time = if (args.narg() > 1 && args.arg(2).isnumber()) args.arg(2).checklong() * 1000L else System.currentTimeMillis()
+                val cal = java.util.Calendar.getInstance()
+                cal.timeInMillis = time
+                
+                if (format == "*t") {
+                    val t = LuaTable()
+                    t.set("year", LuaValue.valueOf(cal.get(java.util.Calendar.YEAR)))
+                    t.set("month", LuaValue.valueOf(cal.get(java.util.Calendar.MONTH) + 1))
+                    t.set("day", LuaValue.valueOf(cal.get(java.util.Calendar.DAY_OF_MONTH)))
+                    t.set("hour", LuaValue.valueOf(cal.get(java.util.Calendar.HOUR_OF_DAY)))
+                    t.set("min", LuaValue.valueOf(cal.get(java.util.Calendar.MINUTE)))
+                    t.set("sec", LuaValue.valueOf(cal.get(java.util.Calendar.SECOND)))
+                    t.set("wday", LuaValue.valueOf(((cal.get(java.util.Calendar.DAY_OF_WEEK) - 1 + 6) % 7) + 1))
+                    t.set("yday", LuaValue.valueOf(cal.get(java.util.Calendar.DAY_OF_YEAR)))
+                    t.set("isdst", LuaValue.valueOf(cal.timeZone.inDaylightTime(cal.time)))
+                    return t
+                }
+                
+                // Convert C-style strftime format to Java SimpleDateFormat
+                val javaFmt = format
+                    .replace("%Y", "yyyy").replace("%y", "yy")
+                    .replace("%m", "MM").replace("%d", "dd")
+                    .replace("%H", "HH").replace("%M", "mm").replace("%S", "ss")
+                    .replace("%p", "a").replace("%I", "hh")
+                    .replace("%A", "EEEE").replace("%a", "EEE")
+                    .replace("%B", "MMMM").replace("%b", "MMM")
+                    .replace("%c", "EEE MMM dd HH:mm:ss yyyy")
+                    .replace("%x", "MM/dd/yy").replace("%X", "HH:mm:ss")
+                    .replace("%Z", "zzz").replace("%j", "DDD")
+                    .replace("%w", "F").replace("%%", "'%'")
+                return LuaValue.valueOf(java.text.SimpleDateFormat(javaFmt).format(java.util.Date(time)))
             }
         })
         g.set("os", os)
@@ -820,7 +846,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 "read" -> {
                     val handle = (args.getOrNull(0) as? Number)?.toInt()
                         ?: return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("bad file descriptor")))
-                    val count = (args.getOrNull(1) as? Number)?.toInt() ?: Int.MAX_VALUE
+                    val rawCount = (args.getOrNull(1) as? Number)?.toDouble() ?: Double.MAX_VALUE
+                    val count = rawCount.coerceAtMost(Int.MAX_VALUE.toDouble()).toInt().coerceAtLeast(0)
                     val data = vfs.read(handle, count)
                     if (data != null && data.isNotEmpty()) {
                         LuaString.valueOf(data)
