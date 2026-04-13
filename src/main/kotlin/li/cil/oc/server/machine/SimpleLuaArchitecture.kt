@@ -195,6 +195,141 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         g.set("print", createPrintFunction())
 
+        // Lua 5.2+ xpcall with extra arguments support (LuaJ only supports xpcall(f, handler))
+        g.set("xpcall", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val f = args.arg1().checkfunction()
+                val handler = args.arg(2).checkfunction()
+                val fArgs = if (args.narg() > 2) args.subargs(3) else LuaValue.NONE
+                return try {
+                    val result = f.invoke(fArgs)
+                    LuaValue.varargsOf(LuaValue.TRUE, result)
+                } catch (e: LuaError) {
+                    val handled = handler.call(LuaValue.valueOf(e.message ?: "error"))
+                    LuaValue.varargsOf(LuaValue.FALSE, handled)
+                }
+            }
+        })
+
+        // coroutine.isyieldable() - Lua 5.3 (missing from LuaJ's CoroutineLib)
+        val co = g.get("coroutine")
+        if (!co.isnil()) {
+            co.set("isyieldable", object : ZeroArgFunction() {
+                override fun call(): LuaValue {
+                    // In OC, code always runs inside a coroutine, so always yieldable
+                    val running = co.get("running").invoke(LuaValue.NONE)
+                    // coroutine.running() returns (co, isMain) - yieldable if not main
+                    val isMain = running.narg() >= 2 && running.arg(2).toboolean()
+                    return LuaValue.valueOf(!isMain)
+                }
+            })
+        }
+
+        // utf8 library (Lua 5.3)
+        val utf8lib = LuaTable()
+        utf8lib.set("charpattern", LuaValue.valueOf("[\u0000-\u007F\u00C2-\u00FD][\u0080-\u00BF]*"))
+
+        // utf8.char(...) - receives zero or more integers, converts to UTF-8 string
+        utf8lib.set("char", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val sb = StringBuilder()
+                for (i in 1..args.narg()) sb.appendCodePoint(args.arg(i).checkint())
+                return LuaValue.valueOf(sb.toString())
+            }
+        })
+
+        // utf8.codepoint(s [, i [, j]]) - returns codepoints of characters in s between positions i and j
+        utf8lib.set("codepoint", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val s = args.arg1().checkjstring()
+                val len = s.codePointCount(0, s.length)
+                val i = args.optint(2, 1)
+                val j = args.optint(3, i)
+                val startIdx = if (i > 0) i - 1 else len + i
+                val endIdx = if (j > 0) j - 1 else len + j
+                if (startIdx < 0 || endIdx < 0 || startIdx >= len || endIdx >= len || startIdx > endIdx) {
+                    return LuaValue.NONE
+                }
+                val vals = mutableListOf<LuaValue>()
+                var offset = s.offsetByCodePoints(0, startIdx)
+                for (idx in startIdx..endIdx) {
+                    val cp = s.codePointAt(offset)
+                    vals.add(LuaValue.valueOf(cp))
+                    offset += Character.charCount(cp)
+                }
+                return LuaValue.varargsOf(vals.toTypedArray())
+            }
+        })
+
+        // utf8.len(s [, i [, j]]) - returns number of UTF-8 characters in s between positions i and j (byte positions)
+        utf8lib.set("len", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val s = args.arg1().checkjstring()
+                val bytes = s.toByteArray(Charsets.UTF_8)
+                val i = args.optint(2, 1) - 1 // convert to 0-based
+                val j = args.optint(3, bytes.size) // default to end
+                val sub = try {
+                    String(bytes, i, j - i, Charsets.UTF_8)
+                } catch (e: Exception) {
+                    return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf(i + 1)))
+                }
+                return LuaValue.valueOf(sub.codePointCount(0, sub.length))
+            }
+        })
+
+        // utf8.codes(s) - returns an iterator function
+        utf8lib.set("codes", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue {
+                val s = arg.checkjstring()
+                return object : VarArgFunction() {
+                    private var bytePos = 0
+                    override fun invoke(args: Varargs): Varargs {
+                        if (bytePos >= s.length) return LuaValue.NIL
+                        val cp = s.codePointAt(bytePos)
+                        val pos = bytePos + 1 // 1-based
+                        bytePos += Character.charCount(cp)
+                        return LuaValue.varargsOf(arrayOf(
+                            LuaValue.valueOf(pos),
+                            LuaValue.valueOf(cp)
+                        ))
+                    }
+                }
+            }
+        })
+
+        // utf8.offset(s, n [, i]) - returns byte position of the n-th character
+        utf8lib.set("offset", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val s = args.arg1().checkjstring()
+                val n = args.arg(2).checkint()
+                val i = args.optint(3, if (n >= 0) 1 else s.length + 1) - 1 // 0-based
+                var pos = i.coerceIn(0, s.length)
+                if (n > 0) {
+                    var remaining = n
+                    // For n >= 1, move forward n-1 characters from pos
+                    remaining -= 1 // offset with n=1 at position i returns i itself
+                    while (remaining > 0 && pos < s.length) {
+                        val cp = s.codePointAt(pos)
+                        pos += Character.charCount(cp)
+                        remaining--
+                    }
+                    if (remaining > 0) return LuaValue.NIL
+                } else if (n < 0) {
+                    var remaining = -n
+                    while (remaining > 0 && pos > 0) {
+                        pos--
+                        // skip continuation bytes
+                        while (pos > 0 && (s[pos].code and 0xC0) == 0x80) pos--
+                        remaining--
+                    }
+                    if (remaining > 0) return LuaValue.NIL
+                }
+                return LuaValue.valueOf(pos + 1) // 1-based
+            }
+        })
+
+        g.set("utf8", utf8lib)
+
         // checkArg helper used by many OC programs
         g.set("checkArg", object : VarArgFunction() {
             override fun invoke(args: Varargs): Varargs {
@@ -1617,6 +1752,10 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     override fun recomputeMemory(memory: Iterable<ItemStack>): Boolean = true
 
     override fun close() {
+        // Close all open file handles to prevent leaks on shutdown/crash
+        for ((_, vfs) in filesystems) {
+            vfs.closeAllHandles()
+        }
         globals = null
         mainCoroutine = null
         initialized = false

@@ -229,6 +229,11 @@ class VirtualFileSystem(
         return handles.remove(handle) != null
     }
 
+    /** Close all open file handles (used on machine shutdown to prevent leaks). */
+    fun closeAllHandles() {
+        handles.clear()
+    }
+
     // ========== Convenience: write a string file ==========
 
     fun writeFile(path: String, content: String) {
