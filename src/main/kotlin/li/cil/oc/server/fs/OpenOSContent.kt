@@ -322,20 +322,32 @@ end
 
 -- Basic print
 _G.print = function(...)
-  local args = {...}
-  local gpu = component.list("gpu")()
-  if not gpu then return end
-  local s = ""
-  for i = 1, #args do
-    if i > 1 then s = s .. "\t" end
-    s = s .. tostring(args[i])
-  end
-  local term = loaded["term"]
-  if term and term.write then
-    term.write(s .. "\n")
+  local args = table.pack(...)
+  local ioLib = loaded["io"]
+  if ioLib and ioLib.stdout then
+    local pre = ""
+    for i = 1, args.n do
+      ioLib.stdout:write(pre .. tostring(args[i]))
+      pre = "\t"
+    end
+    ioLib.stdout:write("\n")
+    if ioLib.stdout.flush then ioLib.stdout:flush() end
   else
-    component.invoke(gpu, "set", 1, y, s)
-    y = y + 1
+    local s = ""
+    for i = 1, args.n do
+      if i > 1 then s = s .. "\t" end
+      s = s .. tostring(args[i])
+    end
+    local term = loaded["term"]
+    if term and term.write then
+      term.write(s .. "\n")
+    else
+      local gpu = component.list("gpu")()
+      if gpu then
+        component.invoke(gpu, "set", 1, y, s)
+        y = y + 1
+      end
+    end
   end
 end
 
@@ -386,6 +398,21 @@ _G.dofile = function(path, ...)
   local fn, err = loadfile(path)
   if not fn then error(err) end
   return fn(...)
+end
+
+-- Wrap computer.shutdown to fire shutdown signal
+do
+  local shutdown = computer.shutdown
+  _G.runlevel = "S"
+  computer.runlevel = function() return _G.runlevel or 1 end
+  computer.shutdown = function(reboot)
+    _G.runlevel = reboot and 6 or 0
+    if os.sleep then
+      computer.pushSignal("shutdown")
+      os.sleep(0.1)
+    end
+    shutdown(reboot)
+  end
 end
 
 -- Run boot scripts
@@ -715,9 +742,18 @@ function filesystem.mount(address, path)
   return true
 end
 
-function filesystem.umount(path)
-  mounts[path] = nil
-  return true
+function filesystem.umount(pathOrAddr)
+  if mounts[pathOrAddr] then
+    mounts[pathOrAddr] = nil
+    return true
+  end
+  for path, addr in pairs(mounts) do
+    if addr == pathOrAddr then
+      mounts[path] = nil
+      return true
+    end
+  end
+  return false
 end
 
 function filesystem.mounts()
@@ -834,8 +870,29 @@ function filesystem.copy(from, to)
 end
 
 function filesystem.get(path)
-  local addr, rel = resolve(path)
-  return component.proxy(addr), rel
+  path = filesystem.canonical(path)
+  local best = ""
+  local bestAddr = nil
+  for mpath, addr in pairs(mounts) do
+    if path:sub(1, #mpath) == mpath and #mpath > #best then
+      best = mpath
+      bestAddr = addr
+    end
+  end
+  if bestAddr then
+    return component.proxy(bestAddr), best
+  end
+  return component.proxy(computer.getBootAddress()), "/"
+end
+
+function filesystem.proxy(filter)
+  checkArg(1, filter, "string")
+  for addr in component.list("filesystem") do
+    if addr == filter or addr:sub(1, #filter) == filter then
+      return component.proxy(addr)
+    end
+  end
+  return nil, "no such filesystem"
 end
 
 function filesystem.isReadOnly(path)
@@ -1018,6 +1075,12 @@ function shell.execute(cmd, ...)
   end
   local fn, err = loadfile(path)
   if not fn then return false, err end
+  local env = setmetatable({}, {__index = _G})
+  if setfenv then
+    setfenv(fn, env)
+  elseif debug and debug.setupvalue then
+    debug.setupvalue(fn, 1, env)
+  end
   return pcall(fn, ...)
 end
 
@@ -1188,23 +1251,30 @@ function term.read(history, dobreak)
   local startX = cursorX
   local startY = cursorY
   
+  local scrollOffset = 0
   local function redraw()
-    -- Clear the line from startX
-    local clearLen = screenW - startX + 1
-    component.invoke(gpu, "fill", startX, startY, clearLen, 1, " ")
-    -- Draw buffer
-    if #buffer > 0 then
-      component.invoke(gpu, "set", startX, startY, buffer)
+    local maxVisible = screenW - startX + 1
+    if pos >= maxVisible then
+      scrollOffset = pos - maxVisible + 1
+    elseif pos < scrollOffset then
+      scrollOffset = pos
     end
-    -- Position cursor
-    cursorX = startX + pos
+    component.invoke(gpu, "fill", startX, startY, maxVisible, 1, " ")
+    local visible = buffer:sub(scrollOffset + 1, scrollOffset + maxVisible)
+    if #visible > 0 then
+      component.invoke(gpu, "set", startX, startY, visible)
+    end
+    cursorX = startX + pos - scrollOffset
   end
   
   while true do
     redraw()
     -- Show cursor
+    local cursorScreenPos = startX + pos - scrollOffset
     local cursorChar = pos < #buffer and buffer:sub(pos + 1, pos + 1) or "_"
-    component.invoke(gpu, "set", startX + pos, startY, cursorChar)
+    if cursorScreenPos >= 1 and cursorScreenPos <= screenW then
+      component.invoke(gpu, "set", cursorScreenPos, startY, cursorChar)
+    end
     
     local sig, _, char, code = computer.pullSignal(0.5)
     
@@ -1252,11 +1322,6 @@ function term.read(history, dobreak)
       elseif char >= 32 and char < 127 then
         buffer = buffer:sub(1, pos) .. string.char(char) .. buffer:sub(pos + 1)
         pos = pos + 1
-        if startX + pos > screenW then
-          cursorX = 1
-          cursorY = cursorY + 1
-          if cursorY > screenH then scroll() end
-        end
       end
     elseif sig == "clipboard" then
       local text = char
