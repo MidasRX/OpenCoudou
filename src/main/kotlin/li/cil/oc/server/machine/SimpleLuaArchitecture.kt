@@ -445,6 +445,46 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 if (compType == "redstone") {
                     return handleRedstoneInvoke(method, luaArgs)
                 }
+                // Stub handlers for components not yet implemented
+                if (compType == "robot") {
+                    return handleRobotStub(method, luaArgs)
+                }
+                if (compType == "drone") {
+                    return handleDroneStub(method, luaArgs)
+                }
+                if (compType == "hologram") {
+                    return handleHologramStub(method, luaArgs)
+                }
+                if (compType == "modem" || compType == "tunnel") {
+                    return handleModemStub(method, luaArgs)
+                }
+                if (compType == "data") {
+                    return handleDataCardStub(method, luaArgs)
+                }
+                if (compType == "debug") {
+                    return handleDebugCardStub(method, luaArgs)
+                }
+                if (compType == "inventory_controller") {
+                    return handleInventoryControllerStub(method, luaArgs)
+                }
+                if (compType == "tank_controller") {
+                    return handleTankControllerStub(method, luaArgs)
+                }
+                if (compType == "experience") {
+                    return handleExperienceStub(method, luaArgs)
+                }
+                if (compType == "generator") {
+                    return handleGeneratorStub(method, luaArgs)
+                }
+                if (compType == "crafting") {
+                    return handleCraftingStub(method, luaArgs)
+                }
+                if (compType == "geolyzer") {
+                    return handleGeolyzerStub(method, luaArgs)
+                }
+                if (compType == "navigation") {
+                    return handleNavigationStub(method, luaArgs)
+                }
 
                 // Try machine's component invoke
                 return try {
@@ -507,8 +547,40 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     "eeprom" -> listOf("get", "set", "getLabel", "setLabel", "getData", "setData",
                         "getSize", "getDataSize", "getChecksum")
                     "internet" -> listOf("isHttpEnabled", "isTcpEnabled", "request", "connect")
-                    "redstone" -> listOf("getInput", "getOutput", "setOutput")
-                    "keyboard" -> listOf()
+                    "redstone" -> listOf("getInput", "getOutput", "setOutput", "getBundledInput", "getBundledOutput", "setBundledOutput",
+                        "getComparatorInput", "setWakeThreshold", "getWakeThreshold", "setWirelessFrequency", "getWirelessFrequency", "getWirelessInput", "setWirelessOutput")
+                    "keyboard" -> listOf("getLayoutName", "setLayoutName")
+                    "robot" -> listOf("move", "turn", "name", "detect", "use", "swing", "place", "drop", "suck",
+                        "select", "count", "space", "compareTo", "compareFluid", "compareFluidTo", "transferFluid",
+                        "inventorySize", "level", "lightColor", "tankCount", "selectTank", "tankLevel", "tankSpace",
+                        "drain", "fill", "durability")
+                    "drone" -> listOf("move", "name", "offset", "setStatusText", "getStatusText", "setLightColor", "getLightColor",
+                        "setAcceleration", "getAcceleration", "getMaxVelocity", "getVelocity", "getPosition")
+                    "hologram" -> listOf("clear", "get", "set", "fill", "copy", "maxDepth", "setScale", "getScale",
+                        "setTranslation", "getTranslation", "setRotation", "getRotation", "setRotationSpeed", "getRotationSpeed",
+                        "setPaletteColor", "getPaletteColor")
+                    "modem" -> listOf("isWireless", "isWired", "getWakeMessage", "setWakeMessage", "getStrength",
+                        "setStrength", "maxPacketSize", "broadcast", "send", "open", "close", "isOpen")
+                    "tunnel" -> listOf("send", "getWakeMessage", "setWakeMessage", "maxPacketSize", "getChannel")
+                    "data" -> listOf("crc32", "md5", "sha256", "deflate", "inflate", "encode64", "decode64",
+                        "random", "generateKeyPair", "ecdsa", "ecdh", "serialize", "deserialize")
+                    "debug" -> listOf("getWorld", "setWorld", "getPlayer", "getPlayers", "isModLoaded",
+                        "runCommand", "getScoreboard", "getX", "getY", "getZ", "sendToDebugCard", "sendToClipboard",
+                        "changeBuffer", "connectToBlock", "test")
+                    "inventory_controller" -> listOf("getInventorySize", "getStackInSlot", "getSlotMaxStackSize",
+                        "getSlotStackSize", "compareStacks", "getItemInventorySize", "getStackInInternalSlot",
+                        "dropIntoSlot", "suckFromSlot", "equip", "store", "storeInternal")
+                    "tank_controller" -> listOf("getTankCount", "getFluidInTank", "getTankCapacity",
+                        "getFluidInInternalTank", "drain", "fill")
+                    "experience" -> listOf("level")
+                    "generator" -> listOf("count", "insert", "remove")
+                    "crafting" -> listOf("craft")
+                    "geolyzer" -> listOf("scan", "analyze", "store", "detect")
+                    "navigation" -> listOf("getPosition", "getFacing", "getRange", "findWaypoints")
+                    "sign" -> listOf("getValue", "setValue")
+                    "piston" -> listOf("push")
+                    "tractor_beam" -> listOf("suck")
+                    "leash" -> listOf("leash", "unleash")
                     else -> listOf()
                 }
                 for (m in methods) {
@@ -527,9 +599,13 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             override fun call(arg: LuaValue): LuaValue = LuaTable()
         })
 
-        // component.doc(address, method)
+        // component.doc(address, method) - Return documentation strings for methods
         comp.set("doc", object : TwoArgFunction() {
-            override fun call(arg1: LuaValue, arg2: LuaValue): LuaValue = LuaValue.NIL
+            override fun call(arg1: LuaValue, arg2: LuaValue): LuaValue {
+                val methodName = arg2.checkjstring()
+                val doc = COMPONENT_DOCS[methodName]
+                return if (doc != null) LuaValue.valueOf(doc) else LuaValue.NIL
+            }
         })
 
         // component.getPrimary(type) → proxy for first component of that type
@@ -1306,6 +1382,293 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     }
 
     // ===========================
+    // Stub Component Handlers (for programs expecting these components)
+    // ===========================
+    
+    // Robot component stub - robots not implemented yet
+    private fun handleRobotStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "name" -> LuaValue.valueOf("Robot")
+            "detect" -> LuaValue.varargsOf(arrayOf(LuaValue.FALSE, LuaValue.valueOf("air")))
+            "detectUp" -> LuaValue.varargsOf(arrayOf(LuaValue.FALSE, LuaValue.valueOf("air")))
+            "detectDown" -> LuaValue.varargsOf(arrayOf(LuaValue.FALSE, LuaValue.valueOf("air")))
+            "select" -> LuaValue.valueOf(1)
+            "inventorySize" -> LuaValue.valueOf(0)
+            "count" -> LuaValue.valueOf(0)
+            "space" -> LuaValue.valueOf(64)
+            "tankCount" -> LuaValue.valueOf(0)
+            "selectTank" -> LuaValue.valueOf(1)
+            "tankLevel" -> LuaValue.valueOf(0)
+            "tankSpace" -> LuaValue.valueOf(0)
+            "lightColor" -> LuaValue.valueOf(0x66CC00)
+            "level" -> LuaValue.valueOf(0)
+            "durability" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no tool equipped")))
+            "move", "forward", "back", "up", "down" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            "turn", "turnLeft", "turnRight", "turnAround" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            "use", "useUp", "useDown" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            "swing", "swingUp", "swingDown" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            "place", "placeUp", "placeDown" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            "drop", "dropUp", "dropDown" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            "suck", "suckUp", "suckDown" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            "compareTo" -> LuaValue.FALSE
+            "compareFluid", "compareFluidTo" -> LuaValue.FALSE
+            "transferFluid" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            "drain", "fill" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("robot not implemented")))
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Drone component stub - drones not implemented yet
+    private fun handleDroneStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "name" -> LuaValue.valueOf("Drone")
+            "getStatusText" -> LuaValue.valueOf("")
+            "setStatusText" -> LuaValue.TRUE
+            "getLightColor" -> LuaValue.valueOf(0x66CC00)
+            "setLightColor" -> LuaValue.valueOf(0x66CC00)
+            "getAcceleration" -> LuaValue.valueOf(0.0)
+            "setAcceleration" -> LuaValue.valueOf(0.0)
+            "getMaxVelocity" -> LuaValue.valueOf(0.0)
+            "getVelocity" -> LuaValue.varargsOf(arrayOf(LuaValue.valueOf(0.0), LuaValue.valueOf(0.0), LuaValue.valueOf(0.0)))
+            "getPosition" -> LuaValue.varargsOf(arrayOf(LuaValue.valueOf(0.0), LuaValue.valueOf(0.0), LuaValue.valueOf(0.0)))
+            "getOffset" -> LuaValue.varargsOf(arrayOf(LuaValue.valueOf(0.0), LuaValue.valueOf(0.0), LuaValue.valueOf(0.0)))
+            "move" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("drone not implemented")))
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Hologram component stub - holograms not implemented yet
+    private fun handleHologramStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "clear" -> LuaValue.NONE
+            "get" -> LuaValue.valueOf(0)
+            "set" -> LuaValue.NONE
+            "fill" -> LuaValue.NONE
+            "copy" -> LuaValue.NONE
+            "maxDepth" -> LuaValue.valueOf(1)
+            "getScale" -> LuaValue.valueOf(1.0)
+            "setScale" -> LuaValue.NONE
+            "getTranslation" -> LuaValue.varargsOf(arrayOf(LuaValue.valueOf(0.0), LuaValue.valueOf(0.0), LuaValue.valueOf(0.0)))
+            "setTranslation" -> LuaValue.NONE
+            "getRotation" -> LuaValue.varargsOf(arrayOf(LuaValue.valueOf(0.0), LuaValue.valueOf(0.0), LuaValue.valueOf(0.0), LuaValue.valueOf(0.0)))
+            "setRotation" -> LuaValue.NONE
+            "getRotationSpeed" -> LuaValue.varargsOf(arrayOf(LuaValue.valueOf(0.0), LuaValue.valueOf(0.0)))
+            "setRotationSpeed" -> LuaValue.NONE
+            "getPaletteColor" -> LuaValue.valueOf(0xFFFFFF)
+            "setPaletteColor" -> LuaValue.valueOf(0xFFFFFF)
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Modem/Network component stub - networking not implemented yet
+    private val modemOpenPorts = mutableSetOf<Int>()
+    private fun handleModemStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "isWireless" -> LuaValue.FALSE
+            "isWired" -> LuaValue.TRUE
+            "getWakeMessage" -> LuaValue.valueOf("")
+            "setWakeMessage" -> LuaValue.valueOf("")
+            "getStrength" -> LuaValue.valueOf(0)
+            "setStrength" -> LuaValue.valueOf(0)
+            "maxPacketSize" -> LuaValue.valueOf(8192)
+            "open" -> {
+                val port = (args.getOrNull(0) as? Number)?.toInt() ?: 0
+                if (port in 1..65535) {
+                    modemOpenPorts.add(port)
+                    LuaValue.TRUE
+                } else LuaValue.FALSE
+            }
+            "close" -> {
+                val port = args.getOrNull(0) as? Number
+                if (port != null) {
+                    modemOpenPorts.remove(port.toInt())
+                } else {
+                    modemOpenPorts.clear()
+                }
+                LuaValue.TRUE
+            }
+            "isOpen" -> {
+                val port = (args.getOrNull(0) as? Number)?.toInt() ?: 0
+                LuaValue.valueOf(modemOpenPorts.contains(port))
+            }
+            "send" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("network not implemented")))
+            "broadcast" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("network not implemented")))
+            "getChannel" -> LuaValue.valueOf("") // For tunnel component
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Data card stub - provides hashing/crypto functions
+    private fun handleDataCardStub(method: String, args: List<Any?>): Varargs {
+        val data = args.getOrNull(0)?.toString()?.toByteArray() ?: ByteArray(0)
+        return when (method) {
+            "crc32" -> {
+                val crc = java.util.zip.CRC32()
+                crc.update(data)
+                LuaValue.valueOf(crc.value.toInt())
+            }
+            "md5" -> {
+                val digest = java.security.MessageDigest.getInstance("MD5").digest(data)
+                LuaString.valueOf(digest)
+            }
+            "sha256" -> {
+                val digest = java.security.MessageDigest.getInstance("SHA-256").digest(data)
+                LuaString.valueOf(digest)
+            }
+            "encode64" -> {
+                LuaValue.valueOf(java.util.Base64.getEncoder().encodeToString(data))
+            }
+            "decode64" -> {
+                try {
+                    val decoded = java.util.Base64.getDecoder().decode(data)
+                    LuaString.valueOf(decoded)
+                } catch (e: Exception) {
+                    LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("invalid base64")))
+                }
+            }
+            "deflate" -> {
+                try {
+                    val output = java.io.ByteArrayOutputStream()
+                    val deflater = java.util.zip.DeflaterOutputStream(output)
+                    deflater.write(data)
+                    deflater.close()
+                    LuaString.valueOf(output.toByteArray())
+                } catch (e: Exception) {
+                    LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("compression failed")))
+                }
+            }
+            "inflate" -> {
+                try {
+                    val inflater = java.util.zip.InflaterInputStream(java.io.ByteArrayInputStream(data))
+                    val output = inflater.readBytes()
+                    inflater.close()
+                    LuaString.valueOf(output)
+                } catch (e: Exception) {
+                    LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("decompression failed")))
+                }
+            }
+            "random" -> {
+                val count = (args.getOrNull(0) as? Number)?.toInt() ?: 1
+                val bytes = ByteArray(count.coerceIn(1, 1024))
+                java.security.SecureRandom().nextBytes(bytes)
+                LuaString.valueOf(bytes)
+            }
+            "generateKeyPair", "ecdsa", "ecdh" -> {
+                LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("elliptic curve crypto not implemented")))
+            }
+            "serialize", "deserialize" -> {
+                LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("serialization not implemented")))
+            }
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Debug card stub - creative-only OP component
+    private fun handleDebugCardStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "getWorld" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("debug card: not available in survival")))
+            "setWorld" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("debug card: not available in survival")))
+            "getPlayer" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("debug card: not available in survival")))
+            "getPlayers" -> LuaTable()
+            "isModLoaded" -> LuaValue.FALSE
+            "runCommand" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("debug card: not available in survival")))
+            "getScoreboard" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("debug card: not available in survival")))
+            "getX", "getY", "getZ" -> LuaValue.valueOf(0.0)
+            "sendToDebugCard" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("debug card: not available in survival")))
+            "sendToClipboard" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("debug card: not available in survival")))
+            "changeBuffer" -> LuaValue.valueOf(0.0)
+            "connectToBlock" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("debug card: not available in survival")))
+            "test" -> LuaValue.valueOf("debug card test")
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Inventory Controller stub - inventory interaction not implemented
+    private fun handleInventoryControllerStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "getInventorySize" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no inventory")))
+            "getStackInSlot" -> LuaValue.NIL
+            "getSlotMaxStackSize" -> LuaValue.valueOf(64)
+            "getSlotStackSize" -> LuaValue.valueOf(0)
+            "compareStacks" -> LuaValue.FALSE
+            "getItemInventorySize" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no item")))
+            "getStackInInternalSlot" -> LuaValue.NIL
+            "dropIntoSlot" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("inventory controller not implemented")))
+            "suckFromSlot" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("inventory controller not implemented")))
+            "equip" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("inventory controller not implemented")))
+            "store" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("inventory controller not implemented")))
+            "storeInternal" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("inventory controller not implemented")))
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Tank Controller stub - fluid interaction not implemented
+    private fun handleTankControllerStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "getTankCount" -> LuaValue.valueOf(0)
+            "getFluidInTank" -> LuaValue.NIL
+            "getTankCapacity" -> LuaValue.valueOf(0)
+            "getFluidInInternalTank" -> LuaValue.NIL
+            "drain" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("tank controller not implemented")))
+            "fill" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("tank controller not implemented")))
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Experience upgrade stub
+    private fun handleExperienceStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "level" -> LuaValue.valueOf(0.0)
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Generator upgrade stub
+    private fun handleGeneratorStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "count" -> LuaValue.valueOf(0)
+            "insert" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("generator not implemented")))
+            "remove" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("generator not implemented")))
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Crafting upgrade stub
+    private fun handleCraftingStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "craft" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("crafting not implemented")))
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Geolyzer stub
+    private fun handleGeolyzerStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "scan" -> {
+                // Return empty scan result
+                val t = LuaTable()
+                t.set("n", LuaValue.valueOf(0))
+                t
+            }
+            "analyze" -> LuaValue.NIL
+            "store" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("geolyzer not implemented")))
+            "detect" -> LuaValue.varargsOf(arrayOf(LuaValue.FALSE, LuaValue.valueOf("air")))
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // Navigation upgrade stub
+    private fun handleNavigationStub(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "getPosition" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("navigation not implemented")))
+            "getFacing" -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("navigation not implemented")))
+            "getRange" -> LuaValue.valueOf(0)
+            "findWaypoints" -> LuaTable()
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // ===========================
     // Filesystem Component API
     // ===========================
     private fun handleFilesystemInvoke(address: String, method: String, args: List<Any?>): Varargs {
@@ -2031,6 +2394,134 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     // BIOS CODE
     // ===========================
     companion object {
+        /**
+         * Documentation strings for component methods.
+         * Used by component.doc(address, method) to return method documentation.
+         * Format matches original OpenComputers: "function(args):returnType -- Description"
+         */
+        val COMPONENT_DOCS = mapOf(
+            // GPU methods
+            "bind" to "function(address:string[, reset:boolean]):boolean -- Binds a screen. Reset will also reset the palette.",
+            "getScreen" to "function():string -- Returns the address of the screen it is currently bound to.",
+            "getBackground" to "function():number, boolean -- Returns the current background color and if it's from the palette.",
+            "setBackground" to "function(color:number[, isPaletteIndex:boolean]):number, boolean -- Sets the background color.",
+            "getForeground" to "function():number, boolean -- Returns the current foreground color and if it's from the palette.",
+            "setForeground" to "function(color:number[, isPaletteIndex:boolean]):number, boolean -- Sets the foreground color.",
+            "getPaletteColor" to "function(index:number):number -- Gets the palette color at the specified index.",
+            "setPaletteColor" to "function(index:number, value:number):number -- Sets the palette color at the specified index.",
+            "maxDepth" to "function():number -- Returns the maximum supported color depth.",
+            "getDepth" to "function():number -- Returns the current color depth.",
+            "setDepth" to "function(depth:number):number -- Sets the color depth. Returns the old depth.",
+            "maxResolution" to "function():number, number -- Returns the maximum resolution.",
+            "getResolution" to "function():number, number -- Returns the current resolution.",
+            "setResolution" to "function(width:number, height:number):boolean -- Sets the resolution. Returns true if changed.",
+            "getViewport" to "function():number, number -- Returns the current viewport resolution.",
+            "setViewport" to "function(width:number, height:number):boolean -- Sets the viewport resolution.",
+            "get" to "function(x:number, y:number):string, number, number, number or nil, number or nil -- Gets the character and colors at a position.",
+            "set" to "function(x:number, y:number, value:string[, vertical:boolean]):boolean -- Sets text at a position.",
+            "copy" to "function(x:number, y:number, width:number, height:number, tx:number, ty:number):boolean -- Copies a region.",
+            "fill" to "function(x:number, y:number, width:number, height:number, char:string):boolean -- Fills a region with a character.",
+            
+            // Filesystem methods
+            "open" to "function(path:string[, mode:string]):number or nil, string -- Opens a file. Returns handle or nil and error.",
+            "read" to "function(handle:number, count:number):string or nil -- Reads from an open file.",
+            "write" to "function(handle:number, value:string):boolean -- Writes to an open file.",
+            "close" to "function(handle:number) -- Closes an open file handle.",
+            "seek" to "function(handle:number, whence:string, offset:number):number -- Seeks in an open file.",
+            "exists" to "function(path:string):boolean -- Returns whether a path exists.",
+            "isDirectory" to "function(path:string):boolean -- Returns whether a path is a directory.",
+            "isReadOnly" to "function():boolean -- Returns whether the filesystem is read-only.",
+            "list" to "function(path:string):table or nil, string -- Returns a table of entries in a directory.",
+            "size" to "function(path:string):number -- Returns the size of a file in bytes.",
+            "lastModified" to "function(path:string):number -- Returns the last modified time of a file.",
+            "makeDirectory" to "function(path:string):boolean -- Creates a directory.",
+            "remove" to "function(path:string):boolean -- Removes a file or empty directory.",
+            "rename" to "function(from:string, to:string):boolean -- Renames a file or directory.",
+            "spaceTotal" to "function():number -- Returns the total space of the filesystem.",
+            "spaceUsed" to "function():number -- Returns the used space of the filesystem.",
+            "getLabel" to "function():string -- Returns the filesystem label.",
+            "setLabel" to "function(label:string):string -- Sets the filesystem label.",
+            
+            // Computer methods
+            "start" to "function():boolean -- Starts the computer.",
+            "stop" to "function():boolean -- Stops the computer.",
+            "isRunning" to "function():boolean -- Returns whether the computer is running.",
+            "beep" to "function([frequency:number[, duration:number]]) -- Plays a beep.",
+            
+            // Screen methods
+            "isOn" to "function():boolean -- Returns whether the screen is on.",
+            "turnOn" to "function():boolean -- Turns the screen on.",
+            "turnOff" to "function():boolean -- Turns the screen off.",
+            "getAspectRatio" to "function():number, number -- Returns the screen's aspect ratio.",
+            "getKeyboards" to "function():table -- Returns the addresses of attached keyboards.",
+            "setPrecise" to "function(enabled:boolean):boolean -- Enables or disables precise click mode.",
+            "isPrecise" to "function():boolean -- Returns whether precise mode is enabled.",
+            "setTouchModeInverted" to "function(enabled:boolean):boolean -- Inverts touch mode.",
+            "isTouchModeInverted" to "function():boolean -- Returns whether touch mode is inverted.",
+            
+            // EEPROM methods
+            "getData" to "function():string -- Returns the EEPROM data section.",
+            "setData" to "function(data:string) -- Sets the EEPROM data section.",
+            "getSize" to "function():number -- Returns the EEPROM code size.",
+            "getDataSize" to "function():number -- Returns the EEPROM data size.",
+            "getChecksum" to "function():string -- Returns the EEPROM checksum.",
+            "makeReadonly" to "function():boolean -- Makes the EEPROM read-only.",
+            
+            // Internet methods
+            "isHttpEnabled" to "function():boolean -- Returns whether HTTP is enabled.",
+            "isTcpEnabled" to "function():boolean -- Returns whether TCP is enabled.",
+            "request" to "function(url:string[, postData:string[, headers:table]]):table -- Performs an HTTP request.",
+            "connect" to "function(address:string, port:number):table -- Opens a TCP connection.",
+            
+            // Redstone methods
+            "getInput" to "function([side:number]):number or table -- Returns the redstone input.",
+            "getOutput" to "function([side:number]):number or table -- Returns the redstone output.",
+            "setOutput" to "function(side:number, value:number):number -- Sets the redstone output.",
+            
+            // Modem methods
+            "isWireless" to "function():boolean -- Returns whether this is a wireless modem.",
+            "isWired" to "function():boolean -- Returns whether this is a wired modem.",
+            "maxPacketSize" to "function():number -- Returns the maximum packet size.",
+            "send" to "function(address:string, port:number, ...):boolean -- Sends a packet to an address.",
+            "broadcast" to "function(port:number, ...):boolean -- Broadcasts a packet on a port.",
+            
+            // Robot methods
+            "name" to "function():string -- Returns the robot's name.",
+            "detect" to "function():boolean, string -- Detects a block in front.",
+            "detectUp" to "function():boolean, string -- Detects a block above.",
+            "detectDown" to "function():boolean, string -- Detects a block below.",
+            "select" to "function([slot:number]):number -- Selects or returns the selected slot.",
+            "inventorySize" to "function():number -- Returns the robot's inventory size.",
+            "count" to "function([slot:number]):number -- Returns the item count in a slot.",
+            "space" to "function([slot:number]):number -- Returns the remaining space in a slot.",
+            "move" to "function(side:number):boolean -- Moves in a direction.",
+            "turn" to "function(clockwise:boolean):boolean -- Turns left or right.",
+            "swing" to "function([side:number[, sneaky:boolean]]):boolean, string -- Swings the equipped tool.",
+            "use" to "function([side:number[, sneaky:boolean[, duration:number]]]):boolean, string -- Uses the equipped item.",
+            "place" to "function([side:number[, sneaky:boolean]]):boolean, string -- Places a block.",
+            "drop" to "function([count:number]):boolean -- Drops items from the selected slot.",
+            "suck" to "function([count:number]):boolean -- Picks up items.",
+            "durability" to "function():number, number, string -- Returns tool durability.",
+            
+            // Data card methods
+            "crc32" to "function(data:string):number -- Computes CRC-32 hash.",
+            "md5" to "function(data:string):string -- Computes MD5 hash.",
+            "sha256" to "function(data:string):string -- Computes SHA-256 hash.",
+            "encode64" to "function(data:string):string -- Encodes data as base64.",
+            "decode64" to "function(data:string):string -- Decodes base64 data.",
+            "deflate" to "function(data:string):string -- Compresses data.",
+            "inflate" to "function(data:string):string -- Decompresses data.",
+            "random" to "function(count:number):string -- Generates random bytes.",
+            
+            // Hologram methods
+            "clear" to "function() -- Clears the hologram.",
+            "maxDepth" to "function():number -- Returns the maximum color depth.",
+            "getScale" to "function():number -- Returns the hologram scale.",
+            "setScale" to "function(scale:number) -- Sets the hologram scale.",
+            "getTranslation" to "function():number, number, number -- Returns the translation offset.",
+            "setTranslation" to "function(x:number, y:number, z:number) -- Sets the translation offset.",
+        )
+
         val BIOS_CODE = """
 -- =============================================
 -- OpenCoudou BIOS (OC-compatible)
@@ -2135,5 +2626,149 @@ while true do
   end
 end
 """.trimIndent()
+
+        // Documentation strings for component.doc(address, method)
+        val COMPONENT_DOCS = mapOf(
+            // GPU methods
+            "bind" to "function(address:string[, reset:boolean]):boolean -- Binds the GPU to the screen with the specified address.",
+            "getScreen" to "function():string -- Returns the address of the screen the GPU is bound to.",
+            "getResolution" to "function():number, number -- Returns the current resolution.",
+            "setResolution" to "function(width:number, height:number):boolean -- Sets the resolution.",
+            "maxResolution" to "function():number, number -- Returns the maximum resolution.",
+            "getDepth" to "function():number -- Returns the current color depth.",
+            "setDepth" to "function(depth:number):number -- Sets the color depth. Returns the previous value.",
+            "maxDepth" to "function():number -- Returns the maximum color depth.",
+            "get" to "function(x:number, y:number):string, number, number, number, number -- Returns character, foreground, background, fg palette, bg palette.",
+            "set" to "function(x:number, y:number, value:string[, vertical:boolean]):boolean -- Set text at position.",
+            "fill" to "function(x:number, y:number, width:number, height:number, char:string):boolean -- Fill a rectangle with a character.",
+            "copy" to "function(x:number, y:number, width:number, height:number, tx:number, ty:number):boolean -- Copy a portion of the screen.",
+            "setForeground" to "function(color:number[, isPaletteIndex:boolean]):number, boolean -- Sets the foreground color.",
+            "setBackground" to "function(color:number[, isPaletteIndex:boolean]):number, boolean -- Sets the background color.",
+            "getForeground" to "function():number, boolean -- Returns the current foreground color.",
+            "getBackground" to "function():number, boolean -- Returns the current background color.",
+            "getPaletteColor" to "function(index:number):number -- Returns the palette color at the given index.",
+            "setPaletteColor" to "function(index:number, color:number):number -- Sets the palette color.",
+            "getViewport" to "function():number, number -- Returns the viewport size.",
+            "setViewport" to "function(width:number, height:number):boolean -- Sets the viewport size.",
+            
+            // Filesystem methods
+            "open" to "function(path:string[, mode:string]):number -- Opens a file. Returns a handle or nil and error.",
+            "read" to "function(handle:number, count:number):string or nil -- Reads from an open file.",
+            "write" to "function(handle:number, data:string):boolean -- Writes to an open file.",
+            "close" to "function(handle:number) -- Closes an open file.",
+            "seek" to "function(handle:number, whence:string, offset:number):number -- Seeks in a file.",
+            "exists" to "function(path:string):boolean -- Returns whether the path exists.",
+            "isDirectory" to "function(path:string):boolean -- Returns whether the path is a directory.",
+            "list" to "function(path:string):table -- Returns the contents of a directory.",
+            "size" to "function(path:string):number -- Returns the size of a file.",
+            "lastModified" to "function(path:string):number -- Returns the last modification time.",
+            "makeDirectory" to "function(path:string):boolean -- Creates a directory.",
+            "remove" to "function(path:string):boolean -- Removes a file or empty directory.",
+            "rename" to "function(from:string, to:string):boolean -- Renames a file or directory.",
+            "spaceTotal" to "function():number -- Returns the total capacity.",
+            "spaceUsed" to "function():number -- Returns the used space.",
+            "isReadOnly" to "function():boolean -- Returns whether the file system is read-only.",
+            "getLabel" to "function():string -- Returns the label.",
+            "setLabel" to "function(label:string):string -- Sets the label.",
+            
+            // Computer methods
+            "address" to "function():string -- Returns the address of this computer.",
+            "uptime" to "function():number -- Returns the time in seconds since the computer started.",
+            "totalMemory" to "function():number -- Returns the total memory in bytes.",
+            "freeMemory" to "function():number -- Returns the available memory in bytes.",
+            "energy" to "function():number -- Returns the current energy stored.",
+            "maxEnergy" to "function():number -- Returns the maximum energy capacity.",
+            "pullSignal" to "function([timeout:number]):string, ... -- Waits for a signal. Returns name and args.",
+            "pushSignal" to "function(name:string, ...):boolean -- Pushes a signal to the queue.",
+            "shutdown" to "function([reboot:boolean]) -- Shuts down or reboots the computer.",
+            "beep" to "function([frequency:number[, duration:number]]) -- Plays a beep sound.",
+            "getBootAddress" to "function():string -- Returns the boot address.",
+            "setBootAddress" to "function([address:string]) -- Sets the boot address.",
+            "tmpAddress" to "function():string -- Returns the tmpfs address.",
+            "users" to "function():table -- Returns the list of registered users.",
+            "addUser" to "function(name:string):boolean -- Adds a user.",
+            "removeUser" to "function(name:string):boolean -- Removes a user.",
+            "realTime" to "function():number -- Returns world time in seconds.",
+            "isRobot" to "function():boolean -- Returns whether this is a robot.",
+            "getDeviceInfo" to "function():table -- Returns device info for all components.",
+            "getArchitectures" to "function():table -- Returns available CPU architectures.",
+            "getArchitecture" to "function():string -- Returns current architecture.",
+            "setArchitecture" to "function(name:string):boolean -- Sets the architecture.",
+            
+            // Internet card
+            "request" to "function(url:string[, postData:string[, headers:table]]):handle -- Starts an HTTP request.",
+            "isHttpEnabled" to "function():boolean -- Returns whether HTTP is enabled.",
+            "isTcpEnabled" to "function():boolean -- Returns whether TCP is enabled.",
+            "connect" to "function(address:string, port:number):handle -- Opens a TCP connection.",
+            
+            // Redstone
+            "getInput" to "function([side:number]):number or table -- Returns redstone input.",
+            "getOutput" to "function([side:number]):number or table -- Returns redstone output.",
+            "setOutput" to "function(side:number, value:number):number -- Sets redstone output.",
+            
+            // Robot
+            "move" to "function(direction:number):boolean, string -- Moves the robot.",
+            "turn" to "function(clockwise:boolean):boolean, string -- Turns the robot.",
+            "name" to "function():string -- Returns the robot's name.",
+            "detect" to "function(side:number):boolean, string -- Detects what's in front.",
+            "use" to "function(side:number[, sneaky:boolean[, duration:number]]):boolean, string -- Uses an item.",
+            "swing" to "function(side:number[, sneaky:boolean]):boolean, string -- Swings the tool.",
+            "place" to "function(side:number[, sneaky:boolean]):boolean, string -- Places a block.",
+            "drop" to "function(count:number):boolean -- Drops items.",
+            "suck" to "function(count:number):boolean -- Picks up items.",
+            "select" to "function(slot:number):number -- Selects a slot.",
+            "count" to "function([slot:number]):number -- Returns item count.",
+            "space" to "function([slot:number]):number -- Returns free space.",
+            "inventorySize" to "function():number -- Returns inventory size.",
+            "durability" to "function():number, string -- Returns tool durability.",
+            
+            // Drone
+            "getStatusText" to "function():string -- Returns the status text.",
+            "setStatusText" to "function(text:string):boolean -- Sets the status text.",
+            "getLightColor" to "function():number -- Returns the light color.",
+            "setLightColor" to "function(color:number):number -- Sets the light color.",
+            "getAcceleration" to "function():number -- Returns the acceleration.",
+            "setAcceleration" to "function(acceleration:number):number -- Sets the acceleration.",
+            "getMaxVelocity" to "function():number -- Returns the max velocity.",
+            "getVelocity" to "function():number, number, number -- Returns current velocity.",
+            "getPosition" to "function():number, number, number -- Returns current position.",
+            "offset" to "function():number, number, number -- Returns target offset.",
+            
+            // Modem
+            "isWireless" to "function():boolean -- Returns whether this is wireless.",
+            "isWired" to "function():boolean -- Returns whether this is wired.",
+            "getWakeMessage" to "function():string -- Returns the wake message.",
+            "setWakeMessage" to "function(message:string):string -- Sets the wake message.",
+            "getStrength" to "function():number -- Returns signal strength.",
+            "setStrength" to "function(strength:number):number -- Sets signal strength.",
+            "broadcast" to "function(port:number, ...):boolean -- Broadcasts a message.",
+            "send" to "function(address:string, port:number, ...):boolean -- Sends a message.",
+            "maxPacketSize" to "function():number -- Returns the max packet size.",
+            
+            // Data card
+            "crc32" to "function(data:string):number -- Computes CRC32.",
+            "md5" to "function(data:string):string -- Computes MD5 hash.",
+            "sha256" to "function(data:string):string -- Computes SHA256 hash.",
+            "encode64" to "function(data:string):string -- Base64 encodes data.",
+            "decode64" to "function(data:string):string -- Base64 decodes data.",
+            "deflate" to "function(data:string):string -- Compresses data.",
+            "inflate" to "function(data:string):string -- Decompresses data.",
+            "random" to "function(count:number):string -- Returns random bytes.",
+            
+            // Hologram
+            "clear" to "function() -- Clears the hologram.",
+            "getScale" to "function():number -- Returns the scale.",
+            "setScale" to "function(scale:number) -- Sets the scale.",
+            "getTranslation" to "function():number, number, number -- Returns translation offset.",
+            "setTranslation" to "function(x:number, y:number, z:number) -- Sets translation.",
+            
+            // EEPROM
+            "getData" to "function():string -- Returns the EEPROM data.",
+            "setData" to "function(data:string) -- Sets the EEPROM data.",
+            "getSize" to "function():number -- Returns the code capacity.",
+            "getDataSize" to "function():number -- Returns the data capacity.",
+            "getChecksum" to "function():string -- Returns the code checksum.",
+            "makeReadonly" to "function():boolean -- Makes the EEPROM read-only."
+        )
     }
 }

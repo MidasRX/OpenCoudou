@@ -2221,11 +2221,20 @@ if not fs.isDirectory(path) then
 end
 
 local gpu = component.list("gpu")()
-local entries = {}
+local dirs = {}
+local files = {}
 for name in fs.list(path) do
-  entries[#entries+1] = name
+  if name:sub(-1) == "/" then
+    dirs[#dirs+1] = name
+  else
+    files[#files+1] = name
+  end
 end
-table.sort(entries)
+table.sort(dirs)
+table.sort(files)
+local entries = {}
+for _, d in ipairs(dirs) do entries[#entries+1] = d end
+for _, f in ipairs(files) do entries[#entries+1] = f end
 
 for _, name in ipairs(entries) do
   if not options.a and name:sub(1,1) == "." then
