@@ -325,6 +325,38 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             override fun call(arg: LuaValue): LuaValue = LuaValue.TRUE
         })
 
+        comp.set("realTime", object : ZeroArgFunction() {
+            override fun call(): LuaValue = LuaValue.valueOf(System.currentTimeMillis() / 1000.0)
+        })
+
+        comp.set("isRobot", object : ZeroArgFunction() {
+            override fun call(): LuaValue = LuaValue.FALSE
+        })
+
+        comp.set("getDeviceInfo", object : ZeroArgFunction() {
+            override fun call(): LuaValue = LuaTable()
+        })
+
+        comp.set("getProgramLocations", object : ZeroArgFunction() {
+            override fun call(): LuaValue = LuaTable()
+        })
+
+        comp.set("getArchitectures", object : ZeroArgFunction() {
+            override fun call(): LuaValue {
+                val t = LuaTable()
+                t.set(1, LuaValue.valueOf("Lua 5.3"))
+                return t
+            }
+        })
+
+        comp.set("getArchitecture", object : ZeroArgFunction() {
+            override fun call(): LuaValue = LuaValue.valueOf("Lua 5.3")
+        })
+
+        comp.set("setArchitecture", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue = LuaValue.TRUE
+        })
+
         g.set("computer", comp)
     }
 
@@ -448,7 +480,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 return LuaValue.varargsOf(arrayOf(
                     LuaValue.valueOf(char),
                     LuaValue.valueOf(fg),
-                    LuaValue.valueOf(bg)
+                    LuaValue.valueOf(bg),
+                    LuaValue.NIL,
+                    LuaValue.NIL
                 ))
             }
         })
@@ -490,7 +524,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen()
                 val old = screen?.buffer?.foreground ?: 0xFFFFFF
                 if (screen != null) screen.buffer.foreground = color
-                return LuaValue.valueOf(old)
+                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.NIL))
             }
         })
 
@@ -500,22 +534,42 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen()
                 val old = screen?.buffer?.background ?: 0x000000
                 if (screen != null) screen.buffer.background = color
-                return LuaValue.valueOf(old)
+                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.NIL))
             }
         })
 
-        gpu.set("getForeground", object : ZeroArgFunction() {
-            override fun call(): LuaValue {
+        gpu.set("getForeground", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
                 val screen = findNearbyScreen()
-                return LuaValue.valueOf(screen?.buffer?.foreground ?: 0xFFFFFF)
+                return LuaValue.varargsOf(arrayOf(
+                    LuaValue.valueOf(screen?.buffer?.foreground ?: 0xFFFFFF),
+                    LuaValue.FALSE
+                ))
             }
         })
 
-        gpu.set("getBackground", object : ZeroArgFunction() {
-            override fun call(): LuaValue {
+        gpu.set("getBackground", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
                 val screen = findNearbyScreen()
-                return LuaValue.valueOf(screen?.buffer?.background ?: 0x000000)
+                return LuaValue.varargsOf(arrayOf(
+                    LuaValue.valueOf(screen?.buffer?.background ?: 0x000000),
+                    LuaValue.FALSE
+                ))
             }
+        })
+
+        gpu.set("getViewport", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val screen = findNearbyScreen()
+                return LuaValue.varargsOf(arrayOf(
+                    LuaValue.valueOf(screen?.buffer?.width ?: 80),
+                    LuaValue.valueOf(screen?.buffer?.height ?: 25)
+                ))
+            }
+        })
+
+        gpu.set("setViewport", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs = LuaValue.TRUE
         })
 
         g.set("gpu", gpu)

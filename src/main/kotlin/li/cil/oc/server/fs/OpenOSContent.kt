@@ -60,6 +60,7 @@ object OpenOSContent {
         fs.writeFile("bin/reboot.lua", REBOOT_LUA)
         fs.writeFile("bin/clear.lua", CLEAR_LUA)
         fs.writeFile("bin/echo.lua", ECHO_LUA)
+        fs.writeFile("bin/cd.lua", CD_LUA)
         fs.writeFile("bin/wget.lua", WGET_LUA)
 
         // ============ Config ============
@@ -284,44 +285,212 @@ end
     // ================================================================
     val EVENT_LUA = """
 local event = {}
+local handlers = {}
+local lastInterrupt = -math.huge
 
-function event.pull(...)
-  local args = {...}
-  local timeout = nil
-  local filter = nil
-  if type(args[1]) == "number" then
-    timeout = args[1]
-    filter = args[2]
-  elseif type(args[1]) == "string" then
-    filter = args[1]
-  end
-  
-  while true do
-    local sig = {computer.pullSignal(timeout or 5)}
-    if #sig == 0 then return nil end
-    if not filter or sig[1] == filter then
-      return table.unpack(sig)
+event.handlers = handlers
+
+function event.register(key, callback, interval, times, opt_handlers)
+  local handler = {
+    key = key,
+    times = times or 1,
+    callback = callback,
+    interval = interval or math.huge,
+  }
+  handler.timeout = computer.uptime() + handler.interval
+  opt_handlers = opt_handlers or handlers
+  local id = 0
+  repeat
+    id = id + 1
+  until not opt_handlers[id]
+  opt_handlers[id] = handler
+  return id
+end
+
+local _pullSignal = computer.pullSignal
+setmetatable(handlers, {__call = function(_, ...) return _pullSignal(...) end})
+
+computer.pullSignal = function(seconds)
+  checkArg(1, seconds, "number", "nil")
+  seconds = seconds or math.huge
+  local uptime = computer.uptime
+  local deadline = uptime() + seconds
+  repeat
+    local closest = deadline
+    for _, handler in pairs(handlers) do
+      closest = math.min(handler.timeout, closest)
     end
-    if timeout then return nil end
+    local event_data = table.pack(handlers(closest - uptime()))
+    local signal = event_data[1]
+    local copy = {}
+    for id, handler in pairs(handlers) do
+      copy[id] = handler
+    end
+    for id, handler in pairs(copy) do
+      if (handler.key == nil or handler.key == signal) or uptime() >= handler.timeout then
+        handler.times = handler.times - 1
+        handler.timeout = handler.timeout + handler.interval
+        if handler.times <= 0 and handlers[id] == handler then
+          handlers[id] = nil
+        end
+        local result, message = pcall(handler.callback, table.unpack(event_data, 1, event_data.n))
+        if not result then
+          pcall(event.onError, message)
+        elseif message == false and handlers[id] == handler then
+          handlers[id] = nil
+        end
+      end
+    end
+    if signal then
+      return table.unpack(event_data, 1, event_data.n)
+    end
+  until uptime() >= deadline
+end
+
+local function createPlainFilter(name, ...)
+  local filter = table.pack(...)
+  if name == nil and filter.n == 0 then
+    return nil
+  end
+  return function(...)
+    local signal = table.pack(...)
+    if name and not (type(signal[1]) == "string" and signal[1]:match(name)) then
+      return false
+    end
+    for i = 1, filter.n do
+      if filter[i] ~= nil and filter[i] ~= signal[i + 1] then
+        return false
+      end
+    end
+    return true
+  end
+end
+
+local function createMultipleFilter(...)
+  local filter = table.pack(...)
+  if filter.n == 0 then
+    return nil
+  end
+  return function(...)
+    local signal = table.pack(...)
+    if type(signal[1]) ~= "string" then
+      return false
+    end
+    for i = 1, filter.n do
+      if filter[i] ~= nil and signal[1]:match(filter[i]) then
+        return true
+      end
+    end
+    return false
   end
 end
 
 function event.listen(name, callback)
-  -- simplified stub
-  return true
+  checkArg(1, name, "string")
+  checkArg(2, callback, "function")
+  for _, handler in pairs(handlers) do
+    if handler.key == name and handler.callback == callback then
+      return false
+    end
+  end
+  return event.register(name, callback, math.huge, math.huge)
 end
 
 function event.ignore(name, callback)
-  return true
+  checkArg(1, name, "string")
+  checkArg(2, callback, "function")
+  for id, handler in pairs(handlers) do
+    if handler.key == name and handler.callback == callback then
+      handlers[id] = nil
+      return true
+    end
+  end
+  return false
 end
 
 function event.timer(interval, callback, times)
-  return 1
+  checkArg(1, interval, "number")
+  checkArg(2, callback, "function")
+  checkArg(3, times, "number", "nil")
+  return event.register(false, callback, interval, times)
 end
 
-function event.cancel(id)
-  return true
+function event.cancel(timerId)
+  checkArg(1, timerId, "number")
+  if handlers[timerId] then
+    handlers[timerId] = nil
+    return true
+  end
+  return false
 end
+
+function event.pull(...)
+  local args = table.pack(...)
+  if type(args[1]) == "string" then
+    return event.pullFiltered(createPlainFilter(...))
+  else
+    checkArg(1, args[1], "number", "nil")
+    checkArg(2, args[2], "string", "nil")
+    return event.pullFiltered(args[1], createPlainFilter(select(2, ...)))
+  end
+end
+
+function event.pullFiltered(...)
+  local args = table.pack(...)
+  local seconds, filter = math.huge
+  if type(args[1]) == "function" then
+    filter = args[1]
+  else
+    checkArg(1, args[1], "number", "nil")
+    checkArg(2, args[2], "function", "nil")
+    seconds = args[1]
+    filter = args[2]
+  end
+  local deadline = computer.uptime() + (seconds or math.huge)
+  repeat
+    local waitTime = deadline - computer.uptime()
+    if waitTime < 0 then
+      break
+    end
+    local signal = table.pack(computer.pullSignal(waitTime))
+    if signal.n > 0 then
+      if not (seconds or filter) or filter == nil or filter(table.unpack(signal, 1, signal.n)) then
+        return table.unpack(signal, 1, signal.n)
+      end
+    end
+  until signal.n == 0
+end
+
+function event.pullMultiple(...)
+  local seconds
+  local args
+  if type(...) == "number" then
+    seconds = ...
+    args = table.pack(select(2, ...))
+    for i = 1, args.n do
+      checkArg(i + 1, args[i], "string", "nil")
+    end
+  else
+    args = table.pack(...)
+    for i = 1, args.n do
+      checkArg(i, args[i], "string", "nil")
+    end
+  end
+  return event.pullFiltered(seconds, createMultipleFilter(table.unpack(args, 1, args.n)))
+end
+
+function event.onError(message)
+  local ok, fio = pcall(require, "io")
+  if ok and fio and fio.open then
+    local log = fio.open("/tmp/event.log", "a")
+    if log then
+      pcall(log.write, log, tostring(message) .. "\n")
+      log:close()
+    end
+  end
+end
+
+event.push = computer.pushSignal
 
 return event
 """.trimIndent()
@@ -563,11 +732,12 @@ function shell.getShell()
     end
     
     -- Main shell loop
+    local shellHistory = {}
     while true do
       local cwd = os.getenv("CWD") or "/home"
       local prompt = cwd .. " # "
       term.write(prompt)
-      local line = term.read()
+      local line = term.read(shellHistory)
       if line then
         line = line:match("^%s*(.-)%s*$") or ""
         if #line > 0 then
@@ -698,52 +868,91 @@ function term.read(history, dobreak)
   if not gpu then return "" end
   refreshSize()
   
+  history = history or {}
+  local histIdx = #history + 1
   local buffer = ""
+  local pos = 0 -- cursor position within buffer (0 = before first char)
   local startX = cursorX
+  local startY = cursorY
+  
+  local function redraw()
+    -- Clear the line from startX
+    local clearLen = screenW - startX + 1
+    component.invoke(gpu, "fill", startX, startY, clearLen, 1, " ")
+    -- Draw buffer
+    if #buffer > 0 then
+      component.invoke(gpu, "set", startX, startY, buffer)
+    end
+    -- Position cursor
+    cursorX = startX + pos
+  end
   
   while true do
+    redraw()
     -- Show cursor
-    component.invoke(gpu, "set", cursorX, cursorY, "_")
+    local cursorChar = pos < #buffer and buffer:sub(pos + 1, pos + 1) or "_"
+    component.invoke(gpu, "set", startX + pos, startY, cursorChar)
     
     local sig, _, char, code = computer.pullSignal(0.5)
     
-    -- Erase cursor
-    component.invoke(gpu, "set", cursorX, cursorY, " ")
-    
     if sig == "key_down" then
       if char == 13 or code == 257 then -- Enter
-        component.invoke(gpu, "set", cursorX, cursorY, " ")
+        redraw()
         cursorX = 1
         cursorY = cursorY + 1
         if cursorY > screenH then scroll() end
-        return buffer
-      elseif char == 8 or code == 259 then -- Backspace
         if #buffer > 0 then
-          buffer = buffer:sub(1, -2)
-          cursorX = cursorX - 1
-          if cursorX < startX then cursorX = startX end
-          component.invoke(gpu, "set", cursorX, cursorY, " ")
+          history[#history + 1] = buffer
+        end
+        return buffer
+      elseif char == 4 then -- Ctrl+D
+        if #buffer == 0 then return nil end
+      elseif char == 8 or code == 259 then -- Backspace
+        if pos > 0 then
+          buffer = buffer:sub(1, pos - 1) .. buffer:sub(pos + 1)
+          pos = pos - 1
+        end
+      elseif code == 261 then -- Delete
+        if pos < #buffer then
+          buffer = buffer:sub(1, pos) .. buffer:sub(pos + 2)
+        end
+      elseif code == 263 then -- Left
+        if pos > 0 then pos = pos - 1 end
+      elseif code == 262 then -- Right
+        if pos < #buffer then pos = pos + 1 end
+      elseif code == 268 then -- Home
+        pos = 0
+      elseif code == 269 then -- End
+        pos = #buffer
+      elseif code == 265 then -- Up (history)
+        if histIdx > 1 then
+          histIdx = histIdx - 1
+          buffer = history[histIdx] or ""
+          pos = #buffer
+        end
+      elseif code == 264 then -- Down (history)
+        if histIdx <= #history then
+          histIdx = histIdx + 1
+          buffer = history[histIdx] or ""
+          pos = #buffer
         end
       elseif char >= 32 and char < 127 then
-        buffer = buffer .. string.char(char)
-        component.invoke(gpu, "set", cursorX, cursorY, string.char(char))
-        cursorX = cursorX + 1
-        if cursorX > screenW then
+        buffer = buffer:sub(1, pos) .. string.char(char) .. buffer:sub(pos + 1)
+        pos = pos + 1
+        if startX + pos > screenW then
           cursorX = 1
           cursorY = cursorY + 1
           if cursorY > screenH then scroll() end
         end
       end
     elseif sig == "clipboard" then
-      -- Paste
-      local text = char -- clipboard text is arg 2
+      local text = char
       if type(text) == "string" then
         for i = 1, #text do
           local c = text:sub(i, i)
           if c ~= "\n" and c ~= "\r" then
-            buffer = buffer .. c
-            component.invoke(gpu, "set", cursorX, cursorY, c)
-            cursorX = cursorX + 1
+            buffer = buffer:sub(1, pos) .. c .. buffer:sub(pos + 1)
+            pos = pos + 1
           end
         end
       end
@@ -857,8 +1066,14 @@ return io
     // Boot scripts
     // ================================================================
     val BOOT_00_BASE = """
--- Base boot script: set up loadfile, dofile, print
--- These are already defined in boot.lua, this is just for compatibility
+-- Base boot script: set up loadfile, dofile, print, os.sleep
+os.sleep = function(seconds)
+  checkArg(1, seconds, "number", "nil")
+  local deadline = computer.uptime() + (seconds or 0)
+  repeat
+    computer.pullSignal(deadline - computer.uptime())
+  until computer.uptime() >= deadline
+end
 """.trimIndent()
 
     val BOOT_01_TERM = """
@@ -1423,6 +1638,21 @@ require("term").clear()
     val ECHO_LUA = """
 local args = {...}
 print(table.concat(args, " "))
+""".trimIndent()
+
+    val CD_LUA = """
+local fs = require("filesystem")
+local args = {...}
+local path = args[1] or os.getenv("HOME") or "/"
+if path:sub(1, 1) ~= "/" then
+  path = (os.getenv("CWD") or "/") .. "/" .. path
+end
+path = fs.canonical(path)
+if not fs.isDirectory(path) then
+  io.stderr:write("cd: no such directory: " .. path .. "\n")
+  return
+end
+os.setenv("CWD", path)
 """.trimIndent()
 
     val WGET_LUA = """

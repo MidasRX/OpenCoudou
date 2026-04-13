@@ -221,11 +221,11 @@ class TextBuffer(var width: Int, var height: Int) {
             }
         }
         
-        // Paste at target
+        // Paste at target (tx/ty are translation offsets from source, like original OC)
         for (dy in 0 until h) {
             for (dx in 0 until w) {
-                val px = tx + dx
-                val py = ty + dy
+                val px = x + dx + tx
+                val py = y + dy + ty
                 if (px in 0 until width && py in 0 until height) {
                     val ti = dy * w + dx
                     val pi = idx(px, py)
