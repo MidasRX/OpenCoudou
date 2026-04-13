@@ -163,8 +163,21 @@ class CaseBlockEntity(
         }
     }
     
+    private var lastRedstoneInput = IntArray(6) { 0 }
+    
     fun onRedstoneNeighborChanged() {
-        _machine?.signal("redstone_changed")
+        val lvl = level ?: return
+        val pos = blockPos
+        val directions = net.minecraft.core.Direction.values()
+        for (side in directions.indices) {
+            val dir = directions[side]
+            val newValue = lvl.getSignal(pos.relative(dir), dir)
+            val oldValue = lastRedstoneInput[side]
+            if (newValue != oldValue) {
+                lastRedstoneInput[side] = newValue
+                _machine?.signal("redstone_changed", side, oldValue, newValue)
+            }
+        }
     }
     
     fun shutdown() {

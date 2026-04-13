@@ -150,7 +150,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         val g = globals ?: return
         val comp = LuaTable()
 
-        // component.list([filter], [exact]) → iterator
+        // component.list([filter], [exact]) → callable table (like original OC)
         comp.set("list", object : VarArgFunction() {
             override fun invoke(args: Varargs): Varargs {
                 val filter = if (args.narg() > 0 && !args.arg1().isnil()) args.arg1().tojstring() else null
@@ -162,15 +162,26 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                         else -> type.contains(filter, ignoreCase = true)
                     }
                 }
-                val iter = comps.entries.iterator()
-                return object : VarArgFunction() {
+                // Build a table with all matching components (address → type)
+                val table = LuaTable()
+                for ((addr, type) in comps) {
+                    table.set(addr, LuaValue.valueOf(type))
+                }
+                // Add __call metamethod so the table can be used as an iterator
+                val mt = LuaTable()
+                val keys = comps.keys.toList()
+                mt.set("__call", object : VarArgFunction() {
+                    private var index = 0
                     override fun invoke(args: Varargs): Varargs {
-                        return if (iter.hasNext()) {
-                            val (addr, type) = iter.next()
+                        return if (index < keys.size) {
+                            val addr = keys[index++]
+                            val type = comps[addr] ?: ""
                             LuaValue.varargsOf(arrayOf(LuaValue.valueOf(addr), LuaValue.valueOf(type)))
                         } else LuaValue.NONE
                     }
-                }
+                })
+                table.setmetatable(mt)
+                return table
             }
         })
 
@@ -214,6 +225,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 }
                 if (compType == "filesystem") {
                     return handleFilesystemInvoke(addr, method, luaArgs)
+                }
+                if (compType == "redstone") {
+                    return handleRedstoneInvoke(method, luaArgs)
                 }
 
                 // Try machine's component invoke
@@ -277,10 +291,17 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     "eeprom" -> listOf("get", "set", "getLabel", "setLabel", "getData", "setData",
                         "getSize", "getDataSize", "getChecksum")
                     "internet" -> listOf("isHttpEnabled", "isTcpEnabled", "request", "connect")
+                    "redstone" -> listOf("getInput", "getOutput", "setOutput")
                     "keyboard" -> listOf()
                     else -> listOf()
                 }
-                for (m in methods) t.set(m, LuaValue.TRUE)
+                for (m in methods) {
+                    val info = LuaTable()
+                    info.set("direct", LuaValue.TRUE)
+                    info.set("getter", LuaValue.FALSE)
+                    info.set("setter", LuaValue.FALSE)
+                    t.set(m, info)
+                }
                 return t
             }
         })
@@ -403,7 +424,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 } else {
                     machine.signal("__shutdown")
                 }
-                return LuaValue.NONE
+                // Yield immediately like original OC (coroutine.yield(reboot))
+                return globals!!.yield(LuaValue.valueOf(reboot))
             }
         })
 
@@ -836,6 +858,65 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     }
 
     // ===========================
+    // Redstone Component API
+    // ===========================
+    private val redstoneOutput = IntArray(6) { 0 }
+
+    private fun handleRedstoneInvoke(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "getInput" -> {
+                val side = args.getOrNull(0) as? Number
+                if (side != null) {
+                    val s = side.toInt()
+                    val level = machine.host.world()
+                    val pos = machine.host.hostPosition()
+                    if (level != null && s in 0..5) {
+                        val dir = net.minecraft.core.Direction.values()[s]
+                        val signal = level.getSignal(pos.relative(dir), dir)
+                        LuaValue.valueOf(signal)
+                    } else LuaValue.valueOf(0)
+                } else {
+                    // Return table of all sides
+                    val t = LuaTable()
+                    val level = machine.host.world()
+                    val pos = machine.host.hostPosition()
+                    if (level != null) {
+                        for (s in 0..5) {
+                            val dir = net.minecraft.core.Direction.values()[s]
+                            t.set(s, LuaValue.valueOf(level.getSignal(pos.relative(dir), dir)))
+                        }
+                    }
+                    t
+                }
+            }
+            "getOutput" -> {
+                val side = args.getOrNull(0) as? Number
+                if (side != null) {
+                    val s = side.toInt()
+                    LuaValue.valueOf(if (s in 0..5) redstoneOutput[s] else 0)
+                } else {
+                    val t = LuaTable()
+                    for (s in 0..5) t.set(s, LuaValue.valueOf(redstoneOutput[s]))
+                    t
+                }
+            }
+            "setOutput" -> {
+                val side = args.getOrNull(0) as? Number
+                val value = args.getOrNull(1) as? Number
+                if (side != null && value != null) {
+                    val s = side.toInt()
+                    if (s in 0..5) {
+                        val old = redstoneOutput[s]
+                        redstoneOutput[s] = value.toInt().coerceIn(0, 15)
+                        LuaValue.valueOf(old)
+                    } else LuaValue.valueOf(0)
+                } else LuaValue.valueOf(0)
+            }
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such method: $method")))
+        }
+    }
+
+    // ===========================
     // Filesystem Component API
     // ===========================
     private fun handleFilesystemInvoke(address: String, method: String, args: List<Any?>): Varargs {
@@ -1096,15 +1177,26 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         val g = globals ?: return
         val uni = LuaTable()
         uni.set("len", object : OneArgFunction() {
-            override fun call(arg: LuaValue): LuaValue = LuaValue.valueOf(arg.checkjstring().length)
+            override fun call(arg: LuaValue): LuaValue {
+                val s = arg.checkjstring()
+                return LuaValue.valueOf(s.codePointCount(0, s.length))
+            }
         })
         uni.set("sub", object : VarArgFunction() {
             override fun invoke(args: Varargs): Varargs {
                 val s = args.arg1().checkjstring()
+                val sLength = s.codePointCount(0, s.length)
                 val i = args.arg(2).checkint()
-                val j = if (args.narg() >= 3) args.arg(3).checkint() else s.length
-                val start = if (i < 0) maxOf(0, s.length + i) else maxOf(0, i - 1)
-                val end = if (j < 0) maxOf(0, s.length + j + 1) else minOf(s.length, j)
+                val j = if (args.narg() >= 3) args.arg(3).checkint() else sLength
+                val start = when {
+                    i < 0 -> s.offsetByCodePoints(s.length, maxOf(i, -sLength))
+                    i == 0 -> 0
+                    else -> s.offsetByCodePoints(0, minOf(i - 1, sLength))
+                }
+                val end = when {
+                    j < 0 -> s.offsetByCodePoints(s.length, maxOf(j + 1, -sLength))
+                    else -> s.offsetByCodePoints(0, minOf(j, sLength))
+                }
                 return if (start < end) LuaValue.valueOf(s.substring(start, end)) else LuaValue.valueOf("")
             }
         })
@@ -1122,25 +1214,83 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             override fun call(arg: LuaValue): LuaValue = LuaValue.valueOf(arg.checkjstring().lowercase())
         })
         uni.set("wlen", object : OneArgFunction() {
-            override fun call(arg: LuaValue): LuaValue = LuaValue.valueOf(arg.checkjstring().length)
+            override fun call(arg: LuaValue): LuaValue {
+                val s = arg.checkjstring()
+                var width = 0
+                var i = 0
+                while (i < s.length) {
+                    val cp = s.codePointAt(i)
+                    width += maxOf(1, wcwidth(cp))
+                    i += Character.charCount(cp)
+                }
+                return LuaValue.valueOf(width)
+            }
         })
         uni.set("wtrunc", object : TwoArgFunction() {
             override fun call(arg1: LuaValue, arg2: LuaValue): LuaValue {
                 val s = arg1.checkjstring()
-                val n = arg2.checkint()
-                return LuaValue.valueOf(s.take(n))
+                val count = arg2.checkint()
+                var width = 0
+                var end = 0
+                while (end < s.length && width < count) {
+                    val cp = s.codePointAt(end)
+                    val cw = maxOf(1, wcwidth(cp))
+                    if (width + cw > count) break
+                    width += cw
+                    end += Character.charCount(cp)
+                }
+                return LuaValue.valueOf(s.substring(0, end))
             }
         })
         uni.set("reverse", object : OneArgFunction() {
             override fun call(arg: LuaValue): LuaValue = LuaValue.valueOf(arg.checkjstring().reversed())
         })
         uni.set("isWide", object : OneArgFunction() {
-            override fun call(arg: LuaValue): LuaValue = LuaValue.FALSE
+            override fun call(arg: LuaValue): LuaValue {
+                val s = arg.checkjstring()
+                if (s.isEmpty()) return LuaValue.FALSE
+                return LuaValue.valueOf(wcwidth(s.codePointAt(0)) > 1)
+            }
         })
         uni.set("charWidth", object : OneArgFunction() {
-            override fun call(arg: LuaValue): LuaValue = LuaValue.valueOf(1)
+            override fun call(arg: LuaValue): LuaValue {
+                val s = arg.checkjstring()
+                if (s.isEmpty()) return LuaValue.valueOf(1)
+                return LuaValue.valueOf(wcwidth(s.codePointAt(0)))
+            }
         })
         g.set("unicode", uni)
+    }
+
+    /**
+     * Simplified wcwidth: returns the display width of a Unicode code point.
+     * CJK characters occupy 2 columns, most others 1.
+     */
+    private fun wcwidth(cp: Int): Int {
+        // Control characters
+        if (cp < 32 || cp == 0x7F) return 0
+        if (cp in 0x0300..0x036F) return 0 // Combining diacriticals
+        if (cp in 0x1AB0..0x1AFF) return 0 // Combining diacriticals extended
+        if (cp in 0x1DC0..0x1DFF) return 0 // Combining diacriticals supplement
+        if (cp in 0x20D0..0x20FF) return 0 // Combining marks for symbols
+        if (cp in 0xFE20..0xFE2F) return 0 // Combining half marks
+        // CJK ranges
+        if (cp in 0x1100..0x115F) return 2 // Hangul Jamo
+        if (cp in 0x2E80..0x303E) return 2 // CJK radicals, Kangxi, ideographic description, CJK symbols
+        if (cp in 0x3040..0x33BF) return 2 // Hiragana, Katakana, Bopomofo, Hangul compat jamo, Kanbun, CJK strokes
+        if (cp in 0x33C0..0x33FF) return 2 // CJK compat ideographs
+        if (cp in 0x3400..0x4DBF) return 2 // CJK unified ideographs extension A
+        if (cp in 0x4E00..0x9FFF) return 2 // CJK unified ideographs
+        if (cp in 0xA000..0xA4CF) return 2 // Yi
+        if (cp in 0xAC00..0xD7AF) return 2 // Hangul syllables
+        if (cp in 0xF900..0xFAFF) return 2 // CJK compatibility ideographs
+        if (cp in 0xFE10..0xFE19) return 2 // Vertical forms
+        if (cp in 0xFE30..0xFE6F) return 2 // CJK compatibility forms
+        if (cp in 0xFF01..0xFF60) return 2 // Fullwidth forms
+        if (cp in 0xFFE0..0xFFE6) return 2 // Fullwidth signs
+        if (cp in 0x20000..0x2FFFF) return 2 // CJK unified ideographs ext B-F
+        if (cp in 0x30000..0x3FFFF) return 2 // CJK unified ideographs ext G+
+        return 1
     }
 
     // ===========================
@@ -1222,7 +1372,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 // Register built-in virtual components
                 registerVirtualComponents()
 
-                val biosCode = BIOS_CODE
+                // Load BIOS from EEPROM content (like original OC)
+                val biosCode = eepromCode.ifEmpty { BIOS_CODE }
                 val chunk = g.load(biosCode, "=bios")
                 mainCoroutine = LuaThread(g, chunk)
             }
@@ -1312,6 +1463,10 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         // Internet card is always available for now
         val inetAddr = "inet-" + java.util.UUID.randomUUID().toString().take(4)
         sm.registerComponent(inetAddr, "internet")
+
+        // Redstone - basic vanilla redstone I/O
+        val redstoneAddr = "redstone-" + java.util.UUID.randomUUID().toString().take(4)
+        sm.registerComponent(redstoneAddr, "redstone")
 
         // EEPROM - only if installed
         if (installed.hasEEPROM) {

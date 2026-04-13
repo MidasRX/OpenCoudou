@@ -1536,11 +1536,28 @@ function stdin:read(mode)
   local term = require("term")
   if mode == "*l" or mode == "l" or mode == nil then
     return term.read()
+  elseif mode == "*L" or mode == "L" then
+    local line = term.read()
+    if line then return line .. "\n" end
+    return nil
   elseif mode == "*a" or mode == "a" then
-    return term.read()
+    -- Read all lines until Ctrl+D (nil return)
+    local chunks = {}
+    while true do
+      local line = term.read()
+      if not line then break end
+      chunks[#chunks+1] = line
+      chunks[#chunks+1] = "\n"
+    end
+    return #chunks > 0 and table.concat(chunks) or nil
   elseif mode == "*n" or mode == "n" then
     local s = term.read()
     return tonumber(s)
+  elseif type(mode) == "number" then
+    -- Read exactly N characters (reads one line, returns up to N chars)
+    local s = term.read()
+    if s then return s:sub(1, mode) end
+    return nil
   end
   return term.read()
 end
@@ -1575,59 +1592,92 @@ local function wrapHandle(rawHandle, mode)
     return false
   end
 
-  function handle:read(fmt)
+  function handle:read(...)
     if self._closed then return nil, "closed file" end
-    fmt = fmt or "*l"
-    if fmt == "*a" or fmt == "a" then
-      local chunks = {}
-      if #self._buf > 0 then
-        chunks[#chunks+1] = self._buf
-        self._buf = ""
-      end
-      while true do
-        local data = self._raw:read(4096)
-        if not data then break end
-        chunks[#chunks+1] = data
-      end
-      return #chunks > 0 and table.concat(chunks) or nil
-    elseif fmt == "*l" or fmt == "l" then
-      while true do
-        local nl = self._buf:find("\n")
-        if nl then
-          local line = self._buf:sub(1, nl - 1)
-          self._buf = self._buf:sub(nl + 1)
-          return line
+    local args = table.pack(...)
+    if args.n == 0 then args = {"*l"}; args.n = 1 end
+    
+    local function readOne(fmt)
+      fmt = fmt or "*l"
+      if fmt == "*a" or fmt == "a" then
+        local chunks = {}
+        if #self._buf > 0 then
+          chunks[#chunks+1] = self._buf
+          self._buf = ""
         end
-        if not fillBuf(self) then
-          if #self._buf > 0 then
-            local line = self._buf
-            self._buf = ""
+        while true do
+          local data = self._raw:read(4096)
+          if not data then break end
+          chunks[#chunks+1] = data
+        end
+        return #chunks > 0 and table.concat(chunks) or nil
+      elseif fmt == "*l" or fmt == "l" then
+        while true do
+          local nl = self._buf:find("\n")
+          if nl then
+            local line = self._buf:sub(1, nl - 1)
+            -- Strip \r if present (CRLF)
+            if line:sub(-1) == "\r" then line = line:sub(1, -2) end
+            self._buf = self._buf:sub(nl + 1)
             return line
           end
-          return nil
+          if not fillBuf(self) then
+            if #self._buf > 0 then
+              local line = self._buf
+              self._buf = ""
+              return line
+            end
+            return nil
+          end
         end
+      elseif fmt == "*L" or fmt == "L" then
+        -- Like *l but keeps the newline
+        while true do
+          local nl = self._buf:find("\n")
+          if nl then
+            local line = self._buf:sub(1, nl)
+            self._buf = self._buf:sub(nl + 1)
+            return line
+          end
+          if not fillBuf(self) then
+            if #self._buf > 0 then
+              local line = self._buf
+              self._buf = ""
+              return line
+            end
+            return nil
+          end
+        end
+      elseif fmt == "*n" or fmt == "n" then
+        while #self._buf == 0 do
+          if not fillBuf(self) then return nil end
+        end
+        local s, e = self._buf:find("^%s*[%-]?%d+%.?%d*[eE]?[%-+]?%d*")
+        if not s then return nil end
+        local numStr = self._buf:sub(s, e)
+        self._buf = self._buf:sub(e + 1)
+        return tonumber(numStr)
+      elseif type(fmt) == "number" then
+        while #self._buf < fmt do
+          if not fillBuf(self) then break end
+        end
+        if #self._buf == 0 then return nil end
+        local n = math.min(fmt, #self._buf)
+        local data = self._buf:sub(1, n)
+        self._buf = self._buf:sub(n + 1)
+        return data
       end
-    elseif fmt == "*n" or fmt == "n" then
-      -- Skip whitespace then read number
-      while #self._buf == 0 do
-        if not fillBuf(self) then return nil end
-      end
-      local s, e = self._buf:find("^%s*[%-]?%d+%.?%d*[eE]?[%-+]?%d*")
-      if not s then return nil end
-      local numStr = self._buf:sub(s, e)
-      self._buf = self._buf:sub(e + 1)
-      return tonumber(numStr)
-    elseif type(fmt) == "number" then
-      while #self._buf < fmt do
-        if not fillBuf(self) then break end
-      end
-      if #self._buf == 0 then return nil end
-      local n = math.min(fmt, #self._buf)
-      local data = self._buf:sub(1, n)
-      self._buf = self._buf:sub(n + 1)
-      return data
+      return self._raw:read(4096)
     end
-    return self._raw:read(4096)
+    
+    -- Support multiple format arguments
+    local results = {}
+    for i = 1, args.n do
+      local val = readOne(args[i])
+      if val == nil and i == 1 then return nil end
+      results[i] = val
+    end
+    return table.unpack(results, 1, args.n)
   end
 
   function handle:write(...)
@@ -1653,10 +1703,13 @@ local function wrapHandle(rawHandle, mode)
     return self._raw:seek(whence or "cur", offset or 0)
   end
 
-  function handle:lines(fmt)
-    fmt = fmt or "*l"
+  function handle:lines(...)
+    local args = table.pack(...)
+    if args.n == 0 then args = {"*l"}; args.n = 1 end
     return function()
-      return self:read(fmt)
+      local result = table.pack(self:read(table.unpack(args, 1, args.n)))
+      if not result[1] then return nil end
+      return table.unpack(result, 1, result.n)
     end
   end
 
@@ -1669,8 +1722,8 @@ function io.write(...)
   return stdout:write(...)
 end
 
-function io.read(mode)
-  return stdin:read(mode)
+function io.read(...)
+  return stdin:read(...)
 end
 
 function io.open(path, mode)
@@ -1696,15 +1749,20 @@ function io.flush()
   return stdout:flush()
 end
 
-function io.lines(filename, fmt)
+function io.lines(filename, ...)
   if filename then
     local f, err = io.open(filename, "r")
-    if not f then error(err) end
-    fmt = fmt or "*l"
+    if not f then error(err, 2) end
+    local args = table.pack(...)
+    if args.n == 0 then args = {"*l"}; args.n = 1 end
     return function()
-      local line = f:read(fmt)
-      if not line then f:close() end
-      return line
+      local result = table.pack(f:read(table.unpack(args, 1, args.n)))
+      if not result[1] then
+        if result[2] then error(result[2], 2) end
+        f:close()
+        return nil
+      end
+      return table.unpack(result, 1, result.n)
     end
   else
     return stdin:lines()
@@ -1749,8 +1807,15 @@ end
 
 function io.popen() return nil, "not supported" end
 
-function io.error()
-  return stderr
+function io.error(file)
+  if file then
+    if type(file) == "string" then
+      io.stderr = io.open(file, "w")
+    else
+      io.stderr = file
+    end
+  end
+  return io.stderr
 end
 
 _G.io = io
