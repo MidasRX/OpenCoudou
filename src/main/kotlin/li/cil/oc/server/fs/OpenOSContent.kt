@@ -1139,6 +1139,7 @@ function shell.execute(cmd, ...)
     return false, cmd .. ": command not found"
   end
   local env = setmetatable({}, {__index = _G})
+  env._G = env
   local fn, err = loadfile(path, "t", env)
   if not fn then return false, err end
   
@@ -1221,6 +1222,10 @@ function shell.getShell()
       local prompt = cwd .. " # "
       term.write(prompt)
       local line = term.read(shellHistory)
+      if line == nil then
+        -- Ctrl+D: exit shell
+        return
+      end
       if line then
         -- Trim trailing newline/whitespace
         line = line:gsub("[\r\n]+${'$'}", "")
@@ -1463,7 +1468,9 @@ function term.read(history, dobreak, hint, pwchar)
   local scrollOffset = 0
   local function redraw()
     local maxVisible = screenW - startX + 1
-    if pos >= maxVisible then
+    if #buffer <= maxVisible then
+      scrollOffset = 0
+    elseif pos >= scrollOffset + maxVisible then
       scrollOffset = pos - maxVisible + 1
     elseif pos < scrollOffset then
       scrollOffset = pos
@@ -2018,15 +2025,17 @@ return io
 -- Base boot script: set up loadfile, dofile, print, os.sleep
 os.sleep = function(seconds)
   checkArg(1, seconds, "number", "nil")
-  local deadline = computer.uptime() + (seconds or 0)
+  seconds = seconds or 0
+  local deadline = computer.uptime() + seconds
   local event = package and package.loaded and package.loaded["event"]
   if event and event.pull then
     repeat
-      event.pull(deadline - computer.uptime())
+      event.pull(math.max(0, deadline - computer.uptime()))
     until computer.uptime() >= deadline
   else
     repeat
-      local signal = table.pack(computer.pullSignal(deadline - computer.uptime()))
+      local remaining = math.max(0, deadline - computer.uptime())
+      local signal = table.pack(computer.pullSignal(remaining))
       if signal.n > 0 then
         computer.pushSignal(table.unpack(signal, 1, signal.n))
       end
@@ -2840,6 +2849,7 @@ if not fs.isDirectory(path) then
   return
 end
 os.setenv("PWD", path)
+os.setenv("PS1", path .. " # ")
 """.trimIndent()
 
     val WGET_LUA = """

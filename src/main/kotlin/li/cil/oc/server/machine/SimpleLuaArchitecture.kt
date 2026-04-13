@@ -340,7 +340,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                                 val compInvoke = globals?.get("component")?.get("invoke") ?: return LuaValue.NIL
                                 val invokeArgs = arrayListOf<LuaValue>(LuaValue.valueOf(addr), LuaValue.valueOf(methodName))
                                 // Skip first arg if it's the proxy table itself (colon syntax: proxy:method())
-                                val startIdx = if (args.narg() > 0 && args.arg(1).istable() && args.arg(1).get("address").tojstring() == addr) 2 else 1
+                                val startIdx = if (args.narg() > 0 && args.arg(1).raweq(proxy)) 2 else 1
                                 for (i in startIdx..args.narg()) invokeArgs.add(args.arg(i))
                                 return compInvoke.invoke(LuaValue.varargsOf(invokeArgs.toTypedArray()))
                             }
@@ -885,7 +885,13 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             override fun invoke(args: Varargs): Varargs {
                 val x = args.arg1().checkint()
                 val y = args.arg(2).checkint()
-                val screen = findNearbyScreen() ?: return LuaValue.valueOf(" ")
+                val screen = findNearbyScreen() ?: return LuaValue.varargsOf(arrayOf(
+                    LuaValue.valueOf(" "),
+                    LuaValue.valueOf(0xFFFFFF),
+                    LuaValue.valueOf(0x000000),
+                    LuaValue.NIL,
+                    LuaValue.NIL
+                ))
                 val buf = screen.buffer
                 val bx = x - 1
                 val by = y - 1
