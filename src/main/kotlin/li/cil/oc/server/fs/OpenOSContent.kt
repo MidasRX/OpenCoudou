@@ -50,6 +50,8 @@ object OpenOSContent {
         fs.writeFile("boot/01_term.lua", BOOT_01_TERM)
         fs.writeFile("boot/02_fs.lua", BOOT_02_FS)
         fs.writeFile("boot/03_keyboard.lua", BOOT_03_KEYBOARD)
+        fs.writeFile("boot/04_component.lua", BOOT_04_COMPONENT)
+        fs.writeFile("boot/90_filesystem.lua", BOOT_90_FILESYSTEM)
 
         // ============ Programs ============
         fs.writeFile("bin/sh.lua", SH_LUA)
@@ -245,6 +247,40 @@ end
 
 _G.require = require
 
+-- Package library
+_G.package = {
+  loaded = loaded,
+  path = "/lib/?.lua;/lib/?/init.lua;/usr/lib/?.lua;/usr/lib/?/init.lua;/home/lib/?.lua;/home/lib/?/init.lua;./?.lua;./?/init.lua",
+  preload = {},
+  
+  searchpath = function(name, path, sep, rep)
+    sep = sep or "."
+    rep = rep or "/"
+    name = name:gsub("%" .. sep, rep)
+    local errors = {}
+    for pattern in path:gmatch("[^;]+") do
+      local filepath = pattern:gsub("%?", name)
+      local addr = computer.getBootAddress()
+      local fs = loaded["filesystem"]
+      local exists = false
+      if fs and fs.exists then
+        exists = fs.exists(filepath)
+      else
+        local ok, handle = pcall(component.invoke, addr, "open", filepath)
+        if ok and handle then
+          component.invoke(addr, "close", handle)
+          exists = true
+        end
+      end
+      if exists then
+        return filepath
+      end
+      errors[#errors+1] = "\n\tno file '" .. filepath .. "'"
+    end
+    return nil, table.concat(errors)
+  end,
+}
+
 -- Environment variables
 local env = {
   HOME = "/home",
@@ -257,6 +293,32 @@ local env = {
 }
 os.getenv = function(k) return env[k] end
 os.setenv = function(k, v) env[k] = v end
+
+os.execute = function(cmd)
+  if not cmd then return true end
+  local shell = loaded["shell"] or require("shell")
+  return shell.execute(cmd)
+end
+
+os.exit = function(code)
+  error({reason = "terminated", code = code or 0})
+end
+
+os.remove = function(path)
+  local fs = loaded["filesystem"] or require("filesystem")
+  return fs.remove(path)
+end
+
+os.rename = function(from, to)
+  local fs = loaded["filesystem"] or require("filesystem")
+  return fs.rename(from, to)
+end
+
+local tmpCounter = 0
+os.tmpname = function()
+  tmpCounter = tmpCounter + 1
+  return (env.TMPDIR or "/tmp") .. "/lua_" .. computer.address():sub(1,8) .. "_" .. tmpCounter
+end
 
 -- Basic print
 _G.print = function(...)
@@ -344,6 +406,17 @@ end
 status("Boot complete.")
 status("")
 
+-- Fire component_added for all existing components
+for addr, ctype in component.list() do
+  computer.pushSignal("component_added", addr, ctype)
+end
+computer.pushSignal("init")
+-- Process the init signal to trigger handlers
+pcall(function()
+  local event = require("event")
+  event.pull(1, "init")
+end)
+
 -- Load term for proper display
 pcall(require, "term")
 local term = loaded["term"]
@@ -394,6 +467,16 @@ computer.pullSignal = function(seconds)
     end
     local event_data = table.pack(handlers(closest - uptime()))
     local signal = event_data[1]
+    
+    -- Ctrl+C interrupt check
+    if uptime() - lastInterrupt > 1 then
+      local ok, kb = pcall(require, "keyboard")
+      if ok and kb and kb.isControlDown and kb.isControlDown() and kb.isKeyDown and kb.isKeyDown(0x2E) then
+        lastInterrupt = uptime()
+        computer.pushSignal("interrupted", uptime())
+      end
+    end
+    
     local copy = {}
     for id, handler in pairs(handlers) do
       copy[id] = handler
@@ -1570,6 +1653,10 @@ end
 
 function io.popen() return nil, "not supported" end
 
+function io.error()
+  return stderr
+end
+
 _G.io = io
 return io
 """.trimIndent()
@@ -1582,13 +1669,19 @@ return io
 os.sleep = function(seconds)
   checkArg(1, seconds, "number", "nil")
   local deadline = computer.uptime() + (seconds or 0)
-  repeat
-    local signal = table.pack(computer.pullSignal(deadline - computer.uptime()))
-    if signal.n > 0 then
-      -- Re-push the signal so events aren't lost
-      computer.pushSignal(table.unpack(signal, 1, signal.n))
-    end
-  until computer.uptime() >= deadline
+  local event = package and package.loaded and package.loaded["event"]
+  if event and event.pull then
+    repeat
+      event.pull(deadline - computer.uptime())
+    until computer.uptime() >= deadline
+  else
+    repeat
+      local signal = table.pack(computer.pullSignal(deadline - computer.uptime()))
+      if signal.n > 0 then
+        computer.pushSignal(table.unpack(signal, 1, signal.n))
+      end
+    until computer.uptime() >= deadline
+  end
 end
 """.trimIndent()
 
@@ -1646,6 +1739,61 @@ event.listen("key_up", function(_, _, char, code)
   end
   if type(code) == "number" then
     keyboard.pressedCodes[code] = nil
+  end
+end)
+""".trimIndent()
+
+    val BOOT_04_COMPONENT = """
+-- Set up component shorthand: component.gpu, component.modem, etc.
+local primaries = {}
+
+setmetatable(component, {
+  __index = function(_, key)
+    if primaries[key] then
+      return primaries[key]
+    end
+    local addr = component.list(key)()
+    if addr then
+      primaries[key] = component.proxy(addr)
+      return primaries[key]
+    end
+    return nil
+  end
+})
+
+-- Listen for component changes to invalidate cache
+local event = require("event")
+event.listen("component_added", function(_, addr, ctype)
+  primaries[ctype] = nil
+end)
+event.listen("component_removed", function(_, addr, ctype)
+  primaries[ctype] = nil
+end)
+""".trimIndent()
+
+    val BOOT_90_FILESYSTEM = """
+-- Hot-plug filesystem auto-mount/unmount
+local fs = require("filesystem")
+local event = require("event")
+
+event.listen("component_added", function(_, addr, ctype)
+  if ctype == "filesystem" then
+    local label = ""
+    pcall(function() label = component.invoke(addr, "getLabel") or "" end)
+    local mountPoint = "/mnt/" .. addr:sub(1, 3)
+    pcall(fs.mount, addr, mountPoint)
+    -- Run autorun if present
+    pcall(function()
+      if component.invoke(addr, "exists", "autorun.lua") then
+        dofile(mountPoint .. "/autorun.lua")
+      end
+    end)
+  end
+end)
+
+event.listen("component_removed", function(_, addr, ctype)
+  if ctype == "filesystem" then
+    pcall(fs.umount, addr)
   end
 end)
 """.trimIndent()
