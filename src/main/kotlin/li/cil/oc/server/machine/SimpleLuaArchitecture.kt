@@ -344,6 +344,95 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 return LuaValue.NONE
             }
         })
+
+        // Remove global unpack (Lua 5.2+ uses table.unpack instead)
+        // This matches original OC behavior
+        g.set("unpack", LuaValue.NIL)
+
+        // rawlen(v) - Lua 5.2 addition, returns length without invoking __len metamethod
+        g.set("rawlen", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue {
+                return when {
+                    arg.isstring() -> LuaValue.valueOf(arg.checkjstring().length)
+                    arg.istable() -> LuaValue.valueOf(arg.checktable().rawlen())
+                    else -> LuaValue.error("table or string expected")
+                }
+            }
+        })
+
+        // collectgarbage([opt [, arg]]) - Limited OC support (only "count" really works)
+        g.set("collectgarbage", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val opt = args.optjstring(1, "collect")
+                return when (opt) {
+                    "count" -> {
+                        // Return approximate memory usage in KB
+                        val runtime = Runtime.getRuntime()
+                        val usedBytes = runtime.totalMemory() - runtime.freeMemory()
+                        LuaValue.valueOf(usedBytes / 1024.0)
+                    }
+                    "collect", "step" -> {
+                        System.gc()
+                        LuaValue.valueOf(0)
+                    }
+                    "stop", "restart", "isrunning" -> {
+                        // No-op in OC, GC is managed by JVM
+                        LuaValue.valueOf(0)
+                    }
+                    "setpause", "setstepmul" -> {
+                        // Return previous value (stub returns 0)
+                        LuaValue.valueOf(0)
+                    }
+                    else -> LuaValue.valueOf(0)
+                }
+            }
+        })
+
+        // io library stubs for io.tmpfile() and io.popen()
+        val ioLib = g.get("io")
+        if (ioLib.isnil()) {
+            // Create io table if it doesn't exist
+            g.set("io", LuaTable())
+        }
+        val io = g.get("io")
+        
+        // io.tmpfile() - Returns a handle for a temp file (stub - not practically usable)
+        io.set("tmpfile", object : ZeroArgFunction() {
+            override fun call(): LuaValue {
+                // In real OC, tmpfile() works within the virtual filesystem
+                // For now, return nil with error as files need proper fs integration
+                return LuaValue.NIL
+            }
+        })
+
+        // io.popen() - Not supported in OC (security risk)
+        io.set("popen", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("io.popen not supported")))
+            }
+        })
+
+        // string.pack, string.unpack, string.packsize - Lua 5.3 features
+        // LuaJ doesn't natively support these, provide stubs that error
+        val stringLib = g.get("string")
+        if (!stringLib.isnil()) {
+            stringLib.set("pack", object : VarArgFunction() {
+                override fun invoke(args: Varargs): Varargs {
+                    return LuaValue.error("string.pack not available (Lua 5.3 feature not supported by this runtime)")
+                }
+            })
+            stringLib.set("unpack", object : VarArgFunction() {
+                override fun invoke(args: Varargs): Varargs {
+                    return LuaValue.error("string.unpack not available (Lua 5.3 feature not supported by this runtime)")
+                }
+            })
+            stringLib.set("packsize", object : VarArgFunction() {
+                override fun invoke(args: Varargs): Varargs {
+                    return LuaValue.error("string.packsize not available (Lua 5.3 feature not supported by this runtime)")
+                }
+            })
+        }
+
         return g
     }
 
@@ -2626,149 +2715,5 @@ while true do
   end
 end
 """.trimIndent()
-
-        // Documentation strings for component.doc(address, method)
-        val COMPONENT_DOCS = mapOf(
-            // GPU methods
-            "bind" to "function(address:string[, reset:boolean]):boolean -- Binds the GPU to the screen with the specified address.",
-            "getScreen" to "function():string -- Returns the address of the screen the GPU is bound to.",
-            "getResolution" to "function():number, number -- Returns the current resolution.",
-            "setResolution" to "function(width:number, height:number):boolean -- Sets the resolution.",
-            "maxResolution" to "function():number, number -- Returns the maximum resolution.",
-            "getDepth" to "function():number -- Returns the current color depth.",
-            "setDepth" to "function(depth:number):number -- Sets the color depth. Returns the previous value.",
-            "maxDepth" to "function():number -- Returns the maximum color depth.",
-            "get" to "function(x:number, y:number):string, number, number, number, number -- Returns character, foreground, background, fg palette, bg palette.",
-            "set" to "function(x:number, y:number, value:string[, vertical:boolean]):boolean -- Set text at position.",
-            "fill" to "function(x:number, y:number, width:number, height:number, char:string):boolean -- Fill a rectangle with a character.",
-            "copy" to "function(x:number, y:number, width:number, height:number, tx:number, ty:number):boolean -- Copy a portion of the screen.",
-            "setForeground" to "function(color:number[, isPaletteIndex:boolean]):number, boolean -- Sets the foreground color.",
-            "setBackground" to "function(color:number[, isPaletteIndex:boolean]):number, boolean -- Sets the background color.",
-            "getForeground" to "function():number, boolean -- Returns the current foreground color.",
-            "getBackground" to "function():number, boolean -- Returns the current background color.",
-            "getPaletteColor" to "function(index:number):number -- Returns the palette color at the given index.",
-            "setPaletteColor" to "function(index:number, color:number):number -- Sets the palette color.",
-            "getViewport" to "function():number, number -- Returns the viewport size.",
-            "setViewport" to "function(width:number, height:number):boolean -- Sets the viewport size.",
-            
-            // Filesystem methods
-            "open" to "function(path:string[, mode:string]):number -- Opens a file. Returns a handle or nil and error.",
-            "read" to "function(handle:number, count:number):string or nil -- Reads from an open file.",
-            "write" to "function(handle:number, data:string):boolean -- Writes to an open file.",
-            "close" to "function(handle:number) -- Closes an open file.",
-            "seek" to "function(handle:number, whence:string, offset:number):number -- Seeks in a file.",
-            "exists" to "function(path:string):boolean -- Returns whether the path exists.",
-            "isDirectory" to "function(path:string):boolean -- Returns whether the path is a directory.",
-            "list" to "function(path:string):table -- Returns the contents of a directory.",
-            "size" to "function(path:string):number -- Returns the size of a file.",
-            "lastModified" to "function(path:string):number -- Returns the last modification time.",
-            "makeDirectory" to "function(path:string):boolean -- Creates a directory.",
-            "remove" to "function(path:string):boolean -- Removes a file or empty directory.",
-            "rename" to "function(from:string, to:string):boolean -- Renames a file or directory.",
-            "spaceTotal" to "function():number -- Returns the total capacity.",
-            "spaceUsed" to "function():number -- Returns the used space.",
-            "isReadOnly" to "function():boolean -- Returns whether the file system is read-only.",
-            "getLabel" to "function():string -- Returns the label.",
-            "setLabel" to "function(label:string):string -- Sets the label.",
-            
-            // Computer methods
-            "address" to "function():string -- Returns the address of this computer.",
-            "uptime" to "function():number -- Returns the time in seconds since the computer started.",
-            "totalMemory" to "function():number -- Returns the total memory in bytes.",
-            "freeMemory" to "function():number -- Returns the available memory in bytes.",
-            "energy" to "function():number -- Returns the current energy stored.",
-            "maxEnergy" to "function():number -- Returns the maximum energy capacity.",
-            "pullSignal" to "function([timeout:number]):string, ... -- Waits for a signal. Returns name and args.",
-            "pushSignal" to "function(name:string, ...):boolean -- Pushes a signal to the queue.",
-            "shutdown" to "function([reboot:boolean]) -- Shuts down or reboots the computer.",
-            "beep" to "function([frequency:number[, duration:number]]) -- Plays a beep sound.",
-            "getBootAddress" to "function():string -- Returns the boot address.",
-            "setBootAddress" to "function([address:string]) -- Sets the boot address.",
-            "tmpAddress" to "function():string -- Returns the tmpfs address.",
-            "users" to "function():table -- Returns the list of registered users.",
-            "addUser" to "function(name:string):boolean -- Adds a user.",
-            "removeUser" to "function(name:string):boolean -- Removes a user.",
-            "realTime" to "function():number -- Returns world time in seconds.",
-            "isRobot" to "function():boolean -- Returns whether this is a robot.",
-            "getDeviceInfo" to "function():table -- Returns device info for all components.",
-            "getArchitectures" to "function():table -- Returns available CPU architectures.",
-            "getArchitecture" to "function():string -- Returns current architecture.",
-            "setArchitecture" to "function(name:string):boolean -- Sets the architecture.",
-            
-            // Internet card
-            "request" to "function(url:string[, postData:string[, headers:table]]):handle -- Starts an HTTP request.",
-            "isHttpEnabled" to "function():boolean -- Returns whether HTTP is enabled.",
-            "isTcpEnabled" to "function():boolean -- Returns whether TCP is enabled.",
-            "connect" to "function(address:string, port:number):handle -- Opens a TCP connection.",
-            
-            // Redstone
-            "getInput" to "function([side:number]):number or table -- Returns redstone input.",
-            "getOutput" to "function([side:number]):number or table -- Returns redstone output.",
-            "setOutput" to "function(side:number, value:number):number -- Sets redstone output.",
-            
-            // Robot
-            "move" to "function(direction:number):boolean, string -- Moves the robot.",
-            "turn" to "function(clockwise:boolean):boolean, string -- Turns the robot.",
-            "name" to "function():string -- Returns the robot's name.",
-            "detect" to "function(side:number):boolean, string -- Detects what's in front.",
-            "use" to "function(side:number[, sneaky:boolean[, duration:number]]):boolean, string -- Uses an item.",
-            "swing" to "function(side:number[, sneaky:boolean]):boolean, string -- Swings the tool.",
-            "place" to "function(side:number[, sneaky:boolean]):boolean, string -- Places a block.",
-            "drop" to "function(count:number):boolean -- Drops items.",
-            "suck" to "function(count:number):boolean -- Picks up items.",
-            "select" to "function(slot:number):number -- Selects a slot.",
-            "count" to "function([slot:number]):number -- Returns item count.",
-            "space" to "function([slot:number]):number -- Returns free space.",
-            "inventorySize" to "function():number -- Returns inventory size.",
-            "durability" to "function():number, string -- Returns tool durability.",
-            
-            // Drone
-            "getStatusText" to "function():string -- Returns the status text.",
-            "setStatusText" to "function(text:string):boolean -- Sets the status text.",
-            "getLightColor" to "function():number -- Returns the light color.",
-            "setLightColor" to "function(color:number):number -- Sets the light color.",
-            "getAcceleration" to "function():number -- Returns the acceleration.",
-            "setAcceleration" to "function(acceleration:number):number -- Sets the acceleration.",
-            "getMaxVelocity" to "function():number -- Returns the max velocity.",
-            "getVelocity" to "function():number, number, number -- Returns current velocity.",
-            "getPosition" to "function():number, number, number -- Returns current position.",
-            "offset" to "function():number, number, number -- Returns target offset.",
-            
-            // Modem
-            "isWireless" to "function():boolean -- Returns whether this is wireless.",
-            "isWired" to "function():boolean -- Returns whether this is wired.",
-            "getWakeMessage" to "function():string -- Returns the wake message.",
-            "setWakeMessage" to "function(message:string):string -- Sets the wake message.",
-            "getStrength" to "function():number -- Returns signal strength.",
-            "setStrength" to "function(strength:number):number -- Sets signal strength.",
-            "broadcast" to "function(port:number, ...):boolean -- Broadcasts a message.",
-            "send" to "function(address:string, port:number, ...):boolean -- Sends a message.",
-            "maxPacketSize" to "function():number -- Returns the max packet size.",
-            
-            // Data card
-            "crc32" to "function(data:string):number -- Computes CRC32.",
-            "md5" to "function(data:string):string -- Computes MD5 hash.",
-            "sha256" to "function(data:string):string -- Computes SHA256 hash.",
-            "encode64" to "function(data:string):string -- Base64 encodes data.",
-            "decode64" to "function(data:string):string -- Base64 decodes data.",
-            "deflate" to "function(data:string):string -- Compresses data.",
-            "inflate" to "function(data:string):string -- Decompresses data.",
-            "random" to "function(count:number):string -- Returns random bytes.",
-            
-            // Hologram
-            "clear" to "function() -- Clears the hologram.",
-            "getScale" to "function():number -- Returns the scale.",
-            "setScale" to "function(scale:number) -- Sets the scale.",
-            "getTranslation" to "function():number, number, number -- Returns translation offset.",
-            "setTranslation" to "function(x:number, y:number, z:number) -- Sets translation.",
-            
-            // EEPROM
-            "getData" to "function():string -- Returns the EEPROM data.",
-            "setData" to "function(data:string) -- Sets the EEPROM data.",
-            "getSize" to "function():number -- Returns the code capacity.",
-            "getDataSize" to "function():number -- Returns the data capacity.",
-            "getChecksum" to "function():string -- Returns the code checksum.",
-            "makeReadonly" to "function():boolean -- Makes the EEPROM read-only."
-        )
     }
 }
