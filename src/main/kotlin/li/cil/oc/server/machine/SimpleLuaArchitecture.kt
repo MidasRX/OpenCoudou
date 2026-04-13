@@ -576,6 +576,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 if (compType == "navigation") {
                     return handleNavigationStub(method, luaArgs)
                 }
+                if (compType == "keyboard") {
+                    return handleKeyboardInvoke(method, luaArgs)
+                }
 
                 // Try machine's component invoke
                 return try {
@@ -630,7 +633,10 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     "gpu" -> listOf("bind", "getScreen", "getResolution", "setResolution", "maxResolution",
                         "getDepth", "setDepth", "maxDepth", "get", "set", "fill", "copy", "getBackground",
                         "setBackground", "getForeground", "setForeground", "getPaletteColor", "setPaletteColor",
-                        "getViewport", "setViewport")
+                        "getViewport", "setViewport",
+                        // VRAM buffer methods (OC 1.7+)
+                        "getActiveBuffer", "setActiveBuffer", "buffers", "allocateBuffer", "freeBuffer",
+                        "freeAllBuffers", "getBufferSize", "totalMemory", "freeMemory", "bitblt")
                     "screen" -> listOf("isOn", "turnOn", "turnOff", "getAspectRatio", "getKeyboards",
                         "setPrecise", "isPrecise", "setTouchModeInverted", "isTouchModeInverted")
                     "filesystem" -> listOf("open", "close", "read", "write", "seek", "exists",
@@ -642,7 +648,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     "internet" -> listOf("isHttpEnabled", "isTcpEnabled", "request", "connect")
                     "redstone" -> listOf("getInput", "getOutput", "setOutput", "getBundledInput", "getBundledOutput", "setBundledOutput",
                         "getComparatorInput", "setWakeThreshold", "getWakeThreshold", "setWirelessFrequency", "getWirelessFrequency", "getWirelessInput", "setWirelessOutput")
-                    "keyboard" -> listOf("getLayoutName", "setLayoutName")
+                    "keyboard" -> listOf("getLayoutName", "setLayoutName", "getPressedKeys", "getPressedCodes",
+                        "isAltDown", "isControl", "isControlDown", "isKeyDown", "isShiftDown")
                     "robot" -> listOf("move", "turn", "name", "detect", "use", "swing", "place", "drop", "suck",
                         "select", "count", "space", "compareTo", "compareFluid", "compareFluidTo", "transferFluid",
                         "inventorySize", "level", "lightColor", "tankCount", "selectTank", "tankLevel", "tankSpace",
@@ -837,15 +844,35 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         })
 
         comp.set("users", object : ZeroArgFunction() {
-            override fun call(): LuaValue = LuaTable()
+            override fun call(): LuaValue {
+                val t = LuaTable()
+                computerUsers.forEachIndexed { i, user -> t.set(i + 1, LuaValue.valueOf(user)) }
+                return t
+            }
         })
 
-        comp.set("addUser", object : OneArgFunction() {
-            override fun call(arg: LuaValue): LuaValue = LuaValue.TRUE
+        comp.set("addUser", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val name = args.arg1().checkjstring()
+                if (computerUsers.size >= maxUsers) {
+                    return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("too many users")))
+                }
+                if (computerUsers.contains(name)) {
+                    return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("user exists")))
+                }
+                if (name.length > 64) {
+                    return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("username too long")))
+                }
+                computerUsers.add(name)
+                return LuaValue.TRUE
+            }
         })
 
         comp.set("removeUser", object : OneArgFunction() {
-            override fun call(arg: LuaValue): LuaValue = LuaValue.TRUE
+            override fun call(arg: LuaValue): LuaValue {
+                val name = arg.checkjstring()
+                return LuaValue.valueOf(computerUsers.remove(name))
+            }
         })
 
         comp.set("realTime", object : ZeroArgFunction() {
@@ -1023,6 +1050,13 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         0x000000, 0x000040, 0x004000, 0x004040, 0x400000, 0x400040, 0x404000, 0xAAAAAA,
         0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
     )
+
+    // GPU VRAM buffer system (OC 1.7+)
+    private var activeBuffer: Int = 0  // 0 = screen, 1+ = VRAM buffer index
+    private data class VRAMBuffer(val width: Int, val height: Int, val data: IntArray, val fg: IntArray, val bg: IntArray)
+    private val vramBuffers = mutableMapOf<Int, VRAMBuffer>()
+    private var nextBufferId = 1
+    private val totalVRAM = 2 * 1024 * 1024  // 2MB VRAM (T3 GPU)
 
     /**
      * Clamp a color to the current GPU depth.
@@ -1325,6 +1359,176 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             }
         })
 
+        // ===== GPU VRAM Buffer Methods (OC 1.7+) =====
+        
+        gpu.set("getActiveBuffer", object : ZeroArgFunction() {
+            override fun call(): LuaValue = LuaValue.valueOf(activeBuffer)
+        })
+
+        gpu.set("setActiveBuffer", object : OneArgFunction() {
+            override fun call(arg: LuaValue): LuaValue {
+                val index = arg.checkint()
+                if (index != 0 && !vramBuffers.containsKey(index)) {
+                    return LuaValue.NIL  // Invalid buffer index
+                }
+                val prev = activeBuffer
+                activeBuffer = index
+                return LuaValue.valueOf(prev)
+            }
+        })
+
+        gpu.set("buffers", object : ZeroArgFunction() {
+            override fun call(): LuaValue {
+                val t = LuaTable()
+                var i = 1
+                for (idx in vramBuffers.keys.sorted()) {
+                    t.set(i++, LuaValue.valueOf(idx))
+                }
+                return t
+            }
+        })
+
+        gpu.set("allocateBuffer", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val w = if (args.narg() >= 1 && !args.arg1().isnil()) args.arg1().checkint() else 160
+                val h = if (args.narg() >= 2 && !args.arg(2).isnil()) args.arg(2).checkint() else 50
+                if (w <= 0 || h <= 0) {
+                    return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("invalid buffer dimensions")))
+                }
+                val size = w * h * 4  // Rough memory estimate per cell (char + fg + bg)
+                val usedMem = vramBuffers.values.sumOf { it.width * it.height * 4 }
+                if (usedMem + size > totalVRAM) {
+                    return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("not enough video memory")))
+                }
+                val id = nextBufferId++
+                vramBuffers[id] = VRAMBuffer(
+                    width = w, height = h,
+                    data = IntArray(w * h) { ' '.code },
+                    fg = IntArray(w * h) { 0xFFFFFF },
+                    bg = IntArray(w * h) { 0x000000 }
+                )
+                return LuaValue.valueOf(id)
+            }
+        })
+
+        gpu.set("freeBuffer", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val index = if (args.narg() >= 1 && !args.arg1().isnil()) args.arg1().checkint() else activeBuffer
+                if (index == 0) return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("cannot free screen buffer")))
+                val removed = vramBuffers.remove(index) != null
+                if (removed && activeBuffer == index) {
+                    activeBuffer = 0  // Fall back to screen
+                }
+                return if (removed) LuaValue.TRUE else LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no buffer at index")))
+            }
+        })
+
+        gpu.set("freeAllBuffers", object : ZeroArgFunction() {
+            override fun call(): LuaValue {
+                val count = vramBuffers.size
+                vramBuffers.clear()
+                nextBufferId = 1
+                activeBuffer = 0
+                return LuaValue.valueOf(count)
+            }
+        })
+
+        gpu.set("getBufferSize", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val index = if (args.narg() >= 1 && !args.arg1().isnil()) args.arg1().checkint() else activeBuffer
+                if (index == 0) {
+                    val screen = findNearbyScreen()
+                    return LuaValue.varargsOf(arrayOf(
+                        LuaValue.valueOf(screen?.buffer?.width ?: 80),
+                        LuaValue.valueOf(screen?.buffer?.height ?: 25)
+                    ))
+                }
+                val buf = vramBuffers[index] ?: return LuaValue.NIL
+                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(buf.width), LuaValue.valueOf(buf.height)))
+            }
+        })
+
+        gpu.set("totalMemory", object : ZeroArgFunction() {
+            override fun call(): LuaValue = LuaValue.valueOf(totalVRAM)
+        })
+
+        // GPU freeMemory (VRAM free, not computer RAM)
+        gpu.set("freeMemory", object : ZeroArgFunction() {
+            override fun call(): LuaValue {
+                val usedMem = vramBuffers.values.sumOf { it.width * it.height * 4 }
+                return LuaValue.valueOf(totalVRAM - usedMem)
+            }
+        })
+
+        gpu.set("bitblt", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                // bitblt([dst: number, col: number, row: number, width: number, height: number, src: number, fromCol: number, fromRow: number])
+                val dstIdx = if (args.narg() >= 1 && !args.arg1().isnil()) args.arg1().checkint() else 0
+                val screen = findNearbyScreen()
+                val dstW = if (dstIdx == 0) (screen?.buffer?.width ?: 80) else (vramBuffers[dstIdx]?.width ?: return LuaValue.NIL)
+                val dstH = if (dstIdx == 0) (screen?.buffer?.height ?: 25) else (vramBuffers[dstIdx]?.height ?: return LuaValue.NIL)
+                
+                val col = if (args.narg() >= 2 && !args.arg(2).isnil()) args.arg(2).checkint() else 1
+                val row = if (args.narg() >= 3 && !args.arg(3).isnil()) args.arg(3).checkint() else 1
+                val w = if (args.narg() >= 4 && !args.arg(4).isnil()) args.arg(4).checkint() else dstW
+                val h = if (args.narg() >= 5 && !args.arg(5).isnil()) args.arg(5).checkint() else dstH
+                val srcIdx = if (args.narg() >= 6 && !args.arg(6).isnil()) args.arg(6).checkint() else activeBuffer
+                val fromCol = if (args.narg() >= 7 && !args.arg(7).isnil()) args.arg(7).checkint() else 1
+                val fromRow = if (args.narg() >= 8 && !args.arg(8).isnil()) args.arg(8).checkint() else 1
+
+                // Get source buffer
+                val srcBuf = if (srcIdx == 0) null else vramBuffers[srcIdx]
+                if (srcIdx != 0 && srcBuf == null) return LuaValue.NIL
+
+                // Perform blit
+                for (dy in 0 until h) {
+                    for (dx in 0 until w) {
+                        val sx = fromCol - 1 + dx
+                        val sy = fromRow - 1 + dy
+                        val dx2 = col - 1 + dx
+                        val dy2 = row - 1 + dy
+                        
+                        // Read from source
+                        val (ch, fg, bg) = if (srcIdx == 0 && screen != null) {
+                            val buf = screen.buffer
+                            if (sx in 0 until buf.width && sy in 0 until buf.height) {
+                                val idx = sy * buf.width + sx
+                                Triple(buf.charData[idx], buf.fgData[idx], buf.bgData[idx])
+                            } else Triple(' '.code, 0xFFFFFF, 0x000000)
+                        } else if (srcBuf != null && sx in 0 until srcBuf.width && sy in 0 until srcBuf.height) {
+                            val idx = sy * srcBuf.width + sx
+                            Triple(srcBuf.data[idx], srcBuf.fg[idx], srcBuf.bg[idx])
+                        } else continue
+
+                        // Write to destination
+                        if (dstIdx == 0 && screen != null) {
+                            val buf = screen.buffer
+                            if (dx2 in 0 until buf.width && dy2 in 0 until buf.height) {
+                                val idx = dy2 * buf.width + dx2
+                                buf.charData[idx] = ch
+                                buf.fgData[idx] = fg
+                                buf.bgData[idx] = bg
+                            }
+                        } else {
+                            val dstBuf = vramBuffers[dstIdx] ?: continue
+                            if (dx2 in 0 until dstBuf.width && dy2 in 0 until dstBuf.height) {
+                                val idx = dy2 * dstBuf.width + dx2
+                                dstBuf.data[idx] = ch
+                                dstBuf.fg[idx] = fg
+                                dstBuf.bg[idx] = bg
+                            }
+                        }
+                    }
+                }
+                
+                if (dstIdx == 0 && screen != null) {
+                    screen.setChanged()
+                    screen.markForSync()
+                }
+                return LuaValue.TRUE
+            }
+        })
+
         g.set("gpu", gpu)
     }
 
@@ -1387,10 +1591,14 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 eepromLabel = (args.getOrNull(0)?.toString() ?: "EEPROM").trim().take(24).ifEmpty { "EEPROM" }
                 LuaValue.valueOf(eepromLabel)
             }
-            "getData" -> LuaValue.valueOf(eepromData)
+            "getData" -> LuaString.valueOf(eepromDataBytes)
             "setData" -> {
-                val data = args.getOrNull(0)?.toString() ?: ""
-                if (data.length <= 256) eepromData = data
+                val data = when (val raw = args.getOrNull(0)) {
+                    is ByteArray -> raw
+                    is String -> raw.toByteArray(Charsets.ISO_8859_1)
+                    else -> ByteArray(0)
+                }
+                if (data.size <= 256) eepromDataBytes = data
                 LuaValue.NONE
             }
             "getSize" -> LuaValue.valueOf(4096)
@@ -1762,6 +1970,49 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     }
 
     // ===========================
+    // Keyboard Component API
+    // ===========================
+    private var keyboardLayoutName: String = "en_US"
+    private val pressedKeys = mutableMapOf<Int, Int>()  // code -> char
+    
+    private fun handleKeyboardInvoke(method: String, args: List<Any?>): Varargs {
+        return when (method) {
+            "getLayoutName" -> LuaValue.valueOf(keyboardLayoutName)
+            "setLayoutName" -> {
+                val name = args.getOrNull(0)?.toString() ?: "en_US"
+                keyboardLayoutName = name
+                LuaValue.valueOf(name)
+            }
+            "getPressedKeys" -> {
+                // Returns a table of currently pressed keys: code -> char
+                val t = LuaTable()
+                for ((code, char) in pressedKeys) {
+                    t.set(code, LuaValue.valueOf(char))
+                }
+                t
+            }
+            "getPressedCodes" -> {
+                // Returns an array of currently pressed key codes
+                val t = LuaTable()
+                pressedKeys.keys.forEachIndexed { i, code -> t.set(i + 1, LuaValue.valueOf(code)) }
+                t
+            }
+            "isAltDown" -> LuaValue.FALSE  // Would need actual input tracking
+            "isControl" -> {
+                val code = (args.getOrNull(0) as? Number)?.toInt() ?: 0
+                LuaValue.valueOf(code in 0..31)
+            }
+            "isControlDown" -> LuaValue.FALSE  // Would need actual input tracking
+            "isKeyDown" -> {
+                val code = (args.getOrNull(0) as? Number)?.toInt() ?: 0
+                LuaValue.valueOf(pressedKeys.containsKey(code))
+            }
+            "isShiftDown" -> LuaValue.FALSE  // Would need actual input tracking
+            else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("method not supported: $method")))
+        }
+    }
+
+    // ===========================
     // Filesystem Component API
     // ===========================
     private fun handleFilesystemInvoke(address: String, method: String, args: List<Any?>): Varargs {
@@ -1949,19 +2200,57 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     }
                 })
 
-                // handle.read([n]) → data or nil
+                // handle.read([n or mode]) → data or nil
+                // - read(n) - read up to n bytes
+                // - read("*a") - read all remaining
+                // - read("*l") - read line (without newline)
                 handle.set("read", object : VarArgFunction() {
                     private var offset = 0
                     override fun invoke(args: Varargs): Varargs {
                         if (!finished) return LuaValue.valueOf("")
                         val data = responseData ?: return LuaValue.NIL
                         if (offset >= data.length) return LuaValue.NIL
-                        val n = if (args.narg() > 0 && !args.arg1().isnil()) {
+                        
+                        val chunk: String
+                        if (args.narg() > 0 && !args.arg1().isnil()) {
                             val v = args.arg1()
-                            if (v.isnumber()) v.checkint() else data.length
-                        } else data.length
-                        val chunk = data.substring(offset, minOf(offset + n, data.length))
-                        offset += chunk.length
+                            if (v.isstring()) {
+                                val mode = v.tojstring()
+                                when (mode) {
+                                    "*a" -> {
+                                        // Read all remaining data
+                                        chunk = data.substring(offset)
+                                        offset = data.length
+                                    }
+                                    "*l" -> {
+                                        // Read one line (without newline)
+                                        val newlineIdx = data.indexOf('\n', offset)
+                                        if (newlineIdx != -1) {
+                                            val endIdx = if (newlineIdx > offset && data[newlineIdx - 1] == '\r') newlineIdx - 1 else newlineIdx
+                                            chunk = data.substring(offset, endIdx)
+                                            offset = newlineIdx + 1
+                                        } else {
+                                            chunk = data.substring(offset)
+                                            offset = data.length
+                                        }
+                                    }
+                                    else -> {
+                                        // Unknown mode, read all
+                                        chunk = data.substring(offset)
+                                        offset = data.length
+                                    }
+                                }
+                            } else {
+                                // Read n bytes
+                                val n = v.checkint()
+                                chunk = data.substring(offset, minOf(offset + n, data.length))
+                                offset += chunk.length
+                            }
+                        } else {
+                            // No argument: read all
+                            chunk = data.substring(offset)
+                            offset = data.length
+                        }
                         return if (chunk.isEmpty()) LuaValue.NIL else LuaValue.valueOf(chunk)
                     }
                 })
@@ -2193,7 +2482,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     // State
     // ===========================
     private var bootAddress: String? = null
-    private var eepromData: String = ""  // Separate 256-byte user-writable EEPROM data area
+    private var eepromDataBytes: ByteArray = ByteArray(0)  // Separate 256-byte user-writable EEPROM data area (binary-safe)
+    private val computerUsers = mutableSetOf<String>()  // Authorized users for this computer
+    private val maxUsers = 16  // Maximum number of users
     private var tmpFsAddress = java.util.UUID.randomUUID().toString().take(8)
     private var hardDriveAddress = java.util.UUID.randomUUID().toString()
     private var lootDiskAddress = java.util.UUID.randomUUID().toString()
@@ -2382,8 +2673,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             bootAddress = lootDiskAddress
         }
         // Initialize EEPROM data to boot address if empty (matches OC default behavior)
-        if (eepromData.isEmpty()) {
-            eepromData = bootAddress ?: ""
+        if (eepromDataBytes.isEmpty()) {
+            eepromDataBytes = (bootAddress ?: "").toByteArray(Charsets.ISO_8859_1)
         }
     }
 
@@ -2411,7 +2702,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         // Persist EEPROM state (user's BIOS code and label)
         tag.putString("eepromCode", eepromCode)
         tag.putString("eepromLabel", eepromLabel)
-        tag.putString("eepromData", eepromData)
+        tag.putByteArray("eepromDataBytes", eepromDataBytes)
 
         // Persist GPU/screen state
         tag.putInt("gpuDepth", gpuDepth)
@@ -2458,7 +2749,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         // Restore EEPROM state
         if (tag.contains("eepromCode")) eepromCode = tag.getString("eepromCode")
         if (tag.contains("eepromLabel")) eepromLabel = tag.getString("eepromLabel")
-        if (tag.contains("eepromData")) eepromData = tag.getString("eepromData")
+        if (tag.contains("eepromDataBytes")) eepromDataBytes = tag.getByteArray("eepromDataBytes")
+        // Backwards compatibility: load old string format if present
+        else if (tag.contains("eepromData")) eepromDataBytes = tag.getString("eepromData").toByteArray(Charsets.ISO_8859_1)
 
         // Restore GPU/screen state
         if (tag.contains("gpuDepth")) gpuDepth = tag.getInt("gpuDepth")
@@ -2514,6 +2807,17 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             "set" to "function(x:number, y:number, value:string[, vertical:boolean]):boolean -- Sets text at a position.",
             "copy" to "function(x:number, y:number, width:number, height:number, tx:number, ty:number):boolean -- Copies a region.",
             "fill" to "function(x:number, y:number, width:number, height:number, char:string):boolean -- Fills a region with a character.",
+            
+            // GPU VRAM buffer methods (OC 1.7+)
+            "getActiveBuffer" to "function():number -- Returns the index of the currently selected buffer. 0 is the screen.",
+            "setActiveBuffer" to "function(index:number):number -- Sets the active buffer. 0 is the screen, 1+ are VRAM buffers.",
+            "buffers" to "function():table -- Returns an array of indexes of allocated buffers.",
+            "allocateBuffer" to "function([width:number, height:number]):number -- Allocates a new VRAM buffer. Returns index or nil if out of memory.",
+            "freeBuffer" to "function([index:number]):boolean -- Frees the buffer at index. Returns true if freed.",
+            "freeAllBuffers" to "function():number -- Frees all buffers and returns the count.",
+            "getBufferSize" to "function([index:number]):number, number -- Returns buffer size (width, height). Index 0 is the screen.",
+            "totalMemory" to "function():number -- Returns the total VRAM size in bytes.",
+            "bitblt" to "function([dst:number, col:number, row:number, width:number, height:number, src:number, fromCol:number, fromRow:number]):boolean -- Copies pixels between buffers.",
             
             // Filesystem methods
             "open" to "function(path:string[, mode:string]):number or nil, string -- Opens a file. Returns handle or nil and error.",
