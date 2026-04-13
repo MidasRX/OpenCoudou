@@ -91,6 +91,10 @@ object OpenOSContent {
         fs.writeFile("bin/unalias.lua", UNALIAS_LUA)
         fs.writeFile("bin/head.lua", HEAD_LUA)
         fs.writeFile("bin/shutdown.lua", SHUTDOWN_LUA)
+        fs.writeFile("bin/wc.lua", WC_LUA)
+        fs.writeFile("bin/tail.lua", TAIL_LUA)
+        fs.writeFile("bin/tee.lua", TEE_LUA)
+        fs.writeFile("bin/rev.lua", REV_LUA)
 
         // ============ Config ============
         fs.writeFile("etc/profile.lua", PROFILE_LUA)
@@ -1218,24 +1222,120 @@ function shell.getShell()
         line = line:gsub("[\r\n]+${'$'}", "")
         line = line:match("^%s*(.-)%s*${'$'}") or ""
         if #line > 0 then
-          -- Tokenize with quote support
-          local parts = tokenize(line)
-          local cmd = parts[1]
+          if line:match("^%s*exit%s*${'$'}") then return end
           
-          if cmd == "exit" then
-            return
-          end
-          
-          -- Try as shell command
-          local ok, err = shell.execute(cmd, table.unpack(parts, 2))
-          if not ok then
-            -- Try as Lua expression
-            local fn = load("return " .. line)
-            if fn then
-              local ok2, result = pcall(fn)
-              if ok2 and result ~= nil then print(tostring(result)) end
+          -- Split by pipes (respecting quotes)
+          local pipeSegments = {}
+          local pipeCur = ""
+          local pipeQ = nil
+          for ci = 1, #line do
+            local ch = line:sub(ci, ci)
+            if pipeQ then
+              if ch == pipeQ then pipeQ = nil end
+              pipeCur = pipeCur .. ch
+            elseif ch == '"' or ch == "'" then
+              pipeQ = ch
+              pipeCur = pipeCur .. ch
+            elseif ch == "|" then
+              pipeSegments[#pipeSegments+1] = pipeCur
+              pipeCur = ""
             else
-              print(err or (cmd .. ": command not found"))
+              pipeCur = pipeCur .. ch
+            end
+          end
+          pipeSegments[#pipeSegments+1] = pipeCur
+          
+          if #pipeSegments > 1 then
+            -- Pipeline execution
+            local pipeData = nil
+            for pi, segment in ipairs(pipeSegments) do
+              segment = segment:match("^%s*(.-)%s*${'$'}") or ""
+              if #segment == 0 then break end
+              local segParts = tokenize(segment)
+              if #segParts == 0 then break end
+              local segCmd = segParts[1]
+              local isLast = (pi == #pipeSegments)
+              
+              -- Set up stdin from previous pipe
+              local oldStdin = nil
+              local ioLib = require("io")
+              if pipeData and pi > 1 then
+                oldStdin = ioLib.stdin
+                local pStr = pipeData
+                local pPos = 1
+                local function pipeRead(self, mode)
+                  mode = mode or "*l"
+                  if mode == "*a" or mode == "a" then
+                    if pPos > #pStr then return nil end
+                    local rest = pStr:sub(pPos)
+                    pPos = #pStr + 1
+                    return rest
+                  end
+                  if pPos > #pStr then return nil end
+                  local nl = pStr:find("\n", pPos, true)
+                  if nl then
+                    local ln = pStr:sub(pPos, nl - 1)
+                    pPos = nl + 1
+                    return ln
+                  end
+                  local ln = pStr:sub(pPos)
+                  pPos = #pStr + 1
+                  return #ln > 0 and ln or nil
+                end
+                ioLib.stdin = {
+                  read = pipeRead,
+                  close = function() end,
+                  flush = function() end,
+                  write = function() return nil, "not writable" end,
+                  seek = function() return nil, "not seekable" end,
+                  setvbuf = function() end,
+                  lines = function(self)
+                    return function() return pipeRead(self, "*l") end
+                  end,
+                }
+              end
+              
+              if isLast then
+                shell.execute(segCmd, table.unpack(segParts, 2))
+              else
+                local captured = {}
+                local oldPrint = _G.print
+                local termLib = require("term")
+                local oldTermWrite = termLib.write
+                local oldIoWrite = ioLib.write
+                _G.print = function(...)
+                  local pa = table.pack(...)
+                  local s = ""
+                  for j = 1, pa.n do
+                    if j > 1 then s = s .. "\t" end
+                    s = s .. tostring(pa[j])
+                  end
+                  captured[#captured+1] = s .. "\n"
+                end
+                termLib.write = function(text) captured[#captured+1] = tostring(text) end
+                ioLib.write = function(text) captured[#captured+1] = tostring(text) end
+                shell.execute(segCmd, table.unpack(segParts, 2))
+                _G.print = oldPrint
+                termLib.write = oldTermWrite
+                ioLib.write = oldIoWrite
+                pipeData = table.concat(captured)
+              end
+              if oldStdin then ioLib.stdin = oldStdin end
+            end
+          else
+            -- Single command
+            local parts = tokenize(line)
+            local cmd = parts[1]
+            if cmd == "exit" then return end
+            local ok, err = shell.execute(cmd, table.unpack(parts, 2))
+            if not ok then
+              local fn = load("return " .. line)
+              if fn then
+                local ok2, result = pcall(fn)
+                if ok2 and result ~= nil then print(tostring(result)) end
+              else
+                print(err or (cmd .. ": command not found"))
+              end
             end
           end
         end
@@ -1808,7 +1908,7 @@ function io.write(...)
 end
 
 function io.read(...)
-  return stdin:read(...)
+  return io.stdin:read(...)
 end
 
 function io.open(path, mode)
@@ -1850,7 +1950,7 @@ function io.lines(filename, ...)
       return table.unpack(result, 1, result.n)
     end
   else
-    return stdin:lines()
+    return io.stdin:lines()
   end
 end
 
@@ -2082,7 +2182,7 @@ sh()
 local fs = require("filesystem")
 local shell = require("shell")
 local term = require("term")
-local args = {...}
+local args, options = shell.parse(...)
 local path = args[1] or shell.getWorkingDirectory()
 if path:sub(1,1) ~= "/" then
   path = fs.concat(shell.getWorkingDirectory(), path)
@@ -2095,20 +2195,57 @@ if not fs.exists(path) then
 end
 
 if not fs.isDirectory(path) then
-  print(path)
+  if options.l then
+    local size = fs.size(path) or 0
+    local modified = fs.lastModified(path) or 0
+    local dateStr = tostring(modified)
+    pcall(function() dateStr = os.date("%Y-%m-%d %H:%M", math.floor(modified / 1000)) end)
+    print(string.format("%10d %s %s", size, dateStr, path))
+  else
+    print(path)
+  end
   return
 end
 
 local gpu = component.list("gpu")()
+local entries = {}
 for name in fs.list(path) do
-  if name:sub(-1) == "/" then
-    -- Directory in blue
-    if gpu then component.invoke(gpu, "setForeground", 0x5555FF) end
-    term.write(name)
-    if gpu then component.invoke(gpu, "setForeground", 0xFFFFFF) end
-    term.write("\n")
+  entries[#entries+1] = name
+end
+table.sort(entries)
+
+for _, name in ipairs(entries) do
+  if not options.a and name:sub(1,1) == "." then
+    -- skip hidden files
   else
-    term.write(name .. "\n")
+    if options.l then
+      local fullPath = fs.concat(path, name)
+      local size = 0
+      if name:sub(-1) ~= "/" then
+        size = fs.size(fullPath) or 0
+      end
+      local modified = fs.lastModified(fullPath) or 0
+      local dateStr = tostring(modified)
+      pcall(function() dateStr = os.date("%Y-%m-%d %H:%M", math.floor(modified / 1000)) end)
+      local typeChar = name:sub(-1) == "/" and "d" or "-"
+      if name:sub(-1) == "/" then
+        if gpu then component.invoke(gpu, "setForeground", 0x5555FF) end
+        io.write(string.format("%s %10d %s %s", typeChar, size, dateStr, name))
+        if gpu then component.invoke(gpu, "setForeground", 0xFFFFFF) end
+        io.write("\n")
+      else
+        print(string.format("%s %10d %s %s", typeChar, size, dateStr, name))
+      end
+    else
+      if name:sub(-1) == "/" then
+        if gpu then component.invoke(gpu, "setForeground", 0x5555FF) end
+        term.write(name)
+        if gpu then component.invoke(gpu, "setForeground", 0xFFFFFF) end
+        term.write("\n")
+      else
+        term.write(name .. "\n")
+      end
+    end
   end
 end
 """.trimIndent()
@@ -2116,27 +2253,55 @@ end
     val CAT_LUA = """
 local fs = require("filesystem")
 local shell = require("shell")
-local args = {...}
+local args, options = shell.parse(...)
 if #args == 0 then
-  print("Usage: cat <file>")
+  -- Read from stdin
+  local lineNum = 0
+  while true do
+    local line = io.read("*l")
+    if not line then break end
+    lineNum = lineNum + 1
+    if options.n then
+      io.write(string.format("%6d\t", lineNum))
+    end
+    print(line)
+  end
   return
 end
-local path = args[1]
-if path:sub(1,1) ~= "/" then
-  path = fs.concat(shell.getWorkingDirectory(), path)
+for _, file in ipairs(args) do
+  local path = file
+  if path:sub(1,1) ~= "/" then
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  path = fs.canonical(path)
+  local f, err = fs.open(path, "r")
+  if not f then
+    io.stderr:write("cat: " .. (err or "cannot open file") .. "\n")
+  else
+    if options.n then
+      local content = ""
+      while true do
+        local data = f:read(4096)
+        if not data then break end
+        content = content .. data
+      end
+      f:close()
+      local lineNum = 0
+      for line in content:gmatch("[^\n]+") do
+        lineNum = lineNum + 1
+        io.write(string.format("%6d\t", lineNum))
+        print(line)
+      end
+    else
+      while true do
+        local data = f:read(4096)
+        if not data then break end
+        io.write(data)
+      end
+      f:close()
+    end
+  end
 end
-path = fs.canonical(path)
-local f, err = fs.open(path, "r")
-if not f then
-  print("cat: " .. (err or "cannot open file"))
-  return
-end
-while true do
-  local data = f:read(4096)
-  if not data then break end
-  io.write(data)
-end
-f:close()
 """.trimIndent()
 
     val CP_LUA = """
@@ -2808,22 +2973,44 @@ local fs = require("filesystem")
 local shell = require("shell")
 local args, options = shell.parse(...)
 if #args < 1 then
-  print("Usage: grep <pattern> [file...]")
+  print("Usage: grep [-invc] <pattern> [file...]")
   return
 end
 local pattern = args[1]
 local files = {}
 for i = 2, #args do files[#files+1] = args[i] end
 
+local function testMatch(line, pat)
+  local testLine = line
+  local testPat = pat
+  if options.i then
+    testLine = line:lower()
+    testPat = pat:lower()
+  end
+  local found = testLine:find(testPat)
+  if options.v then found = not found end
+  return found
+end
+
 -- If no files given, read from stdin
 if #files == 0 then
+  local count = 0
+  local lineNum = 0
   while true do
     local line = io.read("*l")
     if not line then break end
-    if line:find(pattern) then
-      print(line)
+    lineNum = lineNum + 1
+    if testMatch(line, pattern) then
+      count = count + 1
+      if not options.c then
+        if options.n then
+          io.write(tostring(lineNum) .. ":")
+        end
+        print(line)
+      end
     end
   end
+  if options.c then print(count) end
   return
 end
 
@@ -2838,17 +3025,25 @@ for _, file in ipairs(files) do
     io.stderr:write("grep: " .. file .. ": No such file\n")
   else
     local lineNum = 0
+    local count = 0
     for line in f:lines() do
       lineNum = lineNum + 1
-      if line:find(pattern) then
-        if showFilename then
-          io.write(file .. ":")
+      if testMatch(line, pattern) then
+        count = count + 1
+        if not options.c then
+          if showFilename then
+            io.write(file .. ":")
+          end
+          if options.n then
+            io.write(tostring(lineNum) .. ":")
+          end
+          print(line)
         end
-        if options.n then
-          io.write(tostring(lineNum) .. ":")
-        end
-        print(line)
       end
+    end
+    if options.c then
+      if showFilename then io.write(file .. ":") end
+      print(count)
     end
     f:close()
   end
@@ -3439,6 +3634,180 @@ end
 local args = {...}
 local seconds = tonumber(args[1]) or 1
 os.sleep(seconds)
+""".trimIndent()
+
+    // ================================================================
+    // /bin/wc.lua - Word/line/char count
+    // ================================================================
+    val WC_LUA = """
+local fs = require("filesystem")
+local shell = require("shell")
+local args = {...}
+
+local function countContent(content)
+  local lines = 0
+  local words = 0
+  local chars = #content
+  for _ in content:gmatch("\n") do lines = lines + 1 end
+  if #content > 0 and content:sub(-1) ~= "\n" then lines = lines + 1 end
+  for _ in content:gmatch("%S+") do words = words + 1 end
+  return lines, words, chars
+end
+
+if #args == 0 then
+  local content = ""
+  while true do
+    local line = io.read("*l")
+    if not line then break end
+    content = content .. line .. "\n"
+  end
+  local l, w, c = countContent(content)
+  print(string.format("%8d %8d %8d", l, w, c))
+  return
+end
+
+local totalL, totalW, totalC = 0, 0, 0
+for _, file in ipairs(args) do
+  local path = file
+  if path:sub(1,1) ~= "/" then
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  path = fs.canonical(path)
+  local f = fs.open(path, "r")
+  if not f then
+    io.stderr:write("wc: " .. file .. ": No such file\n")
+  else
+    local content = ""
+    while true do
+      local data = f:read(4096)
+      if not data then break end
+      content = content .. data
+    end
+    f:close()
+    local l, w, c = countContent(content)
+    totalL = totalL + l
+    totalW = totalW + w
+    totalC = totalC + c
+    print(string.format("%8d %8d %8d %s", l, w, c, file))
+  end
+end
+if #args > 1 then
+  print(string.format("%8d %8d %8d total", totalL, totalW, totalC))
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/tail.lua - Show last N lines
+    // ================================================================
+    val TAIL_LUA = """
+local fs = require("filesystem")
+local shell = require("shell")
+local args = {...}
+local n = 10
+local file = nil
+local i = 1
+while i <= #args do
+  if args[i] == "-n" and i < #args then
+    n = tonumber(args[i+1]) or 10
+    i = i + 2
+  elseif args[i]:match("^%-(%d+)${'$'}") then
+    n = tonumber(args[i]:match("^%-(%d+)${'$'}")) or 10
+    i = i + 1
+  else
+    if not file then file = args[i] end
+    i = i + 1
+  end
+end
+if not file then
+  print("Usage: tail [-n lines] <file>")
+  return
+end
+local path = file
+if path:sub(1,1) ~= "/" then
+  path = fs.concat(shell.getWorkingDirectory(), path)
+end
+path = fs.canonical(path)
+local f = io.open(path, "r")
+if not f then
+  io.stderr:write("tail: " .. file .. ": No such file\n")
+  return
+end
+local lines = {}
+for line in f:lines() do
+  lines[#lines+1] = line
+end
+f:close()
+local start = math.max(1, #lines - n + 1)
+for j = start, #lines do
+  print(lines[j])
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/tee.lua - Write to file and stdout
+    // ================================================================
+    val TEE_LUA = """
+local fs = require("filesystem")
+local shell = require("shell")
+local args, options = shell.parse(...)
+if #args == 0 then
+  print("Usage: tee [-a] <file> [...]")
+  return
+end
+local mode = options.a and "a" or "w"
+local handles = {}
+for _, file in ipairs(args) do
+  local path = file
+  if path:sub(1,1) ~= "/" then
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  local f = fs.open(path, mode)
+  if f then handles[#handles+1] = f end
+end
+while true do
+  local line = io.read("*l")
+  if not line then break end
+  print(line)
+  for _, f in ipairs(handles) do
+    f:write(line .. "\n")
+  end
+end
+for _, f in ipairs(handles) do
+  f:close()
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/rev.lua - Reverse lines
+    // ================================================================
+    val REV_LUA = """
+local args = {...}
+local function reverseLine(s)
+  local chars = {}
+  for j = #s, 1, -1 do
+    chars[#chars+1] = s:sub(j, j)
+  end
+  return table.concat(chars)
+end
+if #args == 0 then
+  while true do
+    local line = io.read("*l")
+    if not line then break end
+    print(reverseLine(line))
+  end
+else
+  for _, file in ipairs(args) do
+    local f = io.open(file, "r")
+    if not f then
+      io.stderr:write("rev: " .. file .. ": No such file\n")
+    else
+      for line in f:lines() do
+        print(reverseLine(line))
+      end
+      f:close()
+    end
+  end
+end
 """.trimIndent()
 
 }
