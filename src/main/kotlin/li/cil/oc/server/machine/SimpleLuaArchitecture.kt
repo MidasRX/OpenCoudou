@@ -112,6 +112,87 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             pkg.set("loadlib", LuaValue.NIL)
             pkg.set("searchpath", LuaValue.NIL)
         }
+
+        // Remove string.dump (sandbox risk - can dump bytecode)
+        val str = g.get("string")
+        if (!str.isnil()) {
+            str.set("dump", LuaValue.NIL)
+        }
+
+        // Add Lua 5.3 table functions missing from LuaJ
+        val tbl = g.get("table")
+        if (!tbl.isnil()) {
+            // table.pack(...)
+            tbl.set("pack", object : VarArgFunction() {
+                override fun invoke(args: Varargs): Varargs {
+                    val t = LuaTable()
+                    for (i in 1..args.narg()) {
+                        t.set(i, args.arg(i))
+                    }
+                    t.set("n", LuaValue.valueOf(args.narg()))
+                    return t
+                }
+            })
+            // table.unpack(list [, i [, j]])
+            tbl.set("unpack", object : VarArgFunction() {
+                override fun invoke(args: Varargs): Varargs {
+                    val list = args.arg1().checktable()
+                    val i = args.optint(2, 1)
+                    val j = args.optint(3, list.rawlen())
+                    if (i > j) return LuaValue.NONE
+                    val vals = Array(j - i + 1) { idx -> list.get(i + idx) }
+                    return LuaValue.varargsOf(vals)
+                }
+            })
+            // table.move(a1, f, e, t [, a2])
+            tbl.set("move", object : VarArgFunction() {
+                override fun invoke(args: Varargs): Varargs {
+                    val a1 = args.arg1().checktable()
+                    val f = args.arg(2).checkint()
+                    val e = args.arg(3).checkint()
+                    val t = args.arg(4).checkint()
+                    val a2 = if (args.narg() >= 5 && !args.arg(5).isnil()) args.arg(5).checktable() else a1
+                    if (f <= e) {
+                        if (t <= f || a2 !== a1) {
+                            for (idx in 0..(e - f)) a2.set(t + idx, a1.get(f + idx))
+                        } else {
+                            for (idx in (e - f) downTo 0) a2.set(t + idx, a1.get(f + idx))
+                        }
+                    }
+                    return a2
+                }
+            })
+        }
+
+        // Add Lua 5.3 math constants/functions missing from LuaJ
+        val math = g.get("math")
+        if (!math.isnil()) {
+            math.set("maxinteger", LuaValue.valueOf(Long.MAX_VALUE.toDouble()))
+            math.set("mininteger", LuaValue.valueOf(Long.MIN_VALUE.toDouble()))
+            // math.tointeger(x) - returns integer if x is an integer, else nil
+            math.set("tointeger", object : OneArgFunction() {
+                override fun call(arg: LuaValue): LuaValue {
+                    if (arg.isint()) return arg
+                    if (arg.isnumber()) {
+                        val d = arg.todouble()
+                        val l = d.toLong()
+                        if (d == l.toDouble()) return LuaValue.valueOf(l.toInt())
+                    }
+                    return LuaValue.NIL
+                }
+            })
+            // math.type(x) - "integer", "float", or false
+            math.set("type", object : OneArgFunction() {
+                override fun call(arg: LuaValue): LuaValue {
+                    return when {
+                        arg.isint() || arg.islong() -> LuaValue.valueOf("integer")
+                        arg.isnumber() -> LuaValue.valueOf("float")
+                        else -> LuaValue.FALSE
+                    }
+                }
+            })
+        }
+
         g.set("print", createPrintFunction())
 
         // checkArg helper used by many OC programs
@@ -639,6 +720,41 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
     )
 
+    /**
+     * Clamp a color to the current GPU depth.
+     * Depth 1: monochrome (black or white)
+     * Depth 4: nearest of the 16 palette colors
+     * Depth 8: full 24-bit (no change)
+     */
+    private fun clampColor(color: Int): Int {
+        return when (gpuDepth) {
+            1 -> {
+                // Monochrome: use luminance to decide black or white
+                val r = (color shr 16) and 0xFF
+                val g = (color shr 8) and 0xFF
+                val b = color and 0xFF
+                if (r + g + b >= 383) 0xFFFFFF else 0x000000
+            }
+            4 -> {
+                // Find nearest palette color (Euclidean distance in RGB)
+                var bestIdx = 0
+                var bestDist = Int.MAX_VALUE
+                val cr = (color shr 16) and 0xFF
+                val cg = (color shr 8) and 0xFF
+                val cb = color and 0xFF
+                for (i in gpuPalette.indices) {
+                    val pr = (gpuPalette[i] shr 16) and 0xFF
+                    val pg = (gpuPalette[i] shr 8) and 0xFF
+                    val pb = gpuPalette[i] and 0xFF
+                    val dist = (cr - pr) * (cr - pr) + (cg - pg) * (cg - pg) + (cb - pb) * (cb - pb)
+                    if (dist < bestDist) { bestDist = dist; bestIdx = i }
+                }
+                gpuPalette[bestIdx]
+            }
+            else -> color and 0xFFFFFF
+        }
+    }
+
     private fun setupGpuAPI() {
         val g = globals ?: return
         val gpu = LuaTable()
@@ -828,13 +944,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val old = screen?.buffer?.foreground ?: 0xFFFFFF
                 if (screen != null) {
                     screen.buffer.foreground = if (isPalette) {
-                        // Resolve palette index to actual color
-                        val palette = intArrayOf(
-                            0x000000, 0x000040, 0x004000, 0x004040, 0x400000, 0x400040, 0x404000, 0xAAAAAA,
-                            0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
-                        )
-                        if (color in 0..15) palette[color] else color
-                    } else color
+                        if (color in 0..15) gpuPalette[color] else clampColor(color)
+                    } else clampColor(color)
                 }
                 return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.FALSE))
             }
@@ -848,12 +959,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val old = screen?.buffer?.background ?: 0x000000
                 if (screen != null) {
                     screen.buffer.background = if (isPalette) {
-                        val palette = intArrayOf(
-                            0x000000, 0x000040, 0x004000, 0x004040, 0x400000, 0x400040, 0x404000, 0xAAAAAA,
-                            0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
-                        )
-                        if (color in 0..15) palette[color] else color
-                    } else color
+                        if (color in 0..15) gpuPalette[color] else clampColor(color)
+                    } else clampColor(color)
                 }
                 return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.FALSE))
             }
@@ -970,10 +1077,10 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 eepromLabel = (args.getOrNull(0)?.toString() ?: "EEPROM").trim().take(24).ifEmpty { "EEPROM" }
                 LuaValue.valueOf(eepromLabel)
             }
-            "getData" -> LuaValue.valueOf(bootAddress ?: "")
+            "getData" -> LuaValue.valueOf(eepromData)
             "setData" -> {
                 val data = args.getOrNull(0)?.toString() ?: ""
-                if (data.length <= 256) bootAddress = data
+                if (data.length <= 256) eepromData = data
                 LuaValue.NONE
             }
             "getSize" -> LuaValue.valueOf(4096)
@@ -1489,6 +1596,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     // State
     // ===========================
     private var bootAddress: String? = null
+    private var eepromData: String = ""  // Separate 256-byte user-writable EEPROM data area
     private var tmpFsAddress = java.util.UUID.randomUUID().toString().take(8)
     private var hardDriveAddress = java.util.UUID.randomUUID().toString()
     private var lootDiskAddress = java.util.UUID.randomUUID().toString()
@@ -1672,6 +1780,10 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         if (bootAddress == null) {
             bootAddress = lootDiskAddress
         }
+        // Initialize EEPROM data to boot address if empty (matches OC default behavior)
+        if (eepromData.isEmpty()) {
+            eepromData = bootAddress ?: ""
+        }
     }
 
     override fun runSynchronized() {}
@@ -1698,6 +1810,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         // Persist EEPROM state (user's BIOS code and label)
         tag.putString("eepromCode", eepromCode)
         tag.putString("eepromLabel", eepromLabel)
+        tag.putString("eepromData", eepromData)
 
         // Persist GPU/screen state
         tag.putInt("gpuDepth", gpuDepth)
@@ -1744,6 +1857,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         // Restore EEPROM state
         if (tag.contains("eepromCode")) eepromCode = tag.getString("eepromCode")
         if (tag.contains("eepromLabel")) eepromLabel = tag.getString("eepromLabel")
+        if (tag.contains("eepromData")) eepromData = tag.getString("eepromData")
 
         // Restore GPU/screen state
         if (tag.contains("gpuDepth")) gpuDepth = tag.getInt("gpuDepth")

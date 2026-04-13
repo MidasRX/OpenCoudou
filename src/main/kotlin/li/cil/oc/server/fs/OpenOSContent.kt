@@ -95,6 +95,10 @@ object OpenOSContent {
         fs.writeFile("bin/tail.lua", TAIL_LUA)
         fs.writeFile("bin/tee.lua", TEE_LUA)
         fs.writeFile("bin/rev.lua", REV_LUA)
+        fs.writeFile("bin/type.lua", TYPE_LUA)
+        fs.writeFile("bin/env.lua", ENV_LUA)
+        fs.writeFile("bin/true.lua", TRUE_LUA)
+        fs.writeFile("bin/false.lua", FALSE_LUA)
 
         // ============ Config ============
         fs.writeFile("etc/profile.lua", PROFILE_LUA)
@@ -3808,6 +3812,66 @@ else
     end
   end
 end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/type.lua - Show type of a command (builtin, alias, or program)
+    // ================================================================
+    val TYPE_LUA = """
+local shell = require("shell")
+local args = {...}
+if #args == 0 then
+  io.stderr:write("Usage: type <name>\n")
+  return 1
+end
+for _, name in ipairs(args) do
+  local aliases = shell.aliases()
+  if aliases[name] then
+    print(name .. " is aliased to '" .. aliases[name] .. "'")
+  else
+    local path = shell.resolve(name)
+    if path then
+      print(name .. " is " .. path)
+    else
+      io.stderr:write("type: " .. name .. ": not found\n")
+    end
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/env.lua - Display all environment variables
+    // ================================================================
+    val ENV_LUA = """
+local shell = require("shell")
+local env = shell.getenv()
+if type(env) == "table" then
+  for k, v in pairs(env) do
+    print(k .. "=" .. tostring(v))
+  end
+else
+  -- Fallback: show common variables
+  for _, name in ipairs({"PATH", "HOME", "PWD", "PS1", "SHELL", "TERM"}) do
+    local val = os.getenv(name)
+    if val then
+      print(name .. "=" .. val)
+    end
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/true.lua - Exit with success
+    // ================================================================
+    val TRUE_LUA = """
+return 0
+""".trimIndent()
+
+    // ================================================================
+    // /bin/false.lua - Exit with failure
+    // ================================================================
+    val FALSE_LUA = """
+return 1
 """.trimIndent()
 
 }
