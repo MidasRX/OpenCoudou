@@ -52,6 +52,7 @@ object OpenOSContent {
         fs.writeFile("boot/03_keyboard.lua", BOOT_03_KEYBOARD)
         fs.writeFile("boot/04_component.lua", BOOT_04_COMPONENT)
         fs.writeFile("boot/90_filesystem.lua", BOOT_90_FILESYSTEM)
+        fs.writeFile("boot/91_gpu.lua", BOOT_91_GPU)
 
         // ============ Programs ============
         fs.writeFile("bin/sh.lua", SH_LUA)
@@ -1957,6 +1958,30 @@ event.listen("component_removed", function(_, addr, ctype)
     pcall(fs.umount, addr)
   end
 end)
+""".trimIndent()
+
+    val BOOT_91_GPU = """
+-- GPU auto-bind on component changes
+local event = require("event")
+
+local function onComponentAvailable(_, componentType)
+  if (componentType == "screen" and component.list("gpu")()) or
+     (componentType == "gpu" and component.list("screen")())
+  then
+    local gpu = component.list("gpu")()
+    local screen = component.list("screen")()
+    if gpu and screen then
+      local currentScreen = component.invoke(gpu, "getScreen")
+      if currentScreen ~= screen then
+        component.invoke(gpu, "bind", screen)
+      end
+      local depth = math.floor(2^(component.invoke(gpu, "getDepth")))
+      os.setenv("TERM", "term-" .. depth .. "color")
+    end
+  end
+end
+
+event.listen("component_available", onComponentAvailable)
 """.trimIndent()
 
     // ================================================================

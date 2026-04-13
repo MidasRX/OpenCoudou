@@ -225,6 +225,9 @@ class SimpleMachine(override val host: MachineHost) : Machine {
         hasCrashed = true
         crashMessage = message
         
+        // Display error on screen (like original OC's "blue screen")
+        displayCrashOnScreen(message)
+        
         executorFuture?.cancel(true)
         executorFuture = null
         
@@ -234,6 +237,47 @@ class SimpleMachine(override val host: MachineHost) : Machine {
         signalQueue.clear()
         state = MachineState.CRASHED
         host.onMachineStateChanged(state)
+    }
+    
+    private fun displayCrashOnScreen(message: String) {
+        try {
+            val level = host.world() ?: return
+            val pos = host.hostPosition()
+            // Find nearby screen
+            for (dx in -8..8) for (dy in -2..2) for (dz in -8..8) {
+                val be = level.getBlockEntity(pos.offset(dx, dy, dz))
+                if (be is li.cil.oc.common.blockentity.ScreenBlockEntity) {
+                    val buf = be.buffer
+                    // Blue screen background
+                    buf.foreground = 0xFFFFFF
+                    buf.background = 0x0000AA
+                    buf.fill(0, 0, buf.width, buf.height, ' '.code)
+                    
+                    // Title line
+                    val title = "Unrecoverable Error"
+                    buf.set(maxOf(0, (buf.width - title.length) / 2), 1, title)
+                    
+                    // Error message - word wrap across lines
+                    val lines = message.chunked(buf.width - 2)
+                    for ((i, line) in lines.withIndex()) {
+                        if (3 + i >= buf.height - 2) break
+                        buf.set(1, 3 + i, line)
+                    }
+                    
+                    // Footer
+                    val footer = "Press any key to reboot"
+                    if (buf.height > 5) {
+                        buf.set(maxOf(0, (buf.width - footer.length) / 2), buf.height - 2, footer)
+                    }
+                    
+                    be.setChanged()
+                    be.markForSync()
+                    return
+                }
+            }
+        } catch (e: Exception) {
+            OpenComputers.LOGGER.debug("Failed to display crash on screen: {}", e.message)
+        }
     }
     
     override fun update(): Boolean {
