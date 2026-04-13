@@ -197,6 +197,14 @@ local loading = {}
 function require(name)
   if loaded[name] then return loaded[name] end
   if loading[name] then error("circular dependency: " .. name) end
+  -- Check package.preload
+  if _G.package and _G.package.preload and _G.package.preload[name] then
+    loading[name] = true
+    local result = _G.package.preload[name](name)
+    loaded[name] = result or true
+    loading[name] = nil
+    return loaded[name]
+  end
   loading[name] = true
   
   -- Build search paths
@@ -1250,11 +1258,12 @@ function term.write(text)
   end
 end
 
-function term.read(history, dobreak)
+function term.read(history, dobreak, hint, pwchar)
   local gpu = getGpu()
   if not gpu then return "" end
   refreshSize()
   
+  if dobreak == nil then dobreak = true end
   history = history or {}
   local histIdx = #history + 1
   local buffer = ""
@@ -1271,7 +1280,8 @@ function term.read(history, dobreak)
       scrollOffset = pos
     end
     component.invoke(gpu, "fill", startX, startY, maxVisible, 1, " ")
-    local visible = buffer:sub(scrollOffset + 1, scrollOffset + maxVisible)
+    local displayBuf = pwchar and string.rep(pwchar, #buffer) or buffer
+    local visible = displayBuf:sub(scrollOffset + 1, scrollOffset + maxVisible)
     if #visible > 0 then
       component.invoke(gpu, "set", startX, startY, visible)
     end
@@ -1282,7 +1292,8 @@ function term.read(history, dobreak)
     redraw()
     -- Show cursor
     local cursorScreenPos = startX + pos - scrollOffset
-    local cursorChar = pos < #buffer and buffer:sub(pos + 1, pos + 1) or "_"
+    local displayBuf = pwchar and string.rep(pwchar, #buffer) or buffer
+    local cursorChar = pos < #displayBuf and displayBuf:sub(pos + 1, pos + 1) or "_"
     if cursorScreenPos >= 1 and cursorScreenPos <= screenW then
       component.invoke(gpu, "set", cursorScreenPos, startY, cursorChar)
     end
@@ -1292,15 +1303,26 @@ function term.read(history, dobreak)
     if sig == "key_down" then
       if char == 13 or code == 28 then -- Enter
         redraw()
-        cursorX = 1
-        cursorY = cursorY + 1
-        if cursorY > screenH then scroll() end
+        if dobreak then
+          cursorX = 1
+          cursorY = cursorY + 1
+          if cursorY > screenH then scroll() end
+        end
         if #buffer > 0 then
           history[#history + 1] = buffer
         end
         return buffer
       elseif char == 4 then -- Ctrl+D
         if #buffer == 0 then return nil end
+      elseif char == 9 and hint then -- Tab completion
+        local hints = hint(buffer, pos)
+        if hints and #hints > 0 then
+          local completion = hints[1]
+          if type(completion) == "string" then
+            buffer = buffer:sub(1, pos) .. completion .. buffer:sub(pos + 1)
+            pos = pos + #completion
+          end
+        end
       elseif char == 8 or code == 14 then -- Backspace
         if pos > 0 then
           buffer = buffer:sub(1, pos - 1) .. buffer:sub(pos + 1)
@@ -1364,15 +1386,13 @@ function term.scroll(lines)
   if not gpu then return end
   refreshSize()
   if lines > 0 then
-    for i = 1, lines do
-      component.invoke(gpu, "copy", 1, 2, screenW, screenH - 1, 0, -1)
-      component.invoke(gpu, "fill", 1, screenH, screenW, 1, " ")
-    end
+    local n = math.min(lines, screenH)
+    component.invoke(gpu, "copy", 1, 1 + n, screenW, screenH - n, 0, -n)
+    component.invoke(gpu, "fill", 1, screenH - n + 1, screenW, n, " ")
   elseif lines < 0 then
-    for i = 1, -lines do
-      component.invoke(gpu, "copy", 1, 1, screenW, screenH - 1, 0, 1)
-      component.invoke(gpu, "fill", 1, 1, screenW, 1, " ")
-    end
+    local n = math.min(-lines, screenH)
+    component.invoke(gpu, "copy", 1, 1, screenW, screenH - n, 0, n)
+    component.invoke(gpu, "fill", 1, 1, screenW, n, " ")
   end
 end
 
@@ -1724,7 +1744,7 @@ function io.output(file)
 end
 
 function io.tmpfile()
-  return io.open("/tmp/.tmpfile_" .. math.floor(computer.uptime() * 1000), "w")
+  return io.open("/tmp/.tmpfile_" .. math.floor(computer.uptime() * 1000), "a")
 end
 
 function io.popen() return nil, "not supported" end

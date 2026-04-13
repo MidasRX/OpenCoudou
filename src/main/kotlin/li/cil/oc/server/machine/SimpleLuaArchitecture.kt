@@ -33,6 +33,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     private var initialized = false
     // Signal delivered to pullSignal
     private var pendingSignal: Varargs? = null
+    private var lastResumeTime: Long = System.currentTimeMillis()
+    private val MAX_EXECUTION_TIME_MS = 5000L // 5 seconds without yielding
 
     override val isInitialized: Boolean get() = initialized
 
@@ -65,6 +67,22 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         g.load(StringLib())
         g.load(JseMathLib())
         g.load(CoroutineLib())
+        g.load(DebugLib())  // For instruction count hooks (execution timeout)
+
+        // Install execution timeout hook - prevents infinite loops from freezing the server
+        val hookFunction = object : ZeroArgFunction() {
+            override fun call(): LuaValue {
+                val elapsed = System.currentTimeMillis() - lastResumeTime
+                if (elapsed > MAX_EXECUTION_TIME_MS) {
+                    LuaValue.error("too long without yielding")
+                }
+                return LuaValue.NONE
+            }
+        }
+        // Check every 10000 instructions
+        g.get("debug").get("sethook").invoke(LuaValue.varargsOf(arrayOf(
+            hookFunction, LuaValue.valueOf(""), LuaValue.valueOf(10000)
+        )))
 
         // Sandboxed debug library (only traceback and getinfo)
         val debug = LuaTable()
@@ -88,6 +106,12 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         g.set("dofile", LuaValue.NIL)
         g.set("loadfile", LuaValue.NIL)
+        // Remove PackageLib's native loader for sandbox safety
+        val pkg = g.get("package")
+        if (!pkg.isnil()) {
+            pkg.set("loadlib", LuaValue.NIL)
+            pkg.set("searchpath", LuaValue.NIL)
+        }
         g.set("print", createPrintFunction())
 
         // checkArg helper used by many OC programs
@@ -1214,7 +1238,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 LuaValue.NONE
             }
 
-            val result = co.resume(resumeArgs)
+            val result: Varargs
+            lastResumeTime = System.currentTimeMillis()
+            result = co.resume(resumeArgs)
             val status = result.arg1().toboolean()
 
             if (!status) {
