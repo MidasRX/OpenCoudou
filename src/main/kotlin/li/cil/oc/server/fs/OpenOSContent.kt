@@ -81,6 +81,15 @@ object OpenOSContent {
         fs.writeFile("bin/lua.lua", LUA_LUA)
         fs.writeFile("bin/grep.lua", GREP_LUA)
         fs.writeFile("bin/more.lua", MORE_LUA)
+        fs.writeFile("bin/dmesg.lua", DMESG_LUA)
+        fs.writeFile("bin/mount.lua", MOUNT_LUA)
+        fs.writeFile("bin/umount.lua", UMOUNT_LUA)
+        fs.writeFile("bin/date.lua", DATE_LUA)
+        fs.writeFile("bin/touch.lua", TOUCH_LUA)
+        fs.writeFile("bin/alias.lua", ALIAS_LUA)
+        fs.writeFile("bin/unalias.lua", UNALIAS_LUA)
+        fs.writeFile("bin/head.lua", HEAD_LUA)
+        fs.writeFile("bin/shutdown.lua", SHUTDOWN_LUA)
 
         // ============ Config ============
         fs.writeFile("etc/profile.lua", PROFILE_LUA)
@@ -351,7 +360,7 @@ _G.print = function(...)
   end
 end
 
-_G.loadfile = function(path)
+_G.loadfile = function(path, mode, env)
   -- Resolve relative paths
   if path:sub(1, 1) ~= "/" then
     path = (os.getenv("PWD") or "/") .. "/" .. path
@@ -378,7 +387,7 @@ _G.loadfile = function(path)
       buffer = buffer .. (data or "")
     until not data
     f:close()
-    return load(buffer, "=" .. path, "t", _G)
+    return load(buffer, "=" .. path, mode or "t", env or _G)
   end
 
   -- Fallback to direct component access (during early boot)
@@ -391,7 +400,7 @@ _G.loadfile = function(path)
     buffer = buffer .. (data or "")
   until not data
   component.invoke(addr, "close", handle)
-  return load(buffer, "=" .. path, "t", _G)
+  return load(buffer, "=" .. path, mode or "t", env or _G)
 end
 
 _G.dofile = function(path, ...)
@@ -443,6 +452,7 @@ pcall(function()
   local event = require("event")
   event.pull(1, "init")
 end)
+_G.runlevel = 1
 
 -- Load term for proper display
 pcall(require, "term")
@@ -1073,14 +1083,9 @@ function shell.execute(cmd, ...)
   if not path then
     return false, cmd .. ": command not found"
   end
-  local fn, err = loadfile(path)
-  if not fn then return false, err end
   local env = setmetatable({}, {__index = _G})
-  if setfenv then
-    setfenv(fn, env)
-  elseif debug and debug.setupvalue then
-    debug.setupvalue(fn, 1, env)
-  end
+  local fn, err = loadfile(path, "t", env)
+  if not fn then return false, err end
   return pcall(fn, ...)
 end
 
@@ -2700,6 +2705,155 @@ end
     // ================================================================
     // /etc/profile.lua
     // ================================================================
+    val DMESG_LUA = """
+local event = require("event")
+local args = {...}
+
+local function dmesg()
+  print("Press Ctrl+C to exit")
+  while true do
+    local data = table.pack(event.pull())
+    if data[1] then
+      local parts = {}
+      for i = 1, data.n do
+        parts[#parts+1] = tostring(data[i])
+      end
+      print("[" .. string.format("%.2f", computer.uptime()) .. "] " .. table.concat(parts, " "))
+    end
+  end
+end
+
+local ok, err = pcall(dmesg)
+if not ok and err ~= "interrupted" then
+  error(err)
+end
+""".trimIndent()
+
+    val MOUNT_LUA = """
+local fs = require("filesystem")
+local args = {...}
+if #args == 0 then
+  for path, addr in fs.mounts() do
+    print(addr:sub(1, 8) .. "... on " .. path)
+  end
+elseif #args == 2 then
+  local addr, path = args[1], args[2]
+  for a in component.list("filesystem") do
+    if a:sub(1, #addr) == addr then
+      fs.mount(a, path)
+      print("Mounted " .. a:sub(1, 8) .. "... on " .. path)
+      return
+    end
+  end
+  print("No filesystem found matching: " .. addr)
+else
+  print("Usage: mount [address path]")
+end
+""".trimIndent()
+
+    val UMOUNT_LUA = """
+local fs = require("filesystem")
+local args = {...}
+if #args ~= 1 then
+  print("Usage: umount <path>")
+  return
+end
+if fs.umount(args[1]) then
+  print("Unmounted " .. args[1])
+else
+  print("Not mounted: " .. args[1])
+end
+""".trimIndent()
+
+    val DATE_LUA = """
+local time = os.date and os.date() or os.time and tostring(os.time()) or "unknown"
+if computer.realTime then
+  local t = computer.realTime()
+  local secs = math.floor(t)
+  local date = os.date and os.date("%Y-%m-%d %H:%M:%S", secs)
+  if date then
+    print(date)
+  else
+    print("Epoch: " .. secs)
+  end
+else
+  print(time)
+end
+""".trimIndent()
+
+    val TOUCH_LUA = """
+local fs = require("filesystem")
+local shell = require("shell")
+local args = {...}
+if #args == 0 then
+  print("Usage: touch <file> [...]")
+  return
+end
+for _, path in ipairs(args) do
+  if path:sub(1, 1) ~= "/" then
+    path = fs.concat(shell.getWorkingDirectory(), path)
+  end
+  if not fs.exists(path) then
+    local f = fs.open(path, "w")
+    if f then f:close() end
+  end
+end
+""".trimIndent()
+
+    val ALIAS_LUA = """
+local shell = require("shell")
+local args = {...}
+if #args == 0 then
+  for k, v in pairs(shell.aliases()) do
+    print(k .. "=" .. v)
+  end
+elseif #args == 1 then
+  local v = shell.getAlias(args[1])
+  if v then print(args[1] .. "=" .. v) else print("No alias: " .. args[1]) end
+elseif #args >= 2 then
+  shell.setAlias(args[1], args[2])
+end
+""".trimIndent()
+
+    val UNALIAS_LUA = """
+local shell = require("shell")
+local args = {...}
+if #args == 0 then
+  print("Usage: unalias <name>")
+  return
+end
+shell.setAlias(args[1], nil)
+""".trimIndent()
+
+    val HEAD_LUA = """
+local args = {...}
+local n = 10
+local file = nil
+for _, a in ipairs(args) do
+  local num = tonumber(a:match("^%-(%d+)$"))
+  if num then n = num
+  elseif a == "-n" then -- next arg is count
+  else file = a end
+end
+if not file then
+  print("Usage: head [-n lines] <file>")
+  return
+end
+local f = io.open(file, "r")
+if not f then print("head: " .. file .. ": No such file"); return end
+local count = 0
+for line in f:lines() do
+  print(line)
+  count = count + 1
+  if count >= n then break end
+end
+f:close()
+""".trimIndent()
+
+    val SHUTDOWN_LUA = """
+computer.shutdown(false)
+""".trimIndent()
+
     val PROFILE_LUA = """
 -- Profile
 os.setenv("PS1", "/home # ")
@@ -2726,32 +2880,10 @@ os.setenv("PWD", "/home")
 local keyboard = {pressedChars = {}, pressedCodes = {}}
 
 keyboard.keys = {
-  c               = 0x2E,
-  d               = 0x20,
-  q               = 0x10,
-  w               = 0x11,
-  back            = 0x0E,
-  delete          = 0xD3,
-  down            = 0xD0,
-  enter           = 0x1C,
-  home            = 0xC7,
-  lcontrol        = 0x1D,
-  left            = 0xCB,
-  lmenu           = 0x38,
-  lshift          = 0x2A,
-  pageDown        = 0xD1,
-  pageUp          = 0xC9,
-  rcontrol        = 0x9D,
-  right           = 0xCD,
-  rmenu           = 0xB8,
-  rshift          = 0x36,
-  space           = 0x39,
-  tab             = 0x0F,
-  up              = 0xC8,
-  ["end"]         = 0xCF,
-  numpadenter     = 0x9C,
   a               = 0x1E,
   b               = 0x30,
+  c               = 0x2E,
+  d               = 0x20,
   e               = 0x12,
   f               = 0x21,
   g               = 0x22,
@@ -2764,14 +2896,77 @@ keyboard.keys = {
   n               = 0x31,
   o               = 0x18,
   p               = 0x19,
+  q               = 0x10,
   r               = 0x13,
   s               = 0x1F,
   t               = 0x14,
   u               = 0x16,
   v               = 0x2F,
+  w               = 0x11,
   x               = 0x2D,
   y               = 0x15,
   z               = 0x2C,
+  ["1"]           = 0x02,
+  ["2"]           = 0x03,
+  ["3"]           = 0x04,
+  ["4"]           = 0x05,
+  ["5"]           = 0x06,
+  ["6"]           = 0x07,
+  ["7"]           = 0x08,
+  ["8"]           = 0x09,
+  ["9"]           = 0x0A,
+  ["0"]           = 0x0B,
+  escape          = 0x01,
+  back            = 0x0E,
+  tab             = 0x0F,
+  enter           = 0x1C,
+  lcontrol        = 0x1D,
+  lshift          = 0x2A,
+  rshift          = 0x36,
+  lmenu           = 0x38,
+  space           = 0x39,
+  capital         = 0x3A,
+  up              = 0xC8,
+  down            = 0xD0,
+  left            = 0xCB,
+  right           = 0xCD,
+  home            = 0xC7,
+  ["end"]         = 0xCF,
+  pageUp          = 0xC9,
+  pageDown        = 0xD1,
+  insert          = 0xD2,
+  delete          = 0xD3,
+  rcontrol        = 0x9D,
+  rmenu           = 0xB8,
+  numpadenter     = 0x9C,
+  minus           = 0x0C,
+  equals          = 0x0D,
+  lbracket        = 0x1A,
+  rbracket        = 0x1B,
+  semicolon       = 0x27,
+  apostrophe      = 0x28,
+  grave           = 0x29,
+  backslash       = 0x2B,
+  comma           = 0x33,
+  period          = 0x34,
+  slash           = 0x35,
+  numlock         = 0x45,
+  scroll          = 0x46,
+  numpad0         = 0x52,
+  numpad1         = 0x4F,
+  numpad2         = 0x50,
+  numpad3         = 0x51,
+  numpad4         = 0x4B,
+  numpad5         = 0x4C,
+  numpad6         = 0x4D,
+  numpad7         = 0x47,
+  numpad8         = 0x48,
+  numpad9         = 0x49,
+  numpadsub       = 0x4A,
+  numpadadd       = 0x4E,
+  numpaddecimal   = 0x53,
+  numpadmul       = 0x37,
+  numpaddiv       = 0xB5,
   F1              = 0x3B,
   F2              = 0x3C,
   F3              = 0x3D,

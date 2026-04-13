@@ -646,7 +646,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen()
                 val old = screen?.buffer?.foreground ?: 0xFFFFFF
                 if (screen != null) screen.buffer.foreground = color
-                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.NIL))
+                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.FALSE))
             }
         })
 
@@ -656,7 +656,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 val screen = findNearbyScreen()
                 val old = screen?.buffer?.background ?: 0x000000
                 if (screen != null) screen.buffer.background = color
-                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.NIL))
+                return LuaValue.varargsOf(arrayOf(LuaValue.valueOf(old), LuaValue.FALSE))
             }
         })
 
@@ -816,7 +816,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     }
                 }
                 "read" -> {
-                    val handle = (args.getOrNull(0) as? Number)?.toInt() ?: return LuaValue.NIL
+                    val handle = (args.getOrNull(0) as? Number)?.toInt()
+                        ?: return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("bad file descriptor")))
                     val count = (args.getOrNull(1) as? Number)?.toInt() ?: Int.MAX_VALUE
                     val data = vfs.read(handle, count)
                     if (data != null && data.isNotEmpty()) {
@@ -826,16 +827,23 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     }
                 }
                 "write" -> {
-                    val handle = (args.getOrNull(0) as? Number)?.toInt() ?: return LuaValue.FALSE
-                    val data = args.getOrNull(1)?.toString() ?: return LuaValue.FALSE
+                    val handle = (args.getOrNull(0) as? Number)?.toInt()
+                        ?: return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("bad file descriptor")))
+                    val data = args.getOrNull(1)?.toString()
+                        ?: return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("bad argument")))
                     LuaValue.valueOf(vfs.write(handle, data.toByteArray(Charsets.ISO_8859_1)))
                 }
                 "seek" -> {
-                    val handle = (args.getOrNull(0) as? Number)?.toInt() ?: return LuaValue.NIL
+                    val handle = (args.getOrNull(0) as? Number)?.toInt()
+                        ?: return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("bad file descriptor")))
                     val whence = args.getOrNull(1)?.toString() ?: "cur"
                     val offset = (args.getOrNull(2) as? Number)?.toLong() ?: 0L
                     val pos = vfs.seek(handle, whence, offset)
-                    LuaValue.valueOf((pos ?: 0L).toDouble())
+                    if (pos != null) {
+                        LuaValue.valueOf(pos.toDouble())
+                    } else {
+                        LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("bad file descriptor")))
+                    }
                 }
                 "close" -> {
                     val handle = (args.getOrNull(0) as? Number)?.toInt() ?: return LuaValue.NONE
