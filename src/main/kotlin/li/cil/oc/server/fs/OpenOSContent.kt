@@ -975,6 +975,17 @@ function filesystem.spaceUsed(path)
   return ok and result or 0
 end
 
+-- Symbolic link stubs (not fully supported in simplified OpenCoudou)
+function filesystem.isLink(path)
+  -- Always return false - no symlink support in simplified VFS
+  return false
+end
+
+function filesystem.link(target, linkpath)
+  -- Symlinks not supported in simplified VFS
+  return nil, "symbolic links not supported"
+end
+
 return filesystem
 """.trimIndent()
 

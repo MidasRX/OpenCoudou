@@ -641,7 +641,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                         "setPrecise", "isPrecise", "setTouchModeInverted", "isTouchModeInverted")
                     "filesystem" -> listOf("open", "close", "read", "write", "seek", "exists",
                         "isDirectory", "list", "makeDirectory", "remove", "rename", "size",
-                        "lastModified", "spaceTotal", "spaceUsed", "isReadOnly", "getLabel", "setLabel")
+                        "lastModified", "spaceTotal", "spaceUsed", "isReadOnly", "getLabel", "setLabel",
+                        "isLink", "link")
                     "computer" -> listOf("start", "stop", "isRunning", "beep")
                     "eeprom" -> listOf("get", "set", "getLabel", "setLabel", "getData", "setData",
                         "getSize", "getDataSize", "getChecksum")
@@ -1171,13 +1172,34 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         })
 
         gpu.set("maxDepth", object : ZeroArgFunction() {
-            override fun call(): LuaValue = LuaValue.valueOf(8)
+            override fun call(): LuaValue {
+                // Max depth based on GPU tier: T1=1, T2=4, T3=8
+                val sm = machine as? SimpleMachine
+                val gpuTier = sm?.installedComponents?.gpuTier ?: 2  // default T3 if unknown
+                return LuaValue.valueOf(when (gpuTier) {
+                    0 -> 1  // Tier 1
+                    1 -> 4  // Tier 2
+                    else -> 8  // Tier 3
+                })
+            }
         })
 
         gpu.set("setDepth", object : OneArgFunction() {
             override fun call(arg: LuaValue): LuaValue {
                 val depth = arg.checkint()
+                // Check valid depth values
                 if (depth != 1 && depth != 4 && depth != 8) {
+                    LuaValue.error("unsupported depth")
+                }
+                // Check against max depth for GPU tier
+                val sm = machine as? SimpleMachine
+                val gpuTier = sm?.installedComponents?.gpuTier ?: 2
+                val maxAllowed = when (gpuTier) {
+                    0 -> 1  // Tier 1
+                    1 -> 4  // Tier 2
+                    else -> 8  // Tier 3
+                }
+                if (depth > maxAllowed) {
                     LuaValue.error("unsupported depth")
                 }
                 val old = gpuDepth
@@ -2249,6 +2271,14 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     vfs.label = label
                     LuaValue.valueOf(label)
                 }
+                "isLink" -> {
+                    // Symlinks not supported - always return false
+                    LuaValue.FALSE
+                }
+                "link" -> {
+                    // Symlinks not supported
+                    LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("symbolic links not supported")))
+                }
                 else -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such method: $method")))
             }
         } catch (e: Exception) {
@@ -2971,6 +3001,8 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             "spaceUsed" to "function():number -- Returns the used space of the filesystem.",
             "getLabel" to "function():string -- Returns the filesystem label.",
             "setLabel" to "function(label:string):string -- Sets the filesystem label.",
+            "isLink" to "function(path:string):boolean -- Returns false (symlinks not supported).",
+            "link" to "function(target:string, linkpath:string):boolean, string -- Creates a symbolic link (not supported).",
             
             // Computer methods
             "start" to "function():boolean -- Starts the computer.",
