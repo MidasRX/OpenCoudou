@@ -66,6 +66,26 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         g.load(JseMathLib())
         g.load(CoroutineLib())
 
+        // Sandboxed debug library (only traceback and getinfo)
+        val debug = LuaTable()
+        debug.set("traceback", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val message = args.optjstring(1, "")
+                val level = args.optint(2, 1)
+                return LuaValue.valueOf(message ?: "")
+            }
+        })
+        debug.set("getinfo", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val info = LuaTable()
+                info.set("source", LuaValue.valueOf("=?"))
+                info.set("short_src", LuaValue.valueOf("?"))
+                info.set("what", LuaValue.valueOf("Lua"))
+                return info
+            }
+        })
+        g.set("debug", debug)
+
         g.set("dofile", LuaValue.NIL)
         g.set("loadfile", LuaValue.NIL)
         g.set("print", createPrintFunction())
@@ -264,6 +284,36 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             override fun call(arg: LuaValue): LuaValue {
                 val type = arg.checkjstring()
                 return LuaValue.valueOf(machine.components.values.any { it == type })
+            }
+        })
+
+        // component.get(address, [componentType]) → fullAddress, type
+        // Matches partial addresses (prefix matching)
+        comp.set("get", object : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs {
+                val partialAddr = args.arg1().checkjstring()
+                val filterType = if (args.narg() > 1 && !args.arg(2).isnil()) args.arg(2).tojstring() else null
+                
+                val matches = machine.components.filter { (addr, type) ->
+                    addr.startsWith(partialAddr) && (filterType == null || type == filterType)
+                }
+                
+                return when {
+                    matches.size == 1 -> {
+                        val (addr, type) = matches.entries.first()
+                        LuaValue.varargsOf(arrayOf(LuaValue.valueOf(addr), LuaValue.valueOf(type)))
+                    }
+                    matches.isEmpty() -> LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such component")))
+                    else -> {
+                        // Multiple matches — find exact match or error
+                        val exact = matches.entries.firstOrNull { it.key == partialAddr }
+                        if (exact != null) {
+                            LuaValue.varargsOf(arrayOf(LuaValue.valueOf(exact.key), LuaValue.valueOf(exact.value)))
+                        } else {
+                            LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("ambiguous address")))
+                        }
+                    }
+                }
             }
         })
 
@@ -778,7 +828,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                 "write" -> {
                     val handle = (args.getOrNull(0) as? Number)?.toInt() ?: return LuaValue.FALSE
                     val data = args.getOrNull(1)?.toString() ?: return LuaValue.FALSE
-                    LuaValue.valueOf(vfs.write(handle, data.toByteArray()))
+                    LuaValue.valueOf(vfs.write(handle, data.toByteArray(Charsets.ISO_8859_1)))
                 }
                 "seek" -> {
                     val handle = (args.getOrNull(0) as? Number)?.toInt() ?: return LuaValue.NIL

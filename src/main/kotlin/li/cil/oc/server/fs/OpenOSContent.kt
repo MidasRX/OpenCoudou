@@ -1192,6 +1192,62 @@ function term.isAvailable()
   return getGpu() ~= nil
 end
 
+function term.scroll(lines)
+  lines = lines or 1
+  local gpu = getGpu()
+  if not gpu then return end
+  refreshSize()
+  if lines > 0 then
+    for i = 1, lines do
+      component.invoke(gpu, "copy", 1, 2, screenW, screenH - 1, 0, -1)
+      component.invoke(gpu, "fill", 1, screenH, screenW, 1, " ")
+    end
+  elseif lines < 0 then
+    for i = 1, -lines do
+      component.invoke(gpu, "copy", 1, 1, screenW, screenH - 1, 0, 1)
+      component.invoke(gpu, "fill", 1, 1, screenW, 1, " ")
+    end
+  end
+end
+
+function term.clearLine()
+  local gpu = getGpu()
+  if not gpu then return end
+  refreshSize()
+  component.invoke(gpu, "fill", 1, cursorY, screenW, 1, " ")
+  cursorX = 1
+end
+
+function term.getGlobalArea()
+  refreshSize()
+  return 1, 1, screenW, screenH
+end
+
+function term.pull(...)
+  return require("event").pull(...)
+end
+
+function term.setCursorBlink(enabled)
+  -- Cursor blink is handled in term.read, this is a no-op for compatibility
+end
+
+function term.getCursorBlink()
+  return true
+end
+
+function term.gpu()
+  local addr = getGpu()
+  if addr then return component.proxy(addr) end
+  return nil
+end
+
+function term.screen()
+  local gpu = getGpu()
+  if not gpu then return nil end
+  local ok, screen = pcall(component.invoke, gpu, "getScreen")
+  return ok and screen or nil
+end
+
 return term
 """.trimIndent()
 
@@ -1215,6 +1271,32 @@ end
 
 function text.padRight(s, len)
   return s .. string.rep(" ", math.max(0, len - #s))
+end
+
+function text.padLeft(s, len)
+  return string.rep(" ", math.max(0, len - #s)) .. s
+end
+
+function text.wrap(value, width)
+  local lines = {}
+  local line = ""
+  for word in value:gmatch("%S+") do
+    if #line + #word + 1 > width then
+      lines[#lines+1] = line
+      line = word
+    elseif #line > 0 then
+      line = line .. " " .. word
+    else
+      line = word
+    end
+  end
+  if #line > 0 then lines[#lines+1] = line end
+  return lines
+end
+
+function text.detab(value, tabWidth)
+  tabWidth = tabWidth or 8
+  return value:gsub("\t", string.rep(" ", tabWidth))
 end
 
 return text
@@ -1470,7 +1552,11 @@ os.sleep = function(seconds)
   checkArg(1, seconds, "number", "nil")
   local deadline = computer.uptime() + (seconds or 0)
   repeat
-    computer.pullSignal(deadline - computer.uptime())
+    local signal = table.pack(computer.pullSignal(deadline - computer.uptime()))
+    if signal.n > 0 then
+      -- Re-push the signal so events aren't lost
+      computer.pushSignal(table.unpack(signal, 1, signal.n))
+    end
   until computer.uptime() >= deadline
 end
 """.trimIndent()
@@ -2181,30 +2267,57 @@ end
     // ================================================================
     val LUA_LUA = """
 local term = require("term")
-local args = {...}
-local shell = require("shell")
-local env = setmetatable({}, {__index = _G})
+local serialization = require("serialization")
+local history = {}
+
+local function serialize(val)
+  if type(val) == "table" then
+    local ok, result = pcall(serialization.serialize, val, true)
+    if ok then return result end
+  end
+  return tostring(val)
+end
+
+-- Create environment with auto-require access
+local env = setmetatable({}, {
+  __index = function(self, key)
+    local v = _G[key]
+    if v ~= nil then return v end
+    -- Try to auto-require the module
+    local ok, lib = pcall(require, key)
+    if ok then
+      rawset(self, key, lib)
+      return lib
+    end
+    return nil
+  end
+})
 
 print("Lua 5.3 interpreter. Type 'exit' to quit.")
 while true do
   io.write("lua> ")
-  local line = term.read()
+  local line = term.read(history)
   if not line then break end
   line = line:match("^%s*(.-)%s*${'$'}") or ""
   if line == "exit" or line == "quit" then break end
   if #line > 0 then
+    -- Support =expression shortcut
+    local evalLine = line
+    if line:sub(1, 1) == "=" then
+      evalLine = "return " .. line:sub(2)
+    end
     -- Try as expression first
-    local fn, err = load("return " .. line, "=stdin", "t", env)
+    local fn, err = load("return " .. evalLine, "=stdin", "t", env)
     if not fn then
-      fn, err = load(line, "=stdin", "t", env)
+      fn, err = load(evalLine, "=stdin", "t", env)
     end
     if fn then
-      local results = table.pack(pcall(fn))
+      local results = table.pack(xpcall(fn, debug.traceback))
       if results[1] then
         if results.n > 1 then
           local parts = {}
           for i = 2, results.n do
-            parts[#parts+1] = tostring(results[i])
+            parts[#parts+1] = serialize(results[i])
           end
           print(table.concat(parts, "\t"))
         end
