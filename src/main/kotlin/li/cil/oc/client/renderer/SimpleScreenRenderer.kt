@@ -1,12 +1,12 @@
 package li.cil.oc.client.renderer
 
 import com.mojang.blaze3d.vertex.*
+import li.cil.oc.OpenComputers
 import li.cil.oc.common.block.ScreenBlock
 import li.cil.oc.common.blockentity.ScreenBlockEntity
 import net.minecraft.client.gui.Font
 import net.minecraft.client.renderer.LightTexture
 import net.minecraft.client.renderer.MultiBufferSource
-import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
 import net.minecraft.core.Direction
@@ -18,8 +18,9 @@ import net.minecraft.core.Direction
 class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : BlockEntityRenderer<ScreenBlockEntity> {
     
     companion object {
-        const val Z_OFFSET = 0.005f      // Small offset to prevent z-fighting
+        const val Z_OFFSET = 0.02f       // Offset to put text clearly in front of the block face
         const val MARGIN = 2.0f / 16.0f  // 2-pixel bezel from block edge (matches texture)
+        private var debugLogTimer = 0
     }
     
     private val font: Font = context.font
@@ -34,6 +35,13 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
     ) {
         val buffer = blockEntity.buffer
         if (buffer.width <= 0 || buffer.height <= 0) return
+
+        // Debug: log buffer state periodically
+        debugLogTimer++
+        if (debugLogTimer % 200 == 0) {
+            val nonSpace = buffer.charData.count { it > 32 }
+            OpenComputers.LOGGER.info("RENDERER: buffer ${buffer.width}x${buffer.height}, nonSpaceChars=$nonSpace, charData[0]=${buffer.charData[0]}")
+        }
         
         val facing = try {
             blockEntity.blockState.getValue(ScreenBlock.FACING)
@@ -107,7 +115,7 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
                     false,
                     poseStack.last().pose(),
                     bufferSource,
-                    Font.DisplayMode.NORMAL,
+                    Font.DisplayMode.SEE_THROUGH,
                     0,
                     LightTexture.FULL_BRIGHT
                 )
@@ -115,6 +123,11 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
         }
 
         poseStack.popPose()
+
+        // Force immediate flush so the SEE_THROUGH text draws after the solid block face
+        // has already written its depth+color. Without this the deferred batch ordering
+        // can cause the face to overdraw the text.
+        (bufferSource as? MultiBufferSource.BufferSource)?.endBatch()
     }
     
     override fun shouldRenderOffScreen(blockEntity: ScreenBlockEntity): Boolean = true

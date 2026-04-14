@@ -1,5 +1,6 @@
 package li.cil.oc.common.blockentity
 
+import li.cil.oc.OpenComputers
 import li.cil.oc.common.init.ModBlockEntities
 import li.cil.oc.network.ModPackets
 import li.cil.oc.network.ScreenUpdatePacket
@@ -111,6 +112,8 @@ class ScreenBlockEntity(
     fun serverTick(level: Level, pos: BlockPos, state: BlockState) {
         if (!needsSync) return
         needsSync = false
+        val nonSpace = buffer.charData.count { it > 32 }
+        OpenComputers.LOGGER.info("SCREEN TICK: sending packet for $pos, nonSpaceChars=$nonSpace")
         val packet = createFullSyncPacket()
         ModPackets.sendToAllTracking(level, pos, packet)
     }

@@ -166,14 +166,36 @@ class CaseBlockEntity(
     private fun connectNearbyScreens(machine: SimpleMachine) {
         val lvl = level ?: return
         val machineAddr = try { machine.node().address } catch (_: Exception) { return }
-        for (dx in -8..8) {
-            for (dy in -2..2) {
+
+        // Find the primary screen using the same scan order as SimpleLuaArchitecture.
+        // GPU writes ONLY to this screen, so we must connect ONLY this one.
+        var primaryScreen: ScreenBlockEntity? = null
+        outer@ for (dx in -8..8) {
+            for (dy in -4..4) {
                 for (dz in -8..8) {
                     val be = lvl.getBlockEntity(blockPos.offset(dx, dy, dz))
                     if (be is ScreenBlockEntity) {
-                        be.connectedComputer = machineAddr
-                        if (be.keyboardAddress == null) {
-                            be.keyboardAddress = "kb-" + be.address
+                        primaryScreen = be
+                        break@outer
+                    }
+                }
+            }
+        }
+
+        // Disconnect all nearby screens from this machine, then connect only the primary.
+        for (dx in -8..8) {
+            for (dy in -4..4) {
+                for (dz in -8..8) {
+                    val be = lvl.getBlockEntity(blockPos.offset(dx, dy, dz))
+                    if (be is ScreenBlockEntity) {
+                        if (be === primaryScreen) {
+                            be.connectedComputer = machineAddr
+                            if (be.keyboardAddress == null) {
+                                be.keyboardAddress = "kb-" + be.address
+                            }
+                        } else if (be.connectedComputer == machineAddr) {
+                            // Disconnect screens that were previously connected to this machine
+                            be.connectedComputer = null
                         }
                         be.setChanged()
                     }

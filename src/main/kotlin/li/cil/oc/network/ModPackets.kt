@@ -202,8 +202,13 @@ object ModPackets {
         context.enqueueWork {
             val level = Minecraft.getInstance().level ?: return@enqueueWork
             val blockEntity = level.getBlockEntity(packet.pos)
+            OpenComputers.LOGGER.info("CLIENT handleScreenUpdate at ${packet.pos}, width=${packet.width}, height=${packet.height}, dataBytes=${packet.data.size}")
             if (blockEntity is li.cil.oc.common.blockentity.ScreenBlockEntity) {
                 li.cil.oc.common.blockentity.ScreenBlockEntity.applyScreenUpdate(blockEntity, packet)
+                val nonSpace = blockEntity.buffer.charData.count { it > 32 }
+                OpenComputers.LOGGER.info("CLIENT applied screen update: nonSpaceChars=$nonSpace")
+            } else {
+                OpenComputers.LOGGER.warn("CLIENT handleScreenUpdate: no ScreenBlockEntity at ${packet.pos}, found: $blockEntity")
             }
         }
     }

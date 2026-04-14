@@ -24,15 +24,12 @@ class CaseRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRender
         // LED position on the front face
         private const val LED_SIZE = 0.04f
         private const val LED_X = 0.9f        // Near right edge
-        private const val LED_Y_POWER = 0.85f  // Power LED at top
-        private const val LED_Y_HDD = 0.78f    // HDD activity LED below
+        private const val LED_Y_POWER = 0.85f  // Power LED
         private const val LED_Z = -0.001f      // Just in front of face
         
         // Colors
-        private const val COLOR_LED_OFF = 0x1a1a1a
         private const val COLOR_POWER_ON = 0x00FF00    // Green when running
         private const val COLOR_POWER_OFF = 0x330000   // Dim red when off
-        private const val COLOR_HDD_ACTIVE = 0xFF8800  // Orange for HDD activity
     }
     
     override fun render(
@@ -43,7 +40,6 @@ class CaseRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRender
         packedLight: Int,
         packedOverlay: Int
     ) {
-        val level = blockEntity.level ?: return
         val state = blockEntity.blockState
         val facing = state.getValue(HorizontalDirectionalBlock.FACING)
         val pos = blockEntity.blockPos
@@ -74,21 +70,9 @@ class CaseRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRender
         val vertexConsumer = buffer.getBuffer(RenderType.solid())
         val matrix = poseStack.last().pose()
         
-        val gameTime = level.gameTime + partialTick
-        
         // Power LED
         val powerColor = if (isPowered) COLOR_POWER_ON else COLOR_POWER_OFF
         renderLED(matrix, vertexConsumer, LED_X, LED_Y_POWER, powerColor, packedLight, packedOverlay)
-        
-        // HDD activity LED (blinks when computer is running)
-        if (isPowered) {
-            // Simulate HDD activity with random-ish blinking
-            val isActive = ((gameTime.toInt() * 7) % 13) < 6
-            val hddColor = if (isActive) COLOR_HDD_ACTIVE else COLOR_LED_OFF
-            renderLED(matrix, vertexConsumer, LED_X, LED_Y_HDD, hddColor, packedLight, packedOverlay)
-        } else {
-            renderLED(matrix, vertexConsumer, LED_X, LED_Y_HDD, COLOR_LED_OFF, packedLight, packedOverlay)
-        }
         
         poseStack.popPose()
     }
