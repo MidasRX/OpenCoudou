@@ -50,6 +50,14 @@ object OpenOSContent {
         fs.writeFile("lib/thread.lua", THREAD_LUA)
         fs.writeFile("lib/rc.lua", RC_LUA)
         fs.writeFile("lib/devfs.lua", DEVFS_LUA)
+        fs.writeFile("lib/note.lua", NOTE_LUA)
+        fs.writeFile("lib/internet.lua", INTERNET_LUA)
+        fs.writeFile("lib/transforms.lua", TRANSFORMS_LUA)
+        fs.writeFile("lib/tty.lua", TTY_LUA)
+        fs.writeFile("lib/sh.lua", SH_LIB_LUA)
+        fs.writeFile("lib/vt100.lua", VT100_LUA)
+        fs.writeFile("lib/pipe.lua", PIPE_LUA)
+        fs.writeFile("lib/bit32.lua", BIT32_LUA)
 
         // ============ Boot scripts ============
         fs.writeFile("boot/00_base.lua", BOOT_00_BASE)
@@ -6365,6 +6373,1157 @@ while io.write(msg) do
     os.sleep(0)
   end
 end
+""".trimIndent()
+
+    // ================================================================
+    // /lib/note.lua - Music note frequencies for computer.beep
+    // ================================================================
+    val NOTE_LUA = """
+-- Provides all music notes in range of computer.beep in MIDI and frequency form
+-- Author: Vexatos
+local computer = require("computer")
+
+local note = {}
+-- The table that maps note names to their respective MIDI codes
+local notes = {}
+-- The reversed table "notes"
+local reverseNotes = {}
+
+do
+  -- All the base notes
+  local tempNotes = {
+    "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"
+  }
+  -- The table containing all the standard notes and # semitones in correct order
+  local sNotes = {}
+  -- The table containing all the b semitones
+  local bNotes = {}
+
+  -- Registers all possible notes in order
+  do
+    table.insert(sNotes, "a0")
+    table.insert(sNotes, "a#0")
+    table.insert(bNotes, "bb0")
+    table.insert(sNotes, "b0")
+    for i = 1, 6 do
+      for _, v in ipairs(tempNotes) do
+        table.insert(sNotes, v .. tostring(i))
+        if #v == 1 and v ~= "c" and v ~= "f" then
+          table.insert(bNotes, v .. "b" .. tostring(i))
+        end
+      end
+    end
+  end
+  for i = 21, 95 do
+    notes[sNotes[i - 20]] = tostring(i)
+  end
+
+  -- Reversing the whole table in reverseNotes, used for note.get
+  do
+    for k, v in pairs(notes) do
+      reverseNotes[tonumber(v)] = k
+    end
+  end
+
+  -- This is registered after reverseNotes to avoid conflicts
+  for k, v in ipairs(bNotes) do
+    notes[v] = tostring(notes[string.gsub(v, "(.)b(.)", "%1%2")] - 1)
+  end
+end
+
+-- Converts string or frequency into MIDI code
+function note.midi(n)
+  if type(n) == "string" then
+    n = string.lower(n)
+    if tonumber(notes[n]) ~= nil then
+      return tonumber(notes[n])
+    else
+      error("Wrong input " .. tostring(n) .. " given to note.midi, needs to be <note>[semitone sign]<octave>, e.g. A#0 or Gb4")
+    end
+  elseif type(n) == "number" then
+    return math.floor((12 * math.log(n / 440, 2)) + 69)
+  else
+    error("Wrong input " .. tostring(n) .. " given to note.midi, needs to be a number or a string")
+  end
+end
+
+-- Converts String or MIDI code into frequency
+function note.freq(n)
+  if type(n) == "string" then
+    n = string.lower(n)
+    if tonumber(notes[n]) ~= nil then
+      return math.pow(2, (tonumber(notes[n]) - 69) / 12) * 440
+    else
+      error("Wrong input " .. tostring(n) .. " given to note.freq, needs to be <note>[semitone sign]<octave>, e.g. A#0 or Gb4", 2)
+    end
+  elseif type(n) == "number" then
+    return math.pow(2, (n - 69) / 12) * 440
+  else
+    error("Wrong input " .. tostring(n) .. " given to note.freq, needs to be a number or a string", 2)
+  end
+end
+
+-- Converts a MIDI value back into a string
+function note.name(n)
+  n = tonumber(n)
+  if reverseNotes[n] then
+    return string.upper(string.match(reverseNotes[n], "^(.)")) .. string.gsub(reverseNotes[n], "^.(.*)", "%1")
+  else
+    error("Attempt to get a note for a non-existing MIDI code", 2)
+  end
+end
+
+-- Converts Note block ticks (0-24) to MIDI code (34-58) and vice-versa
+function note.ticks(n)
+  if type(n) == "number" then
+    if n >= 0 and n <= 24 then
+      return n + 34
+    elseif n >= 34 and n <= 58 then
+      return n - 34
+    else
+      error("Wrong input " .. tostring(n) .. " given to note.ticks, needs to be a number [0-24 or 34-58]", 2)
+    end
+  else
+    error("Wrong input " .. tostring(n) .. " given to note.ticks, needs to be a number", 2)
+  end
+end
+
+-- Plays a tone, input is either the note as a string or the MIDI code as well as the duration of the tone
+function note.play(tone, duration)
+  computer.beep(note.freq(tone), duration)
+end
+
+return note
+""".trimIndent()
+
+    // ================================================================
+    // /lib/internet.lua - High-level internet wrapper
+    // ================================================================
+    val INTERNET_LUA = """
+local buffer = require("buffer")
+local component = require("component")
+
+local internet = {}
+
+-------------------------------------------------------------------------------
+
+function internet.request(url, data, headers, method)
+  checkArg(1, url, "string")
+  checkArg(2, data, "string", "table", "nil")
+  checkArg(3, headers, "table", "nil")
+  checkArg(4, method, "string", "nil")
+
+  if not component.isAvailable("internet") then
+    error("no primary internet card found", 2)
+  end
+  local inet = component.internet
+
+  local post
+  if type(data) == "string" then
+    post = data
+  elseif type(data) == "table" then
+    for k, v in pairs(data) do
+      post = post and (post .. "&") or ""
+      post = post .. tostring(k) .. "=" .. tostring(v)
+    end
+  end
+
+  local request, reason = inet.request(url, post, headers, method)
+  if not request then
+    error(reason, 2)
+  end
+
+  return setmetatable(
+  {
+    ["()"] = "function():string -- Tries to read data from the socket stream and return the read byte array.",
+    close = setmetatable({}, {
+      __call = request.close,
+      __tostring = function() return "function() -- closes the connection" end
+    })
+  },
+  {
+    __call = function()
+      while true do
+        local data, reason = request.read()
+        if not data then
+          request.close()
+          if reason then
+            error(reason, 2)
+          else
+            return nil -- eof
+          end
+        elseif #data > 0 then
+          return data
+        end
+        -- else: no data, block
+        os.sleep(0)
+      end
+    end,
+    __index = request,
+  })
+end
+
+-------------------------------------------------------------------------------
+
+local socketStream = {}
+
+function socketStream:close()
+  if self.socket then
+    self.socket.close()
+    self.socket = nil
+  end
+end
+
+function socketStream:seek()
+  return nil, "bad file descriptor"
+end
+
+function socketStream:read(n)
+  if not self.socket then
+    return nil, "connection is closed"
+  end
+  return self.socket.read(n)
+end
+
+function socketStream:write(value)
+  if not self.socket then
+    return nil, "connection is closed"
+  end
+  while #value > 0 do
+    local written, reason = self.socket.write(value)
+    if not written then
+      return nil, reason
+    end
+    value = string.sub(value, written + 1)
+  end
+  return true
+end
+
+function internet.socket(address, port)
+  checkArg(1, address, "string")
+  checkArg(2, port, "number", "nil")
+  if port then
+    address = address .. ":" .. port
+  end
+
+  local inet = component.internet
+  local socket, reason = inet.connect(address)
+  if not socket then
+    return nil, reason
+  end
+
+  local stream = {inet = inet, socket = socket}
+  local metatable = {__index = socketStream, __metatable = "socketstream"}
+  return setmetatable(stream, metatable)
+end
+
+function internet.open(address, port)
+  local stream, reason = internet.socket(address, port)
+  if not stream then
+    return nil, reason
+  end
+  return buffer.new("rwb", stream)
+end
+
+-------------------------------------------------------------------------------
+
+return internet
+""".trimIndent()
+
+    // ================================================================
+    // /lib/transforms.lua - Data transformation utilities
+    // ================================================================
+    val TRANSFORMS_LUA = """
+local lib = {}
+lib.internal = {}
+
+function lib.internal.range_adjust(f, l, s)
+  checkArg(1, f, 'number', 'nil')
+  checkArg(2, l, 'number', 'nil')
+  checkArg(3, s, 'number')
+  if f == nil then f = 1 elseif f < 0 then f = s + f + 1 end
+  if l == nil then l = s elseif l < 0 then l = s + l + 1 end
+  return f, l
+end
+
+function lib.internal.table_view(tbl, f, l)
+  return setmetatable({}, {
+    __index = function(_, key)
+      return (type(key) ~= 'number' or (key >= f and key <= l)) and tbl[key] or nil
+    end,
+    __len = function(_)
+      return l
+    end,
+  })
+end
+
+local adjust = lib.internal.range_adjust
+local view = lib.internal.table_view
+
+-- first(p1,p2) searches for the first range in p1 that satisfies p2
+function lib.first(tbl, pred, f, l)
+  checkArg(1, tbl, 'table')
+  checkArg(2, pred, 'function', 'table')
+  if type(pred) == 'table' then
+    local set; set, pred = pred, function(e, fi, tbl)
+      for vi = 1, #set do
+        local v = set[vi]
+        if lib.begins(tbl, v, fi) then return true, #v end
+      end
+    end
+  end
+  local s = #tbl
+  f, l = adjust(f, l, s)
+  tbl = view(tbl, f, l)
+  for i = f, l do
+    local si, ei = pred(tbl[i], i, tbl)
+    if si then
+      return i, i + (ei or 1) - 1
+    end
+  end
+end
+
+-- returns true if p1 at first p3 equals element for element p2
+function lib.begins(tbl, v, f, l)
+  checkArg(1, tbl, 'table')
+  checkArg(2, v, 'table')
+  local vs = #v
+  f, l = adjust(f, l, #tbl)
+  if vs > (l - f + 1) then return end
+  for i = 1, vs do
+    if tbl[f + i - 1] ~= v[i] then return end
+  end
+  return true
+end
+
+function lib.concat(...)
+  local r, rn, k = {}, 0
+  for _, tbl in ipairs({...}) do
+    if type(tbl) ~= 'table' then
+      return nil, 'parameter ' .. tostring(_) .. ' to concat is not a table'
+    end
+    local n = tbl.n or #tbl
+    k = k or tbl.n
+    for i = 1, n do
+      rn = rn + 1; r[rn] = tbl[i]
+    end
+  end
+  r.n = k and rn or nil
+  return r
+end
+
+-- partition splits a table by a separator
+function lib.partition(tbl, sep, f, l)
+  checkArg(1, tbl, 'table')
+  checkArg(2, sep, 'table', 'function')
+  local s = #tbl
+  f, l = adjust(f, l, s)
+  local result = {}
+  local current = {}
+  for i = f, l do
+    local is_sep = false
+    if type(sep) == 'table' then
+      for _, v in ipairs(sep) do
+        if tbl[i] == v then is_sep = true; break end
+      end
+    else
+      is_sep = sep(tbl[i], i, tbl)
+    end
+    if is_sep then
+      if #current > 0 then
+        result[#result + 1] = current
+        current = {}
+      end
+    else
+      current[#current + 1] = tbl[i]
+    end
+  end
+  if #current > 0 then
+    result[#result + 1] = current
+  end
+  return result
+end
+
+-- sub returns a sub-table
+function lib.sub(tbl, f, l)
+  checkArg(1, tbl, 'table')
+  local s = #tbl
+  f, l = adjust(f, l, s)
+  local result = {}
+  for i = f, l do
+    result[#result + 1] = tbl[i]
+  end
+  return result
+end
+
+return lib
+""".trimIndent()
+
+    // ================================================================
+    // /lib/tty.lua - Terminal type utilities
+    // ================================================================
+    val TTY_LUA = """
+local event = require("event")
+local component = require("component")
+local computer = require("computer")
+
+local tty = {}
+tty.window = {
+  fullscreen = true,
+  blink = true,
+  dx = 0,
+  dy = 0,
+  x = 1,
+  y = 1,
+  output_buffer = "",
+}
+
+tty.stream = {}
+
+local screen_cache = {}
+local function screen_reset(gpu, addr)
+  screen_cache[addr or gpu.getScreen() or false] = nil
+end
+
+event.listen("screen_resized", screen_reset)
+
+function tty.getViewport()
+  local window = tty.window
+  local screen = tty.screen()
+  if window.fullscreen and screen and not screen_cache[screen] then
+    screen_cache[screen] = true
+    window.width, window.height = window.gpu.getViewport()
+  end
+  return window.width, window.height, window.dx, window.dy, window.x, window.y
+end
+
+function tty.setViewport(width, height, dx, dy, x, y)
+  checkArg(1, width, "number")
+  checkArg(2, height, "number")
+  local window = tty.window
+  dx, dy, x, y = dx or 0, dy or 0, x or 1, y or 1
+  window.width, window.height, window.dx, window.dy, window.x, window.y = width, height, dx, dy, x, y
+end
+
+function tty.gpu()
+  return tty.window.gpu
+end
+
+function tty.clear()
+  tty.stream.scroll(math.huge)
+  tty.setCursor(1, 1)
+end
+
+function tty.isAvailable()
+  local gpu = tty.gpu()
+  return not not (gpu and gpu.getScreen())
+end
+
+function tty.stream.read()
+  -- Simplified read implementation
+  local buffer = ""
+  while true do
+    local ev, _, char, code = event.pull("key_down")
+    if char == 13 then -- Enter
+      io.write("\n")
+      return buffer .. "\n"
+    elseif char == 8 then -- Backspace
+      if #buffer > 0 then
+        buffer = buffer:sub(1, -2)
+        local x, y = tty.getCursor()
+        tty.setCursor(x - 1, y)
+        tty.gpu().set(x - 1 + tty.window.dx, y + tty.window.dy, " ")
+      end
+    elseif char >= 32 and char < 127 then
+      buffer = buffer .. string.char(char)
+      io.write(string.char(char))
+    end
+  end
+end
+
+function tty.stream:write(value)
+  local gpu = tty.gpu()
+  if not gpu then
+    return
+  end
+  local window = tty.window
+  
+  for i = 1, #value do
+    local char = value:sub(i, i)
+    if char == "\n" then
+      window.x = 1
+      window.y = window.y + 1
+      if window.y > window.height then
+        self.scroll(1)
+        window.y = window.height
+      end
+    elseif char == "\r" then
+      window.x = 1
+    elseif char == "\t" then
+      window.x = ((window.x - 1) - ((window.x - 1) % 8)) + 9
+    elseif char == "\b" then
+      window.x = math.max(1, window.x - 1)
+    elseif char == "\a" then
+      computer.beep()
+    else
+      gpu.set(window.x + window.dx, window.y + window.dy, char)
+      window.x = window.x + 1
+      if window.x > window.width then
+        window.x = 1
+        window.y = window.y + 1
+        if window.y > window.height then
+          self.scroll(1)
+          window.y = window.height
+        end
+      end
+    end
+  end
+  return 0
+end
+
+function tty.getCursor()
+  local window = tty.window
+  return window.x, window.y
+end
+
+function tty.setCursor(x, y)
+  checkArg(1, x, "number")
+  checkArg(2, y, "number")
+  local window = tty.window
+  window.x, window.y = x, y
+end
+
+local gpu_intercept = {}
+function tty.bind(gpu)
+  checkArg(1, gpu, "table")
+  if not gpu_intercept[gpu] then
+    gpu_intercept[gpu] = true
+    local setr, setv = gpu.setResolution, gpu.setViewport
+    gpu.setResolution = function(...)
+      screen_reset(gpu)
+      return setr(...)
+    end
+    gpu.setViewport = function(...)
+      screen_reset(gpu)
+      return setv(...)
+    end
+  end
+  local window = tty.window
+  if window.gpu ~= gpu then
+    window.gpu = gpu
+    window.keyboard = nil
+    tty.getViewport()
+  end
+  screen_reset(gpu)
+end
+
+function tty.keyboard()
+  local window = tty.window
+  if window.keyboard then
+    return window.keyboard
+  end
+  local system_keyboard = component.isAvailable("keyboard") and component.keyboard
+  system_keyboard = system_keyboard and system_keyboard.address or "no_system_keyboard"
+  local screen = tty.screen()
+  if not screen then
+    return system_keyboard
+  end
+  if component.isAvailable("screen") and component.screen.address == screen then
+    window.keyboard = system_keyboard
+  else
+    window.keyboard = component.invoke(screen, "getKeyboards")[1] or system_keyboard
+  end
+  return window.keyboard
+end
+
+function tty.screen()
+  local gpu = tty.gpu()
+  if not gpu then
+    return nil
+  end
+  return gpu.getScreen()
+end
+
+function tty.stream.scroll(lines)
+  local gpu = tty.gpu()
+  if not gpu then
+    return 0
+  end
+  local width, height, dx, dy, x, y = tty.getViewport()
+  if not lines then
+    if y < 1 then
+      lines = y - 1
+    elseif y > height then
+      lines = y - height
+    else
+      return 0
+    end
+  end
+  lines = math.min(lines, height)
+  lines = math.max(lines, -height)
+  local abs_lines = math.abs(lines)
+  local box_height = height - abs_lines
+  local fill_top = dy + 1 + (lines < 0 and 0 or box_height)
+  gpu.copy(dx + 1, dy + 1 + math.max(0, lines), width, box_height, 0, -lines)
+  gpu.fill(dx + 1, fill_top, width, abs_lines, ' ')
+  tty.setCursor(x, math.max(1, math.min(y, height)))
+  return lines
+end
+
+local function bfd() return nil, "tty: invalid operation" end
+tty.stream.close = bfd
+tty.stream.seek = bfd
+tty.stream.handle = "tty"
+
+return tty
+""".trimIndent()
+
+    // ================================================================
+    // /lib/sh.lua - Shell utilities library
+    // ================================================================
+    val SH_LIB_LUA = """
+local process = require("process")
+local shell = require("shell")
+local text = require("text")
+
+local sh = {}
+sh.internal = {}
+
+function sh.internal.isWordOf(w, vs)
+  if not w or #w ~= 1 or w[1].qr then return false end
+  for _, v in ipairs(vs) do
+    if type(v) == "table" and #v == 1 and v[1] == w[1].txt then
+      return true
+    elseif type(v) == "string" and v == w[1].txt then
+      return true
+    end
+  end
+  return false
+end
+
+local isWordOf = sh.internal.isWordOf
+
+-------------------------------------------------------------------------------
+-- SH API
+
+sh.internal.ec = {}
+sh.internal.ec.parseCommand = 127
+sh.internal.ec.last = 0
+
+function sh.getLastExitCode()
+  return sh.internal.ec.last
+end
+
+function sh.internal.command_result_as_code(ec, reason)
+  local code
+  if ec == false then
+    code = 1
+  elseif ec == nil or ec == true then
+    code = 0
+  elseif type(ec) ~= "number" then
+    code = 2
+  else
+    code = ec
+  end
+  if reason and code ~= 0 then io.stderr:write(reason, "\n") end
+  return code
+end
+
+function sh.internal.resolveActions(input, resolved)
+  resolved = resolved or {}
+  local processed = {}
+  local prev_was_delim = true
+  
+  -- Simple tokenization
+  local words = {}
+  for word in input:gmatch("%S+") do
+    words[#words + 1] = {{txt = word, qr = false}}
+  end
+  
+  while #words > 0 do
+    local next = table.remove(words, 1)
+    if isWordOf(next, {";", "&&", "||", "|"}) then
+      prev_was_delim = true
+      resolved = {}
+    elseif prev_was_delim then
+      prev_was_delim = false
+      if next and #next == 1 and not next[1].qr then
+        local key = next[1].txt
+        if key == "!" then
+          prev_was_delim = true
+        elseif not resolved[key] then
+          resolved[key] = shell.getAlias(key)
+          local value = resolved[key]
+          if value and key ~= value then
+            local replacement_tokens = sh.internal.resolveActions(value, resolved)
+            if replacement_tokens then
+              for i = #replacement_tokens, 1, -1 do
+                table.insert(words, 1, replacement_tokens[i])
+              end
+              next = table.remove(words, 1)
+            end
+          end
+        end
+      end
+    end
+    table.insert(processed, next)
+  end
+  return processed
+end
+
+function sh.internal.isIdentifier(key)
+  if type(key) ~= "string" then
+    return false
+  end
+  return key:match("^[%a_][%w_]*${'$'}") == key
+end
+
+function sh.expand(value)
+  local expanded = value
+    :gsub("%${'$'}([_%w%?]+)", function(key)
+      if key == "?" then
+        return tostring(sh.getLastExitCode())
+      end
+      return os.getenv(key) or ''
+    end)
+    :gsub("%${'$'}{(.*)}", function(key)
+      if sh.internal.isIdentifier(key) then
+        return os.getenv(key) or ''
+      end
+      io.stderr:write("${'$'}{" .. key .. "}: bad substitution\n")
+      os.exit(1)
+    end)
+  return expanded
+end
+
+function sh.execute(env, command, ...)
+  checkArg(2, command, "string")
+  if command:find("^%s*#") then return true, 0 end
+  
+  local words = sh.internal.resolveActions(command)
+  if type(words) ~= "table" then
+    return words
+  elseif #words == 0 then
+    return true
+  end
+  
+  -- Simple execution - extract command and args
+  local args = {}
+  for _, word in ipairs(words) do
+    if word and #word > 0 and word[1].txt then
+      args[#args + 1] = sh.expand(word[1].txt)
+    end
+  end
+  
+  if #args == 0 then return true end
+  
+  local cmd = table.remove(args, 1)
+  local path = shell.resolve(cmd)
+  
+  if path then
+    local result, reason = shell.execute(path, env, table.unpack(args))
+    sh.internal.ec.last = sh.internal.command_result_as_code(result, reason)
+    return result, reason
+  else
+    io.stderr:write(cmd .. ": command not found\n")
+    sh.internal.ec.last = 127
+    return false, "command not found"
+  end
+end
+
+function sh.hintHandler(full_line, cursor)
+  return nil -- Simplified: no tab completion
+end
+
+return sh
+""".trimIndent()
+
+    // ================================================================
+    // /lib/vt100.lua - VT100 escape sequence parsing
+    // ================================================================
+    val VT100_LUA = """
+local text = require("text")
+
+local rules = {}
+local vt100 = {rules = rules}
+
+-- colors, blinking, and reverse
+-- [%d+;%d+;..%d+m
+rules[{"%[", "[%d;]*", "m"}] = function(window, _, number_text)
+  local colors = {0x0, 0xff0000, 0x00ff00, 0xffff00, 0x0000ff, 0xff00ff, 0x00B6ff, 0xffffff}
+  local fg, bg = window.gpu.setForeground, window.gpu.setBackground
+  if window.flip then
+    fg, bg = bg, fg
+  end
+  number_text = " _ " .. number_text:gsub("^;${'$'}", ""):gsub(";", " _ ") .. " _ "
+  
+  for num_str in number_text:gmatch("%d+") do
+    local num = tonumber(num_str)
+    local flip = num == 7
+    if flip then
+      if not window.flip then
+        local rgb, pal = bg(window.gpu.getForeground())
+        fg(pal or rgb, not not pal)
+        fg, bg = bg, fg
+      end
+    elseif num == 5 then
+      window.blink = true
+    elseif num == 0 then
+      bg(colors[1])
+      fg(colors[8])
+    elseif num then
+      num = num - 29
+      local set = fg
+      if num > 10 then
+        num = num - 10
+        set = bg
+      end
+      local color = colors[num]
+      if color then
+        set(color)
+      end
+    end
+    window.flip = flip
+  end
+end
+
+local function save_attributes(window, seven, s)
+  if seven == "7" or s == "s" then
+    window.saved = {
+      window.x,
+      window.y,
+      {window.gpu.getBackground()},
+      {window.gpu.getForeground()},
+      window.flip,
+      window.blink
+    }
+  else
+    local data = window.saved or {1, 1, {0x0}, {0xffffff}, window.flip, window.blink}
+    window.x = data[1]
+    window.y = data[2]
+    window.gpu.setBackground(table.unpack(data[3]))
+    window.gpu.setForeground(table.unpack(data[4]))
+    window.flip = data[5]
+    window.blink = data[6]
+  end
+end
+
+-- 7 save cursor position and attributes
+-- 8 restore cursor position and attributes
+rules[{"[78]"}] = save_attributes
+
+-- s save cursor position
+-- u restore cursor position
+rules[{"%[", "[su]"}] = save_attributes
+
+-- Cursor movement
+rules[{"%[", "%d*", "A"}] = function(window, _, n)
+  window.y = math.max(1, window.y - (tonumber(n) or 1))
+end
+
+rules[{"%[", "%d*", "B"}] = function(window, _, n)
+  window.y = window.y + (tonumber(n) or 1)
+end
+
+rules[{"%[", "%d*", "C"}] = function(window, _, n)
+  window.x = window.x + (tonumber(n) or 1)
+end
+
+rules[{"%[", "%d*", "D"}] = function(window, _, n)
+  window.x = math.max(1, window.x - (tonumber(n) or 1))
+end
+
+-- Cursor position
+rules[{"%[", "%d*;%d*", "H"}] = function(window, _, pos)
+  local y, x = pos:match("(%d*);?(%d*)")
+  window.y = tonumber(y) or 1
+  window.x = tonumber(x) or 1
+end
+
+rules[{"%[", "%d*;%d*", "f"}] = rules[{"%[", "%d*;%d*", "H"}]
+
+-- Clear screen
+rules[{"%[", "%d*", "J"}] = function(window, _, n)
+  n = tonumber(n) or 0
+  local gpu = window.gpu
+  local w, h = gpu.getViewport()
+  if n == 0 then
+    gpu.fill(window.x, window.y, w - window.x + 1, 1, " ")
+    if window.y < h then
+      gpu.fill(1, window.y + 1, w, h - window.y, " ")
+    end
+  elseif n == 1 then
+    gpu.fill(1, 1, w, window.y - 1, " ")
+    gpu.fill(1, window.y, window.x, 1, " ")
+  elseif n == 2 then
+    gpu.fill(1, 1, w, h, " ")
+  end
+end
+
+-- Clear line
+rules[{"%[", "%d*", "K"}] = function(window, _, n)
+  n = tonumber(n) or 0
+  local gpu = window.gpu
+  local w = gpu.getViewport()
+  if n == 0 then
+    gpu.fill(window.x, window.y, w - window.x + 1, 1, " ")
+  elseif n == 1 then
+    gpu.fill(1, window.y, window.x, 1, " ")
+  elseif n == 2 then
+    gpu.fill(1, window.y, w, 1, " ")
+  end
+end
+
+-- returns: anything that failed to parse
+function vt100.parse(window)
+  if window.output_buffer:sub(1, 1) ~= "\27" then
+    return ""
+  end
+  local any_valid
+
+  for rule, action in pairs(rules) do
+    local last_index = 1
+    local captures = {}
+    for _, pattern in ipairs(rule) do
+      if last_index >= #window.output_buffer then
+        any_valid = true
+        break
+      end
+      local si, ei, capture = window.output_buffer:find("^(" .. pattern .. ")", last_index + 1)
+      if not si then
+        break
+      end
+      captures[#captures + 1] = capture
+      last_index = ei
+    end
+
+    if #captures == #rule then
+      action(window, table.unpack(captures))
+      window.output_buffer = window.output_buffer:sub(last_index + 1)
+      return ""
+    end
+  end
+
+  if not any_valid then
+    window.output_buffer = window.output_buffer:sub(2)
+    return "\27"
+  end
+end
+
+return vt100
+""".trimIndent()
+
+    // ================================================================
+    // /lib/pipe.lua - Pipe utilities
+    // ================================================================
+    val PIPE_LUA = """
+local process = require("process")
+local buffer = require("buffer")
+
+local pipe = {}
+
+-- Simple pipe stream for connecting processes
+local pipe_stream = {
+  continue = function(self, exit)
+    if self.closed then
+      return self
+    end
+    if self.next and coroutine.status(self.next) == "dead" then
+      self:close()
+    end
+    return self
+  end,
+  
+  close = function(self)
+    self.closed = true
+  end,
+  
+  seek = function()
+    return nil, "bad file descriptor"
+  end,
+  
+  write = function(self, value)
+    if self.closed then
+      return nil, "attempt to use a closed stream"
+    end
+    self.buffer = (self.buffer or "") .. value
+    return self
+  end,
+  
+  read = function(self, n)
+    if self.closed and (not self.buffer or #self.buffer == 0) then
+      return nil
+    end
+    if not self.buffer or #self.buffer == 0 then
+      self.read_mode = true
+      return ""
+    end
+    self.read_mode = false
+    if n then
+      local result = self.buffer:sub(1, n)
+      self.buffer = self.buffer:sub(n + 1)
+      return result
+    else
+      local result = self.buffer
+      self.buffer = ""
+      return result
+    end
+  end
+}
+
+function pipe.create()
+  local stream = {
+    buffer = "",
+    closed = false,
+    read_mode = false
+  }
+  return setmetatable(stream, {__index = pipe_stream})
+end
+
+function pipe.createCoroutineStack(root, env, name)
+  checkArg(1, root, "thread", "function")
+  
+  if type(root) == "function" then
+    root = coroutine.create(root)
+  end
+  
+  local pco = {root = root}
+  
+  function pco.yield(...)
+    return coroutine.yield(nil, ...)
+  end
+  
+  function pco.yield_past(co, ...)
+    return coroutine.yield(co, ...)
+  end
+  
+  function pco.resume(co, ...)
+    checkArg(1, co, "thread")
+    return coroutine.resume(co, ...)
+  end
+  
+  return pco
+end
+
+function pipe.buildPipeChain(threads)
+  if #threads < 2 then return end
+  
+  for i = 1, #threads - 1 do
+    local p = pipe.create()
+    p.next = threads[i + 1]
+    -- Connect stdout of thread i to stdin of thread i+1
+  end
+end
+
+return pipe
+""".trimIndent()
+
+    // ================================================================
+    // /lib/bit32.lua - Bit manipulation (Lua 5.3 compatibility)
+    // ================================================================
+    val BIT32_LUA = """
+-- Backwards compat for Lua 5.3; provides bit32 API
+-- In Lua 5.2, bit32 is built-in
+
+local bit32 = {}
+
+-------------------------------------------------------------------------------
+
+local function fold(init, op, ...)
+  local result = init
+  local args = table.pack(...)
+  for i = 1, args.n do
+    result = op(result, args[i])
+  end
+  return result
+end
+
+local function trim(n)
+  return n & 0xFFFFFFFF
+end
+
+local function mask(w)
+  return ~(0xFFFFFFFF << w)
+end
+
+function bit32.arshift(x, disp)
+  return x // (2 ^ disp)
+end
+
+function bit32.band(...)
+  return fold(0xFFFFFFFF, function(a, b) return a & b end, ...)
+end
+
+function bit32.bnot(x)
+  return ~x & 0xFFFFFFFF
+end
+
+function bit32.bor(...)
+  return fold(0, function(a, b) return a | b end, ...)
+end
+
+function bit32.btest(...)
+  return bit32.band(...) ~= 0
+end
+
+function bit32.bxor(...)
+  return fold(0, function(a, b) return a ~ b end, ...)
+end
+
+local function fieldargs(f, w)
+  w = w or 1
+  assert(f >= 0, "field cannot be negative")
+  assert(w > 0, "width must be positive")
+  assert(f + w <= 32, "trying to access non-existent bits")
+  return f, w
+end
+
+function bit32.extract(n, field, width)
+  local f, w = fieldargs(field, width)
+  return (n >> f) & mask(w)
+end
+
+function bit32.replace(n, v, field, width)
+  local f, w = fieldargs(field, width)
+  local m = mask(w)
+  return (n & ~(m << f)) | ((v & m) << f)
+end
+
+function bit32.lrotate(x, disp)
+  if disp == 0 then
+    return x
+  elseif disp < 0 then
+    return bit32.rrotate(x, -disp)
+  else
+    disp = disp & 31
+    x = trim(x)
+    return trim((x << disp) | (x >> (32 - disp)))
+  end
+end
+
+function bit32.lshift(x, disp)
+  return trim(x << disp)
+end
+
+function bit32.rrotate(x, disp)
+  if disp == 0 then
+    return x
+  elseif disp < 0 then
+    return bit32.lrotate(x, -disp)
+  else
+    disp = disp & 31
+    x = trim(x)
+    return trim((x >> disp) | (x << (32 - disp)))
+  end
+end
+
+function bit32.rshift(x, disp)
+  return trim(x >> disp)
+end
+
+-------------------------------------------------------------------------------
+
+return bit32
 """.trimIndent()
 
 }
