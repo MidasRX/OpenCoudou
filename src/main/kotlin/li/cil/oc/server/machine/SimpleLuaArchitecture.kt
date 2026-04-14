@@ -7,6 +7,7 @@ import li.cil.oc.util.OCLogger
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.ItemStack
 import org.luaj.vm2.*
+import org.luaj.vm2.compiler.LuaC
 import org.luaj.vm2.lib.*
 import org.luaj.vm2.lib.jse.*
 import java.io.BufferedReader
@@ -41,6 +42,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
     override fun initialize(): Boolean {
         try {
+            // Cache screen reference on server thread (before executor threads access it)
+            findAndCacheNearbyScreen()
+            
             globals = createSandboxedGlobals()
             setupComponentAPI()
             setupComputerAPI()
@@ -69,6 +73,9 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         g.load(JseMathLib())
         g.load(CoroutineLib())
         g.load(DebugLib())  // For instruction count hooks (execution timeout)
+        
+        // Install the Lua compiler - CRITICAL for loading source code
+        LuaC.install(g)
 
         // Install execution timeout hook - prevents infinite loops from freezing the server
         val hookFunction = object : ZeroArgFunction() {
@@ -1054,14 +1061,38 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     // ===========================
     // GPU API (direct access + component.invoke)
     // ===========================
-    private fun findNearbyScreen(): li.cil.oc.common.blockentity.ScreenBlockEntity? {
-        val level = machine.host.world() ?: return null
-        val pos = machine.host.hostPosition()
-        for (dx in -8..8) for (dy in -2..2) for (dz in -8..8) {
-            val be = level.getBlockEntity(pos.offset(dx, dy, dz))
-            if (be is li.cil.oc.common.blockentity.ScreenBlockEntity) return be
+    
+    // Cached screen reference (found on server thread, used from executor thread)
+    @Volatile
+    private var cachedScreen: li.cil.oc.common.blockentity.ScreenBlockEntity? = null
+    
+    /**
+     * Find nearby screen - MUST be called from server thread during initialization.
+     * Result is cached for use from executor threads.
+     */
+    private fun findAndCacheNearbyScreen(): li.cil.oc.common.blockentity.ScreenBlockEntity? {
+        val level = machine.host.world() ?: run {
+            OCLogger.error("findAndCacheNearbyScreen: world is null!")
+            return null
         }
+        val pos = machine.host.hostPosition()
+        OCLogger.debug("findAndCacheNearbyScreen: searching from $pos")
+        for (dx in -8..8) for (dy in -4..4) for (dz in -8..8) {
+            val checkPos = pos.offset(dx, dy, dz)
+            val be = level.getBlockEntity(checkPos)
+            if (be is li.cil.oc.common.blockentity.ScreenBlockEntity) {
+                OCLogger.info("findAndCacheNearbyScreen: found screen at $checkPos")
+                cachedScreen = be
+                return be
+            }
+        }
+        OCLogger.warn("findAndCacheNearbyScreen: no screen found in 8-block radius")
         return null
+    }
+    
+    private fun findNearbyScreen(): li.cil.oc.common.blockentity.ScreenBlockEntity? {
+        // Return cached screen (found on server thread)
+        return cachedScreen
     }
 
     private var boundScreenAddr: String? = null
@@ -1577,11 +1608,22 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
     // Handle gpu invocations via component.invoke(gpuAddress, method, ...)
     private fun handleGpuInvoke(method: String, args: List<Any?>): Varargs {
-        val gpu = globals?.get("gpu") ?: return LuaValue.NIL
+        OCLogger.debug("GPU invoke: $method with ${args.size} args")
+        val gpu = globals?.get("gpu") ?: run {
+            OCLogger.error("GPU table not found in globals!")
+            return LuaValue.NIL
+        }
         val fn = gpu.get(method)
-        if (fn.isnil()) return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such method: $method")))
+        if (fn.isnil()) {
+            OCLogger.error("GPU method not found: $method")
+            return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such method: $method")))
+        }
         val luaArgs = args.map { convertToLua(it) }.toTypedArray()
-        return fn.invoke(LuaValue.varargsOf(luaArgs))
+        val result = fn.invoke(LuaValue.varargsOf(luaArgs))
+        if (method == "set" || method == "fill") {
+            OCLogger.debug("GPU $method result: ${result.arg1()}")
+        }
+        return result
     }
 
     private var screenIsOn = true
@@ -2699,12 +2741,15 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         try {
             if (mainCoroutine == null) {
+                OCLogger.info("Starting BIOS execution...")
                 // Register built-in virtual components
                 registerVirtualComponents()
 
                 // Load BIOS from EEPROM content (like original OC)
                 val biosCode = eepromCode.ifEmpty { BIOS_CODE }
+                OCLogger.debug("Loading BIOS code (${biosCode.length} chars)")
                 val chunk = g.load(biosCode, "=bios")
+                OCLogger.debug("BIOS loaded successfully, creating coroutine")
                 mainCoroutine = LuaThread(g, chunk)
             }
 
@@ -2727,10 +2772,12 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             if (!status) {
                 // Coroutine error
                 val err = result.arg(2).tojstring()
+                OCLogger.error("BIOS coroutine error: $err")
                 return ExecutionResult.Error(err)
             }
 
             if (co.status == "dead") {
+                OCLogger.info("BIOS coroutine finished (dead) - shutting down")
                 return ExecutionResult.Shutdown
             }
 
@@ -2790,18 +2837,24 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         val installed = sm.installedComponents
         val screen = findNearbyScreen()
 
-        // GPU - only if a graphics card is installed
-        if (installed.gpuTier >= 0) {
-            if (gpuAddress.isEmpty()) gpuAddress = "gpu-" + java.util.UUID.randomUUID().toString().take(8)
-            sm.registerComponent(gpuAddress, "gpu")
-        }
+        OCLogger.debug("Registering components: gpuTier=${installed.gpuTier}, screen=${screen != null}, hddCount=${installed.hddTiers.size}")
+
+        // GPU - always register one for now (required for basic output)
+        // Original OC requires a GPU card, but we provide one by default
+        if (gpuAddress.isEmpty()) gpuAddress = "gpu-" + java.util.UUID.randomUUID().toString().take(8)
+        sm.registerComponent(gpuAddress, "gpu")
+        OCLogger.debug("Registered GPU: $gpuAddress")
 
         // Screen - if one is nearby
         if (screen != null) {
             sm.registerComponent(screen.address, "screen")
+            OCLogger.debug("Registered screen: ${screen.address}")
             // Keyboard - associated with the screen
             val kbAddr = screen.keyboardAddress ?: ("kb-" + screen.address)
             sm.registerComponent(kbAddr, "keyboard")
+            OCLogger.debug("Registered keyboard: $kbAddr")
+        } else {
+            OCLogger.warn("No screen found nearby!")
         }
 
         // Internet card is always available for now
@@ -3528,9 +3581,13 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         val BIOS_CODE = """
 -- =============================================
--- OpenCoudou BIOS (OC-compatible)
--- Boots from filesystem like original OpenComputers
+-- OpenCoudou BIOS (OC-compatible) - DEBUG VERSION
 -- =============================================
+
+-- Safe wrapper for logging
+local function log(msg)
+  -- This helps debug by printing to nowhere if GPU fails
+end
 
 -- Bind GPU to screen
 local gpu = component.list("gpu")()
@@ -3539,7 +3596,7 @@ if gpu and screen then
   component.invoke(gpu, "bind", screen)
 end
 
--- Set up gpu proxy in global for basic output before OS loads
+-- Set up gpu for output
 if gpu then
   local w, h = component.invoke(gpu, "getResolution")
   component.invoke(gpu, "setBackground", 0x000000)
@@ -3550,79 +3607,84 @@ end
 local y = 1
 local function status(msg)
   if gpu then
-    component.invoke(gpu, "set", 1, y, msg)
+    component.invoke(gpu, "set", 1, y, tostring(msg))
     y = y + 1
   end
 end
 
--- Try loading init.lua from a filesystem
-local function tryLoadFrom(address)
-  local ok, handle = pcall(component.invoke, address, "open", "/init.lua")
-  if not ok or not handle then return nil end
-  local buffer = ""
-  repeat
-    local data, err = component.invoke(address, "read", handle, math.huge)
-    buffer = buffer .. (data or "")
-  until not data
-  component.invoke(address, "close", handle)
-  return load(buffer, "=init", "t", _G)
-end
-
-status("OpenCoudou BIOS")
-status("Booting...")
-
--- Try boot address first (set by EEPROM data)
-local bootAddr = computer.getBootAddress()
-local init
-
-if bootAddr and #bootAddr > 0 then
-  status("Trying boot address: " .. bootAddr:sub(1, 8) .. "...")
-  init = tryLoadFrom(bootAddr)
-end
-
--- If no init found, try all filesystems
-if not init then
-  status("Scanning filesystems...")
+-- Protected main to catch all errors
+local function main()
+  status("OpenCoudou BIOS v1.0")
+  status("====================")
+  status("")
+  
+  -- List components
+  status("Available components:")
+  local count = 0
+  for addr, ctype in component.list() do
+    if count < 10 then
+      status("  " .. ctype .. " [" .. tostring(addr):sub(1, 8) .. "]")
+    end
+    count = count + 1
+  end
+  status("Total: " .. count .. " components")
+  status("")
+  
+  -- Check for filesystems
+  local fsCount = 0
+  for addr in component.list("filesystem") do
+    fsCount = fsCount + 1
+  end
+  status("Filesystems found: " .. fsCount)
+  
+  -- Look for init.lua
+  status("")
+  status("Searching for bootable medium...")
   for addr, ctype in component.list("filesystem") do
-    status("  Checking " .. addr:sub(1, 8) .. "...")
-    init = tryLoadFrom(addr)
-    if init then
+    local ok, handle = pcall(component.invoke, addr, "open", "/init.lua")
+    if ok and handle then
+      component.invoke(addr, "close", handle)
+      status("Found init.lua on " .. tostring(addr):sub(1, 8))
       computer.setBootAddress(addr)
-      status("  Found init.lua!")
+      local data = ""
+      local h2 = component.invoke(addr, "open", "/init.lua")
+      if h2 then
+        repeat
+          local chunk = component.invoke(addr, "read", h2, 4096)
+          data = data .. (chunk or "")
+        until not chunk
+        component.invoke(addr, "close", h2)
+      end
+      if #data > 0 then
+        status("Loading init.lua (" .. #data .. " bytes)...")
+        local fn, err = load(data, "=init", "t", _G)
+        if fn then
+          status("Executing...")
+          local ok2, err2 = pcall(fn)
+          if not ok2 then
+            status("ERROR: " .. tostring(err2):sub(1, 40))
+          end
+        else
+          status("Load error: " .. tostring(err):sub(1, 40))
+        end
+      end
       break
     end
   end
-end
-
-if init then
-  -- Boot from init.lua
-  local ok, err = xpcall(init, function(e)
-    return tostring(e) .. "\n" .. debug.traceback()
-  end)
-  if not ok then
-    status("")
-    status("Boot error:")
-    -- Split error message into lines
-    for line in tostring(err):gmatch("[^\n]+") do
-      status("  " .. line)
-    end
-  end
-else
-  status("")
-  status("No bootable medium found.")
-  status("Insert a disk with init.lua or install OpenOS.")
-  status("")
   
-  -- List available components
-  status("Components:")
-  for addr, ctype in component.list() do
-    status("  " .. ctype .. " [" .. addr:sub(1, 8) .. "]")
-  end
+  status("")
+  status("No bootable medium or boot complete.")
+  status("Press any key to reboot...")
 end
 
--- Halt
-status("")
-status("Press any key to reboot...")
+-- Run with error handling
+local ok, err = pcall(main)
+if not ok then
+  status("BIOS ERROR:")
+  status(tostring(err):sub(1, 60))
+end
+
+-- Wait loop
 while true do
   local sig = computer.pullSignal(1)
   if sig == "key_down" then

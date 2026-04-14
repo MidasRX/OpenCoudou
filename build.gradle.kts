@@ -4,7 +4,6 @@ plugins {
     id("eclipse")
     kotlin("jvm") version "2.1.0"
     id("net.neoforged.moddev") version "2.0.28-beta"
-    id("com.gradleup.shadow") version "8.3.0"
 }
 
 val modId = "opencomputers"
@@ -81,39 +80,32 @@ repositories {
 }
 
 dependencies {
-    // LuaJ for embedded Lua runtime
+    // LuaJ for embedded Lua runtime - include in mod JAR
+    jarJar("org.luaj:luaj-jse:[3.0.1,4.0)") {
+        isTransitive = false
+    }
     implementation("org.luaj:luaj-jse:3.0.1")
     
+    // Kotlin stdlib - MUST be bundled since NeoForge doesn't include it
+    jarJar("org.jetbrains.kotlin:kotlin-stdlib:[2.0.0,3.0)") {
+        isTransitive = false
+    }
+    implementation(kotlin("stdlib"))
+    
     // Kotlin coroutines for async Lua execution
+    jarJar("org.jetbrains.kotlinx:kotlinx-coroutines-core:[1.8.0,2.0)") {
+        isTransitive = false  
+    }
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     
-    // Kotlin reflection for architecture registry
+    // Kotlin reflect
+    jarJar("org.jetbrains.kotlin:kotlin-reflect:[2.0.0,3.0)") {
+        isTransitive = false
+    }
     implementation(kotlin("reflect"))
     
-    // Kotlin stdlib (bundled in JAR)
-    shadow(kotlin("stdlib"))
-    shadow(kotlin("reflect"))
-    shadow("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
-    shadow("org.luaj:luaj-jse:3.0.1")
-    
-    // JSON handling
+    // JSON handling (Minecraft already has Gson, no need to bundle)
     implementation("com.google.code.gson:gson:2.10.1")
-}
-
-tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
-    archiveClassifier.set("")
-    configurations = listOf(project.configurations.getByName("shadow"))
-    
-    // Don't relocate - NeoForge handles class isolation
-    mergeServiceFiles()
-}
-
-tasks.named("jar") {
-    finalizedBy("shadowJar")
-}
-
-tasks.named("build") {
-    dependsOn("shadowJar")
 }
 
 tasks.withType<ProcessResources>().configureEach {

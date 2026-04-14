@@ -15,6 +15,9 @@ import li.cil.oc.server.machine.SimpleMachine
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.protocol.Packet
+import net.minecraft.network.protocol.game.ClientGamePacketListener
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket
 import net.minecraft.world.MenuProvider
 import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
@@ -44,7 +47,17 @@ class CaseBlockEntity(
     private var _machine: SimpleMachine? = null
     val machine: Machine? get() = _machine
     
-    val isPowered: Boolean get() = _machine?.state?.isRunning ?: false
+    // Client-side power state (synced from server)
+    private var _clientPowered: Boolean = false
+    
+    val isPowered: Boolean get() {
+        // On server, check machine state; on client, use synced value
+        return if (level?.isClientSide == true) {
+            _clientPowered
+        } else {
+            _machine?.state?.isRunning ?: false
+        }
+    }
     
     // MachineHost implementation
     override fun machine(): Machine? = _machine
@@ -230,12 +243,33 @@ class CaseBlockEntity(
             inventory.deserializeNBT(registries, tag.getCompound("inventory"))
         }
         bootError = if (tag.contains("bootError")) tag.getString("bootError") else null
+        // Load client power state from sync packet
+        if (tag.contains("clientPowered")) {
+            _clientPowered = tag.getBoolean("clientPowered")
+        }
         if (tag.contains("machine")) {
             if (_machine == null) {
                 _machine = SimpleMachine(this)
             }
             _machine?.loadData(tag.getCompound("machine"))
         }
+    }
+    
+    // Client sync methods
+    override fun getUpdateTag(registries: HolderLookup.Provider): CompoundTag {
+        val tag = super.getUpdateTag(registries)
+        tag.putInt("tier", tier)
+        tag.putBoolean("clientPowered", _machine?.state?.isRunning ?: false)
+        return tag
+    }
+    
+    override fun getUpdatePacket(): Packet<ClientGamePacketListener>? {
+        return ClientboundBlockEntityDataPacket.create(this)
+    }
+    
+    override fun handleUpdateTag(tag: CompoundTag, registries: HolderLookup.Provider) {
+        // Called on client when update tag is received
+        loadAdditional(tag, registries)
     }
     
     companion object {

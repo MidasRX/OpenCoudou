@@ -129,6 +129,7 @@ class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
 
     @Suppress("OVERRIDE_DEPRECATION")
     override fun neighborChanged(state: BlockState, level: Level, pos: BlockPos, block: Block, orientation: Orientation?, moved: Boolean) {
+        // neighborChanged handles redstone and some neighbor updates
         val newState = computeConnections(state, level, pos)
         if (newState != state) {
             level.setBlock(pos, newState, 3)
@@ -143,21 +144,20 @@ class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
             
             OCLogger.info("Screen interaction at $pos - hasKeyboard: $hasKb, connected: $isConnected")
             
+            // Show warning messages but still allow opening screen
             if (!hasKb) {
                 player.displayClientMessage(Component.translatable("message.opencomputers.screen.no_keyboard"), true)
-            } else if (!isConnected) {
+            }
+            if (!isConnected) {
                 player.displayClientMessage(Component.translatable("message.opencomputers.screen.not_connected"), true)
             }
             return InteractionResult.CONSUME
         } else {
-            // Client side: open the terminal GUI
-            // We check keyboard adjacency on client too to avoid briefly opening on invalid configs
-            val hasKb = multiBlockHasKeyboard(level, pos, state)
-            if (hasKb) {
-                net.minecraft.client.Minecraft.getInstance().setScreen(
-                    li.cil.oc.client.gui.TerminalScreen(pos)
-                )
-            }
+            // Client side: always open the terminal GUI to view screen contents
+            // Messages about keyboard/connection are shown server-side
+            net.minecraft.client.Minecraft.getInstance().setScreen(
+                li.cil.oc.client.gui.TerminalScreen(pos)
+            )
             return InteractionResult.SUCCESS
         }
     }

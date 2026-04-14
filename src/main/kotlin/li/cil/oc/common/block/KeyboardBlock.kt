@@ -7,7 +7,11 @@ import net.minecraft.core.Direction
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.LevelAccessor
+import net.minecraft.world.level.LevelReader
+import net.minecraft.world.level.ScheduledTickAccess
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.EntityBlock
 import net.minecraft.world.level.block.HorizontalDirectionalBlock
 import net.minecraft.world.level.block.RenderShape
@@ -16,34 +20,119 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.StateDefinition
+import net.minecraft.world.level.block.state.properties.AttachFace
+import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
+import net.minecraft.util.RandomSource
 
 /**
- * Keyboard block - captures keyboard input and forwards to connected screen/computer.
+ * Keyboard block - attaches to case/screen blocks like a button.
+ * Must be placed on top of a case or on the side of a screen.
  */
 class KeyboardBlock(properties: Properties) : Block(properties), EntityBlock {
 
     companion object {
         val FACING = HorizontalDirectionalBlock.FACING
+        val ATTACH_FACE = BlockStateProperties.ATTACH_FACE
 
-        // Thin keyboard shape per facing direction (1px tall, 14px wide, 8px deep)
-        private val SHAPE_NORTH = box(1.0, 0.0, 4.0, 15.0, 1.0, 12.0)
-        private val SHAPE_SOUTH = box(1.0, 0.0, 4.0, 15.0, 1.0, 12.0)
-        private val SHAPE_EAST  = box(4.0, 0.0, 1.0, 12.0, 1.0, 15.0)
-        private val SHAPE_WEST  = box(4.0, 0.0, 1.0, 12.0, 1.0, 15.0)
+        // Keyboard shapes based on attachment face and facing direction
+        // Keyboard is thin: 14px wide, 8px deep, 1px tall
+        
+        // Floor attachment (on top of case) - keyboard sits on top
+        private val SHAPE_FLOOR_NORTH = box(1.0, 0.0, 4.0, 15.0, 1.0, 12.0)
+        private val SHAPE_FLOOR_SOUTH = box(1.0, 0.0, 4.0, 15.0, 1.0, 12.0)
+        private val SHAPE_FLOOR_EAST  = box(4.0, 0.0, 1.0, 12.0, 1.0, 15.0)
+        private val SHAPE_FLOOR_WEST  = box(4.0, 0.0, 1.0, 12.0, 1.0, 15.0)
+        
+        // Wall attachment - keyboard sticks out from wall (1px thick, on the wall surface)
+        // Facing = direction keyboard faces (away from wall)
+        // So WALL_NORTH means attached to block to the SOUTH, keyboard at z=0 edge
+        private val SHAPE_WALL_NORTH = box(1.0, 4.0, 0.0, 15.0, 12.0, 1.0)   // Attached to south, at z=0
+        private val SHAPE_WALL_SOUTH = box(1.0, 4.0, 15.0, 15.0, 12.0, 16.0) // Attached to north, at z=15
+        private val SHAPE_WALL_EAST  = box(15.0, 4.0, 1.0, 16.0, 12.0, 15.0) // Attached to west, at x=15
+        private val SHAPE_WALL_WEST  = box(0.0, 4.0, 1.0, 1.0, 12.0, 15.0)   // Attached to east, at x=0
+        
+        // Ceiling attachment (under a block)
+        private val SHAPE_CEILING_NORTH = box(1.0, 15.0, 4.0, 15.0, 16.0, 12.0)
+        private val SHAPE_CEILING_SOUTH = box(1.0, 15.0, 4.0, 15.0, 16.0, 12.0)
+        private val SHAPE_CEILING_EAST  = box(4.0, 15.0, 1.0, 12.0, 16.0, 15.0)
+        private val SHAPE_CEILING_WEST  = box(4.0, 15.0, 1.0, 12.0, 16.0, 15.0)
     }
 
     init {
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH))
+        registerDefaultState(stateDefinition.any()
+            .setValue(FACING, Direction.NORTH)
+            .setValue(ATTACH_FACE, AttachFace.FLOOR))
     }
 
     override fun createBlockStateDefinition(builder: StateDefinition.Builder<Block, BlockState>) {
-        builder.add(FACING)
+        builder.add(FACING, ATTACH_FACE)
     }
 
-    override fun getStateForPlacement(context: BlockPlaceContext): BlockState =
-        defaultBlockState().setValue(FACING, context.horizontalDirection.opposite)
+    override fun getStateForPlacement(context: BlockPlaceContext): BlockState? {
+        // Place based on the face that was clicked (like buttons)
+        val clickedFace = context.clickedFace
+        
+        val state = when (clickedFace) {
+            Direction.UP -> defaultBlockState()
+                .setValue(ATTACH_FACE, AttachFace.FLOOR)
+                .setValue(FACING, context.horizontalDirection)
+            Direction.DOWN -> defaultBlockState()
+                .setValue(ATTACH_FACE, AttachFace.CEILING)
+                .setValue(FACING, context.horizontalDirection)
+            else -> defaultBlockState()
+                .setValue(ATTACH_FACE, AttachFace.WALL)
+                .setValue(FACING, clickedFace)  // Facing = direction keyboard faces (away from wall)
+        }
+        
+        return if (state.canSurvive(context.level, context.clickedPos)) state else null
+    }
+
+    override fun canSurvive(state: BlockState, level: LevelReader, pos: BlockPos): Boolean {
+        val attachFace = state.getValue(ATTACH_FACE)
+        val facing = state.getValue(FACING)
+        
+        // Support direction is where the wall/floor/ceiling is
+        val supportDir = when (attachFace) {
+            AttachFace.FLOOR -> Direction.DOWN
+            AttachFace.CEILING -> Direction.UP
+            AttachFace.WALL -> facing.opposite  // Wall is OPPOSITE to where keyboard faces
+        }
+        
+        val supportPos = pos.relative(supportDir)
+        val supportState = level.getBlockState(supportPos)
+        
+        // Check if support block is solid on the attachment side
+        return supportState.isFaceSturdy(level, supportPos, supportDir.opposite)
+    }
+
+    override fun updateShape(
+        state: BlockState,
+        level: LevelReader,
+        scheduledTick: ScheduledTickAccess,
+        pos: BlockPos,
+        direction: Direction,
+        neighborPos: BlockPos,
+        neighborState: BlockState,
+        random: RandomSource
+    ): BlockState {
+        // Drop if support is gone
+        val attachFace = state.getValue(ATTACH_FACE)
+        val facing = state.getValue(FACING)
+        
+        val supportDir = when (attachFace) {
+            AttachFace.FLOOR -> Direction.DOWN
+            AttachFace.CEILING -> Direction.UP
+            AttachFace.WALL -> facing.opposite  // Wall is OPPOSITE to where keyboard faces
+        }
+        
+        if (direction == supportDir && !state.canSurvive(level, pos)) {
+            return Blocks.AIR.defaultBlockState()
+        }
+        
+        return super.updateShape(state, level, scheduledTick, pos, direction, neighborPos, neighborState, random)
+    }
 
     override fun getRenderShape(state: BlockState): RenderShape = RenderShape.MODEL
 
@@ -64,11 +153,28 @@ class KeyboardBlock(properties: Properties) : Block(properties), EntityBlock {
     }
 
     override fun getShape(state: BlockState, level: BlockGetter, pos: BlockPos, context: CollisionContext): VoxelShape {
-        return when (state.getValue(FACING)) {
-            Direction.SOUTH -> SHAPE_SOUTH
-            Direction.EAST -> SHAPE_EAST
-            Direction.WEST -> SHAPE_WEST
-            else -> SHAPE_NORTH
+        val attachFace = state.getValue(ATTACH_FACE)
+        val facing = state.getValue(FACING)
+        
+        return when (attachFace) {
+            AttachFace.FLOOR -> when (facing) {
+                Direction.SOUTH -> SHAPE_FLOOR_SOUTH
+                Direction.EAST -> SHAPE_FLOOR_EAST
+                Direction.WEST -> SHAPE_FLOOR_WEST
+                else -> SHAPE_FLOOR_NORTH
+            }
+            AttachFace.WALL -> when (facing) {
+                Direction.SOUTH -> SHAPE_WALL_SOUTH
+                Direction.EAST -> SHAPE_WALL_EAST
+                Direction.WEST -> SHAPE_WALL_WEST
+                else -> SHAPE_WALL_NORTH
+            }
+            AttachFace.CEILING -> when (facing) {
+                Direction.SOUTH -> SHAPE_CEILING_SOUTH
+                Direction.EAST -> SHAPE_CEILING_EAST
+                Direction.WEST -> SHAPE_CEILING_WEST
+                else -> SHAPE_CEILING_NORTH
+            }
         }
     }
 

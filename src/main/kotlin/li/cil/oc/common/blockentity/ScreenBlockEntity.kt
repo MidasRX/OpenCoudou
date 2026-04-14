@@ -103,6 +103,11 @@ class ScreenBlockEntity(
         return ClientboundBlockEntityDataPacket.create(this)
     }
     
+    override fun handleUpdateTag(tag: CompoundTag, registries: HolderLookup.Provider) {
+        // Called on client when update tag is received
+        loadAdditional(tag, registries)
+    }
+    
     fun serverTick(level: Level, pos: BlockPos, state: BlockState) {
         if (!needsSync) return
         needsSync = false
