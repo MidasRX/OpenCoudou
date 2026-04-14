@@ -10,6 +10,7 @@ import org.luaj.vm2.*
 import org.luaj.vm2.lib.*
 import org.luaj.vm2.lib.jse.*
 import java.io.BufferedReader
+import java.io.ByteArrayOutputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URI
@@ -413,22 +414,41 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         })
 
         // string.pack, string.unpack, string.packsize - Lua 5.3 features
-        // LuaJ doesn't natively support these, provide stubs that error
+        // Full implementation for MineOS compatibility
         val stringLib = g.get("string")
         if (!stringLib.isnil()) {
             stringLib.set("pack", object : VarArgFunction() {
                 override fun invoke(args: Varargs): Varargs {
-                    return LuaValue.error("string.pack not available (Lua 5.3 feature not supported by this runtime)")
+                    val fmt = args.arg1().checkjstring()
+                    return try {
+                        val result = stringPackImpl(fmt, args, 2)
+                        LuaValue.valueOf(result)
+                    } catch (e: Exception) {
+                        LuaValue.error("bad argument to 'pack' (${e.message})")
+                    }
                 }
             })
             stringLib.set("unpack", object : VarArgFunction() {
                 override fun invoke(args: Varargs): Varargs {
-                    return LuaValue.error("string.unpack not available (Lua 5.3 feature not supported by this runtime)")
+                    val fmt = args.arg1().checkjstring()
+                    val s = args.arg(2).checkjstring()
+                    val pos = if (args.narg() >= 3 && !args.arg(3).isnil()) args.arg(3).checkint() else 1
+                    return try {
+                        stringUnpackImpl(fmt, s, pos)
+                    } catch (e: Exception) {
+                        LuaValue.error("bad argument to 'unpack' (${e.message})")
+                    }
                 }
             })
             stringLib.set("packsize", object : VarArgFunction() {
                 override fun invoke(args: Varargs): Varargs {
-                    return LuaValue.error("string.packsize not available (Lua 5.3 feature not supported by this runtime)")
+                    val fmt = args.arg1().checkjstring()
+                    return try {
+                        val size = stringPackSizeImpl(fmt)
+                        LuaValue.valueOf(size)
+                    } catch (e: Exception) {
+                        LuaValue.error("bad argument to 'packsize' (${e.message})")
+                    }
                 }
             })
         }
@@ -2937,6 +2957,417 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
         if (tag.contains("tmpFsData")) {
             filesystems[tmpFsAddress] = VirtualFileSystem.loadFromTag(tag.getCompound("tmpFsData"))
         }
+    }
+
+    // ===========================
+    // STRING.PACK/UNPACK IMPLEMENTATION (Lua 5.3)
+    // ===========================
+    
+    /**
+     * Parse format string state holder for string.pack/unpack
+     */
+    private data class PackState(
+        var littleEndian: Boolean = true,
+        var nativeAlign: Int = 1,
+        var pos: Int = 0
+    )
+    
+    /**
+     * Get the size of a pack format option
+     */
+    private fun getPackOptionSize(opt: Char, optArg: Int): Int {
+        return when (opt) {
+            'b', 'B' -> 1
+            'h', 'H' -> 2
+            'l', 'L' -> 8  // Lua 5.3 long is 8 bytes
+            'j', 'J', 'T' -> 8  // lua_Integer and size_t
+            'i', 'I' -> if (optArg > 0) optArg else 4
+            'f' -> 4
+            'd', 'n' -> 8
+            'x' -> 1  // padding
+            else -> 0
+        }
+    }
+    
+    /**
+     * Compute size needed for string.packsize(fmt)
+     */
+    private fun stringPackSizeImpl(fmt: String): Int {
+        var size = 0
+        var i = 0
+        while (i < fmt.length) {
+            val c = fmt[i]
+            when (c) {
+                '<', '>', '=', '!' -> { /* modifiers, no size */ }
+                ' ' -> { /* spacing, ignored */ }
+                'b', 'B' -> size += 1
+                'h', 'H' -> size += 2
+                'l', 'L', 'j', 'J', 'T' -> size += 8
+                'f' -> size += 4
+                'd', 'n' -> size += 8
+                'x' -> size += 1
+                'i', 'I' -> {
+                    // Check for size argument in[n]
+                    var arg = 4
+                    if (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                        val sb = StringBuilder()
+                        while (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                            i++
+                            sb.append(fmt[i])
+                        }
+                        arg = sb.toString().toInt()
+                    }
+                    size += arg
+                }
+                'c' -> {
+                    // Fixed string cn - read n
+                    var n = 0
+                    while (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                        i++
+                        n = n * 10 + (fmt[i] - '0')
+                    }
+                    size += n
+                }
+                's', 'z' -> throw IllegalArgumentException("variable-length format '$c' in packsize")
+            }
+            i++
+        }
+        return size
+    }
+    
+    /**
+     * Implementation of string.pack(fmt, v1, v2, ...)
+     */
+    private fun stringPackImpl(fmt: String, args: Varargs, startArg: Int): String {
+        val result = ByteArrayOutputStream()
+        var littleEndian = true
+        var argIdx = startArg
+        var i = 0
+        
+        while (i < fmt.length) {
+            val c = fmt[i]
+            when (c) {
+                '<' -> littleEndian = true
+                '>' -> littleEndian = false
+                '=' -> littleEndian = java.nio.ByteOrder.nativeOrder() == java.nio.ByteOrder.LITTLE_ENDIAN
+                '!' -> {
+                    // Max alignment - skip number if present
+                    while (i + 1 < fmt.length && fmt[i + 1].isDigit()) i++
+                }
+                ' ' -> { /* ignored */ }
+                'b' -> {
+                    val v = args.arg(argIdx++).checkint()
+                    result.write(v and 0xFF)
+                }
+                'B' -> {
+                    val v = args.arg(argIdx++).checkint()
+                    result.write(v and 0xFF)
+                }
+                'h' -> {
+                    val v = args.arg(argIdx++).checkint().toShort()
+                    writeInt16(result, v.toInt(), littleEndian)
+                }
+                'H' -> {
+                    val v = args.arg(argIdx++).checkint()
+                    writeInt16(result, v and 0xFFFF, littleEndian)
+                }
+                'i', 'I' -> {
+                    // Read optional size argument
+                    var size = 4
+                    if (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                        val sb = StringBuilder()
+                        while (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                            i++
+                            sb.append(fmt[i])
+                        }
+                        size = sb.toString().toInt()
+                    }
+                    val v = args.arg(argIdx++).checklong()
+                    writeIntN(result, v, size, littleEndian)
+                }
+                'l', 'L', 'j', 'J', 'T' -> {
+                    val v = args.arg(argIdx++).checklong()
+                    writeInt64(result, v, littleEndian)
+                }
+                'f' -> {
+                    val v = args.arg(argIdx++).checkdouble().toFloat()
+                    val bits = java.lang.Float.floatToIntBits(v)
+                    writeInt32(result, bits, littleEndian)
+                }
+                'd', 'n' -> {
+                    val v = args.arg(argIdx++).checkdouble()
+                    val bits = java.lang.Double.doubleToLongBits(v)
+                    writeInt64(result, bits, littleEndian)
+                }
+                'c' -> {
+                    // Fixed string cn
+                    var n = 0
+                    while (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                        i++
+                        n = n * 10 + (fmt[i] - '0')
+                    }
+                    val s = args.arg(argIdx++).checkjstring()
+                    val bytes = s.toByteArray(Charsets.ISO_8859_1)
+                    for (j in 0 until n) {
+                        result.write(if (j < bytes.size) bytes[j].toInt() else 0)
+                    }
+                }
+                's' -> {
+                    // String preceded by size (default 8 bytes = size_t)
+                    var sizeBytes = 8
+                    if (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                        val sb = StringBuilder()
+                        while (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                            i++
+                            sb.append(fmt[i])
+                        }
+                        sizeBytes = sb.toString().toInt()
+                    }
+                    val s = args.arg(argIdx++).checkjstring()
+                    val bytes = s.toByteArray(Charsets.ISO_8859_1)
+                    writeIntN(result, bytes.size.toLong(), sizeBytes, littleEndian)
+                    result.write(bytes)
+                }
+                'z' -> {
+                    // Zero-terminated string
+                    val s = args.arg(argIdx++).checkjstring()
+                    result.write(s.toByteArray(Charsets.ISO_8859_1))
+                    result.write(0)
+                }
+                'x' -> {
+                    // Padding byte
+                    result.write(0)
+                }
+                'X' -> {
+                    // Empty item for alignment - skip following char
+                    if (i + 1 < fmt.length) i++
+                }
+            }
+            i++
+        }
+        
+        val bytes = result.toByteArray()
+        return String(bytes, Charsets.ISO_8859_1)
+    }
+    
+    /**
+     * Implementation of string.unpack(fmt, s, pos)
+     */
+    private fun stringUnpackImpl(fmt: String, s: String, startPos: Int): Varargs {
+        val data = s.toByteArray(Charsets.ISO_8859_1)
+        var pos = startPos - 1  // Lua is 1-indexed
+        var littleEndian = true
+        val results = mutableListOf<LuaValue>()
+        var i = 0
+        
+        while (i < fmt.length) {
+            val c = fmt[i]
+            when (c) {
+                '<' -> littleEndian = true
+                '>' -> littleEndian = false
+                '=' -> littleEndian = java.nio.ByteOrder.nativeOrder() == java.nio.ByteOrder.LITTLE_ENDIAN
+                '!' -> {
+                    while (i + 1 < fmt.length && fmt[i + 1].isDigit()) i++
+                }
+                ' ' -> { /* ignored */ }
+                'b' -> {
+                    if (pos >= data.size) throw IllegalArgumentException("data string too short")
+                    val v = data[pos++].toInt()
+                    results.add(LuaValue.valueOf(if (v > 127) v - 256 else v))
+                }
+                'B' -> {
+                    if (pos >= data.size) throw IllegalArgumentException("data string too short")
+                    results.add(LuaValue.valueOf(data[pos++].toInt() and 0xFF))
+                }
+                'h' -> {
+                    if (pos + 2 > data.size) throw IllegalArgumentException("data string too short")
+                    val v = readInt16(data, pos, littleEndian)
+                    pos += 2
+                    results.add(LuaValue.valueOf(v))
+                }
+                'H' -> {
+                    if (pos + 2 > data.size) throw IllegalArgumentException("data string too short")
+                    val v = readInt16(data, pos, littleEndian) and 0xFFFF
+                    pos += 2
+                    results.add(LuaValue.valueOf(v))
+                }
+                'i', 'I' -> {
+                    var size = 4
+                    if (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                        val sb = StringBuilder()
+                        while (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                            i++
+                            sb.append(fmt[i])
+                        }
+                        size = sb.toString().toInt()
+                    }
+                    if (pos + size > data.size) throw IllegalArgumentException("data string too short")
+                    val v = readIntN(data, pos, size, littleEndian, c == 'i')
+                    pos += size
+                    results.add(LuaValue.valueOf(v.toDouble()))
+                }
+                'l', 'j' -> {
+                    if (pos + 8 > data.size) throw IllegalArgumentException("data string too short")
+                    val v = readInt64(data, pos, littleEndian)
+                    pos += 8
+                    results.add(LuaValue.valueOf(v.toDouble()))
+                }
+                'L', 'J', 'T' -> {
+                    if (pos + 8 > data.size) throw IllegalArgumentException("data string too short")
+                    val v = readInt64(data, pos, littleEndian)
+                    pos += 8
+                    // Return as number (may lose precision for very large unsigned values)
+                    results.add(LuaValue.valueOf(v.toDouble()))
+                }
+                'f' -> {
+                    if (pos + 4 > data.size) throw IllegalArgumentException("data string too short")
+                    val bits = readInt32(data, pos, littleEndian)
+                    pos += 4
+                    results.add(LuaValue.valueOf(java.lang.Float.intBitsToFloat(bits).toDouble()))
+                }
+                'd', 'n' -> {
+                    if (pos + 8 > data.size) throw IllegalArgumentException("data string too short")
+                    val bits = readInt64(data, pos, littleEndian)
+                    pos += 8
+                    results.add(LuaValue.valueOf(java.lang.Double.longBitsToDouble(bits)))
+                }
+                'c' -> {
+                    var n = 0
+                    while (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                        i++
+                        n = n * 10 + (fmt[i] - '0')
+                    }
+                    if (pos + n > data.size) throw IllegalArgumentException("data string too short")
+                    val str = String(data, pos, n, Charsets.ISO_8859_1)
+                    pos += n
+                    results.add(LuaValue.valueOf(str))
+                }
+                's' -> {
+                    var sizeBytes = 8
+                    if (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                        val sb = StringBuilder()
+                        while (i + 1 < fmt.length && fmt[i + 1].isDigit()) {
+                            i++
+                            sb.append(fmt[i])
+                        }
+                        sizeBytes = sb.toString().toInt()
+                    }
+                    if (pos + sizeBytes > data.size) throw IllegalArgumentException("data string too short")
+                    val len = readIntN(data, pos, sizeBytes, littleEndian, false).toInt()
+                    pos += sizeBytes
+                    if (pos + len > data.size) throw IllegalArgumentException("data string too short")
+                    val str = String(data, pos, len, Charsets.ISO_8859_1)
+                    pos += len
+                    results.add(LuaValue.valueOf(str))
+                }
+                'z' -> {
+                    val start = pos
+                    while (pos < data.size && data[pos].toInt() != 0) pos++
+                    val str = String(data, start, pos - start, Charsets.ISO_8859_1)
+                    if (pos < data.size) pos++  // skip null terminator
+                    results.add(LuaValue.valueOf(str))
+                }
+                'x' -> {
+                    if (pos >= data.size) throw IllegalArgumentException("data string too short")
+                    pos++
+                }
+                'X' -> {
+                    if (i + 1 < fmt.length) i++
+                }
+            }
+            i++
+        }
+        
+        // Return all results plus final position (1-indexed)
+        results.add(LuaValue.valueOf(pos + 1))
+        return LuaValue.varargsOf(results.toTypedArray())
+    }
+    
+    // Helper functions for reading/writing multi-byte integers
+    private fun writeInt16(out: ByteArrayOutputStream, v: Int, littleEndian: Boolean) {
+        if (littleEndian) {
+            out.write(v and 0xFF)
+            out.write((v shr 8) and 0xFF)
+        } else {
+            out.write((v shr 8) and 0xFF)
+            out.write(v and 0xFF)
+        }
+    }
+    
+    private fun writeInt32(out: ByteArrayOutputStream, v: Int, littleEndian: Boolean) {
+        if (littleEndian) {
+            out.write(v and 0xFF)
+            out.write((v shr 8) and 0xFF)
+            out.write((v shr 16) and 0xFF)
+            out.write((v shr 24) and 0xFF)
+        } else {
+            out.write((v shr 24) and 0xFF)
+            out.write((v shr 16) and 0xFF)
+            out.write((v shr 8) and 0xFF)
+            out.write(v and 0xFF)
+        }
+    }
+    
+    private fun writeInt64(out: ByteArrayOutputStream, v: Long, littleEndian: Boolean) {
+        if (littleEndian) {
+            for (i in 0..7) out.write(((v shr (i * 8)) and 0xFF).toInt())
+        } else {
+            for (i in 7 downTo 0) out.write(((v shr (i * 8)) and 0xFF).toInt())
+        }
+    }
+    
+    private fun writeIntN(out: ByteArrayOutputStream, v: Long, n: Int, littleEndian: Boolean) {
+        if (littleEndian) {
+            for (i in 0 until n) out.write(((v shr (i * 8)) and 0xFF).toInt())
+        } else {
+            for (i in (n - 1) downTo 0) out.write(((v shr (i * 8)) and 0xFF).toInt())
+        }
+    }
+    
+    private fun readInt16(data: ByteArray, pos: Int, littleEndian: Boolean): Int {
+        return if (littleEndian) {
+            (data[pos].toInt() and 0xFF) or ((data[pos + 1].toInt() and 0xFF) shl 8)
+        } else {
+            ((data[pos].toInt() and 0xFF) shl 8) or (data[pos + 1].toInt() and 0xFF)
+        }
+    }
+    
+    private fun readInt32(data: ByteArray, pos: Int, littleEndian: Boolean): Int {
+        return if (littleEndian) {
+            (data[pos].toInt() and 0xFF) or
+            ((data[pos + 1].toInt() and 0xFF) shl 8) or
+            ((data[pos + 2].toInt() and 0xFF) shl 16) or
+            ((data[pos + 3].toInt() and 0xFF) shl 24)
+        } else {
+            ((data[pos].toInt() and 0xFF) shl 24) or
+            ((data[pos + 1].toInt() and 0xFF) shl 16) or
+            ((data[pos + 2].toInt() and 0xFF) shl 8) or
+            (data[pos + 3].toInt() and 0xFF)
+        }
+    }
+    
+    private fun readInt64(data: ByteArray, pos: Int, littleEndian: Boolean): Long {
+        var v = 0L
+        if (littleEndian) {
+            for (i in 7 downTo 0) v = (v shl 8) or (data[pos + i].toLong() and 0xFF)
+        } else {
+            for (i in 0..7) v = (v shl 8) or (data[pos + i].toLong() and 0xFF)
+        }
+        return v
+    }
+    
+    private fun readIntN(data: ByteArray, pos: Int, n: Int, littleEndian: Boolean, signed: Boolean): Long {
+        var v = 0L
+        if (littleEndian) {
+            for (i in (n - 1) downTo 0) v = (v shl 8) or (data[pos + i].toLong() and 0xFF)
+        } else {
+            for (i in 0 until n) v = (v shl 8) or (data[pos + i].toLong() and 0xFF)
+        }
+        // Sign extend if signed and high bit is set
+        if (signed && n < 8 && (v and (1L shl (n * 8 - 1))) != 0L) {
+            v = v or ((-1L) shl (n * 8))
+        }
+        return v
     }
 
     // ===========================
