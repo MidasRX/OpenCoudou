@@ -116,6 +116,21 @@ object OpenOSContent {
         fs.writeFile("bin/redstone.lua", REDSTONE_LUA)
         fs.writeFile("bin/time.lua", TIME_LUA)
         fs.writeFile("bin/source.lua", SOURCE_LUA)
+        fs.writeFile("bin/du.lua", DU_LUA)
+        fs.writeFile("bin/find.lua", FIND_LUA)
+        fs.writeFile("bin/less.lua", LESS_LUA)
+        fs.writeFile("bin/list.lua", LIST_LUA)
+        fs.writeFile("bin/ln.lua", LN_LUA)
+        fs.writeFile("bin/lshw.lua", LSHW_LUA)
+        fs.writeFile("bin/man.lua", MAN_LUA)
+        fs.writeFile("bin/mktmp.lua", MKTMP_LUA)
+        fs.writeFile("bin/ps.lua", PS_LUA)
+        fs.writeFile("bin/rmdir.lua", RMDIR_LUA)
+        fs.writeFile("bin/tree.lua", TREE_LUA)
+        fs.writeFile("bin/unset.lua", UNSET_LUA)
+        fs.writeFile("bin/useradd.lua", USERADD_LUA)
+        fs.writeFile("bin/userdel.lua", USERDEL_LUA)
+        fs.writeFile("bin/yes.lua", YES_LUA)
 
         // ============ Config ============
         fs.writeFile("etc/profile.lua", PROFILE_LUA)
@@ -5610,6 +5625,744 @@ for line in content:gmatch("[^\r\n]+") do
   -- Skip empty lines and comments
   if #line > 0 and line:sub(1, 1) ~= "#" then
     shell.execute(line)
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/du.lua - Disk usage
+    // ================================================================
+    val DU_LUA = """
+local shell = require("shell")
+local fs = require("filesystem")
+local args, options = shell.parse(...)
+
+if options.help then
+  io.write("Usage: du [-sh] [path...]\n")
+  io.write("  -s, --summarize  display only total for each argument\n")
+  io.write("  -h, --human-readable  print sizes in human readable format\n")
+  return
+end
+
+local function humanSize(bytes)
+  if bytes < 1024 then return bytes .. "B" end
+  if bytes < 1024 * 1024 then return string.format("%.1fK", bytes / 1024) end
+  if bytes < 1024 * 1024 * 1024 then return string.format("%.1fM", bytes / (1024 * 1024)) end
+  return string.format("%.1fG", bytes / (1024 * 1024 * 1024))
+end
+
+local human = options.h or options["human-readable"]
+local summarize = options.s or options.summarize
+
+local function getSize(path, printAll)
+  local total = 0
+  if fs.isDirectory(path) then
+    for file in fs.list(path) do
+      local full = fs.concat(path, file)
+      local sub = getSize(full, printAll and not summarize)
+      total = total + sub
+    end
+    if printAll then
+      local sz = human and humanSize(total) or total
+      io.write(sz .. "\t" .. path .. "\n")
+    end
+  else
+    local sz = fs.size(path) or 0
+    total = sz
+    if printAll then
+      local szStr = human and humanSize(sz) or sz
+      io.write(szStr .. "\t" .. path .. "\n")
+    end
+  end
+  return total
+end
+
+if #args == 0 then args[1] = "." end
+for _, arg in ipairs(args) do
+  local path = shell.resolve(arg) or arg
+  if not fs.exists(path) then
+    io.stderr:write("du: " .. arg .. ": No such file or directory\n")
+  else
+    getSize(path, true)
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/find.lua - Find files
+    // ================================================================
+    val FIND_LUA = """
+local shell = require("shell")
+local fs = require("filesystem")
+local args, options = shell.parse(...)
+
+if options.help then
+  io.write("Usage: find [path] [--name=PATTERN] [--type=d|f]\n")
+  io.write("  --name=PATTERN  file name pattern (supports * wildcard)\n")
+  io.write("  --type=d        find only directories\n")
+  io.write("  --type=f        find only files\n")
+  return
+end
+
+local path = args[1] or "."
+path = shell.resolve(path) or path
+
+local namePattern = options.name or options.iname
+local typeFilter = options.type
+local caseInsensitive = options.iname ~= nil
+
+local function patternMatch(name, pattern)
+  if not pattern then return true end
+  local p = pattern:gsub("%*", ".*"):gsub("%?", ".")
+  if caseInsensitive then
+    return name:lower():match("^" .. p:lower() .. "${'$'}")
+  end
+  return name:match("^" .. p .. "${'$'}")
+end
+
+local function search(dir)
+  if not fs.exists(dir) then return end
+  if not fs.isDirectory(dir) then
+    -- It's a file
+    if (not typeFilter or typeFilter == "f") and patternMatch(fs.name(dir), namePattern) then
+      io.write(dir .. "\n")
+    end
+    return
+  end
+
+  -- Check the directory itself
+  if (not typeFilter or typeFilter == "d") and patternMatch(fs.name(dir), namePattern) then
+    if dir ~= path then -- don't print starting path
+      io.write(dir .. "\n")
+    end
+  end
+
+  for file in fs.list(dir) do
+    local full = fs.concat(dir, file)
+    if fs.isDirectory(full) then
+      if (not typeFilter or typeFilter == "d") and patternMatch(file:gsub("/$", ""), namePattern) then
+        io.write(full .. "\n")
+      end
+      search(full)
+    else
+      if (not typeFilter or typeFilter == "f") and patternMatch(file, namePattern) then
+        io.write(full .. "\n")
+      end
+    end
+  end
+end
+
+if not fs.exists(path) then
+  io.stderr:write("find: " .. path .. ": No such file or directory\n")
+  return 1
+end
+search(path)
+""".trimIndent()
+
+    // ================================================================
+    // /bin/less.lua - Pager (alias for more)
+    // ================================================================
+    val LESS_LUA = """
+-- less is similar to more (simplified pager)
+local shell = require("shell")
+local fs = require("filesystem")
+local term = require("term")
+local args = shell.parse(...)
+
+if #args == 0 then
+  io.write("Usage: less <file>\n")
+  return
+end
+
+local path = shell.resolve(args[1]) or args[1]
+if not fs.exists(path) then
+  io.stderr:write("less: " .. args[1] .. ": No such file\n")
+  return 1
+end
+
+local f = fs.open(path, "r")
+if not f then
+  io.stderr:write("less: cannot open " .. args[1] .. "\n")
+  return 1
+end
+
+local content = ""
+repeat
+  local data = f:read(math.huge)
+  content = content .. (data or "")
+until not data
+f:close()
+
+local lines = {}
+for line in content:gmatch("([^\n]*)\n?") do
+  lines[#lines + 1] = line
+end
+
+local w, h = term.getViewport()
+h = h - 1
+
+local offset = 0
+local function display()
+  term.clear()
+  for i = 1, h do
+    local ln = lines[offset + i]
+    if ln then
+      term.write(ln:sub(1, w) .. "\n")
+    end
+  end
+  term.write("-- " .. (offset + 1) .. "-" .. math.min(offset + h, #lines) .. "/" .. #lines .. " --")
+end
+
+display()
+while true do
+  local _, _, char, code = event.pull("key_down")
+  if char == 113 or code == 0x10 then -- q
+    term.clear()
+    return
+  elseif code == 0xC8 or code == 0x17 or char == 107 then -- up/w/k
+    offset = math.max(0, offset - 1)
+    display()
+  elseif code == 0xD0 or code == 0x1F or char == 106 then -- down/s/j
+    offset = math.min(#lines - h, offset + 1)
+    if offset < 0 then offset = 0 end
+    display()
+  elseif code == 0xC9 then -- page up
+    offset = math.max(0, offset - h)
+    display()
+  elseif code == 0xD1 or char == 32 then -- page down / space
+    offset = math.min(#lines - h, offset + h)
+    if offset < 0 then offset = 0 end
+    display()
+  elseif code == 0x147 then -- home
+    offset = 0
+    display()
+  elseif code == 0x14F then -- end
+    offset = math.max(0, #lines - h)
+    display()
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/list.lua - Simple directory listing
+    // ================================================================
+    val LIST_LUA = """
+local fs = require("filesystem")
+local shell = require("shell")
+local args, options = shell.parse(...)
+
+if options.help then
+  io.write("Usage: list [path]\n")
+  io.write("  Displays a list of files with no added formatting\n")
+  io.write("  Intended for low memory systems\n")
+  return
+end
+
+local path = args[1] or "."
+path = shell.resolve(path) or path
+
+if not fs.exists(path) then
+  io.stderr:write("cannot access '" .. path .. "': No such file or directory\n")
+  return 1
+end
+
+if not fs.isDirectory(path) then
+  io.write(fs.name(path) .. "\n")
+  return
+end
+
+for item in fs.list(path) do
+  io.write(item .. "\n")
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/ln.lua - Create symbolic links (not supported in simplified VFS)
+    // ================================================================
+    val LN_LUA = """
+local shell = require("shell")
+local fs = require("filesystem")
+local args = shell.parse(...)
+
+if #args == 0 then
+  io.write("Usage: ln <target> [<name>]\n")
+  return 1
+end
+
+local target = args[1]
+local linkpath = args[2]
+
+if not linkpath then
+  linkpath = fs.name(target)
+end
+
+-- Resolve paths
+local resolvedTarget = shell.resolve(target) or target
+if not fs.exists(resolvedTarget) then
+  io.stderr:write("ln: failed to access '" .. target .. "': No such file or directory\n")
+  return 1
+end
+
+local resolvedLink = shell.resolve(linkpath) or fs.concat(shell.getWorkingDirectory(), linkpath)
+
+local result, reason = fs.link(resolvedTarget, resolvedLink)
+if not result then
+  io.stderr:write((reason or "symbolic links not supported") .. "\n")
+  return 1
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/lshw.lua - List hardware
+    // ================================================================
+    val LSHW_LUA = """
+local shell = require("shell")
+local args, options = shell.parse(...)
+
+if options.help then
+  io.write("Usage: lshw [-tdpvcsw]\n")
+  io.write("List hardware information.\n")
+  io.write("  -t  show component type (class)\n")
+  io.write("  -d  show description\n")
+  io.write("  -p  show product name\n")
+  io.write("  -v  show vendor\n")
+  io.write("  -c  show capacity\n")
+  io.write("  -w  show width\n")
+  io.write("  -s  show clock speed\n")
+  return
+end
+
+-- Default columns
+if not options.t and not options.d and not options.p and not options.v and not options.c and not options.w and not options.s then
+  options.t = true
+  options.d = true
+  options.p = true
+end
+
+local columns = {}
+if options.t then table.insert(columns, {name = "Class", field = "class"}) end
+if options.d then table.insert(columns, {name = "Descr", field = "description"}) end
+if options.p then table.insert(columns, {name = "Product", field = "product"}) end
+if options.v then table.insert(columns, {name = "Vendor", field = "vendor"}) end
+if options.c then table.insert(columns, {name = "Capacity", field = "capacity"}) end
+if options.w then table.insert(columns, {name = "Width", field = "width"}) end
+if options.s then table.insert(columns, {name = "Clock", field = "clock"}) end
+
+-- Get device info if available
+local devices = {}
+local ok, devInfo = pcall(computer.getDeviceInfo)
+if ok and devInfo then
+  devices = devInfo
+else
+  -- Fallback: list components
+  for addr, ctype in component.list() do
+    devices[addr] = {class = ctype, description = ctype, product = "-", vendor = "-"}
+  end
+end
+
+-- Calculate column widths
+local widths = {}
+for i, col in ipairs(columns) do widths[i] = #col.name end
+for addr, info in pairs(devices) do
+  for i, col in ipairs(columns) do
+    local val = info[col.field] or "-"
+    widths[i] = math.max(widths[i], #tostring(val))
+  end
+end
+
+-- Print header
+io.write(string.format("%-10s", "Address"))
+for i, col in ipairs(columns) do
+  io.write(string.format("  %-" .. widths[i] .. "s", col.name))
+end
+io.write("\n")
+
+-- Print devices
+for addr, info in pairs(devices) do
+  io.write(string.format("%-10s", addr:sub(1, 5) .. "..."))
+  for i, col in ipairs(columns) do
+    local val = info[col.field] or "-"
+    io.write(string.format("  %-" .. widths[i] .. "s", tostring(val)))
+  end
+  io.write("\n")
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/man.lua - Manual pages (stub)
+    // ================================================================
+    val MAN_LUA = """
+local args = {...}
+
+if #args == 0 then
+  io.write("Usage: man <command>\n")
+  io.write("Display manual page for a command.\n")
+  return 1
+end
+
+local cmd = args[1]
+
+-- Built-in help for common commands
+local manPages = {
+  ls = "ls [options] [path] - List directory contents\n  -l  long format\n  -a  show hidden files\n  -h  human-readable sizes",
+  cd = "cd <path> - Change current directory",
+  pwd = "pwd - Print working directory",
+  cat = "cat <file>... - Concatenate and print files",
+  cp = "cp <source> <dest> - Copy files",
+  mv = "mv <source> <dest> - Move/rename files",
+  rm = "rm [-rf] <file>... - Remove files\n  -r  recursive\n  -f  force",
+  mkdir = "mkdir [-p] <dir> - Create directory\n  -p  create parent directories",
+  echo = "echo [text] - Print text",
+  grep = "grep <pattern> <file>... - Search for pattern in files",
+  find = "find [path] [--name=X] [--type=d|f] - Find files",
+  wget = "wget <url> [file] - Download file from URL",
+  edit = "edit <file> - Text editor",
+  components = "components - List components",
+  reboot = "reboot - Restart computer",
+  shutdown = "shutdown - Power off computer",
+}
+
+local page = manPages[cmd]
+if page then
+  io.write(page .. "\n")
+else
+  io.write("No manual entry for " .. cmd .. "\n")
+  io.write("Try '" .. cmd .. " --help' or 'help " .. cmd .. "'\n")
+  return 1
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/mktmp.lua - Create temporary file
+    // ================================================================
+    val MKTMP_LUA = """
+local shell = require("shell")
+local fs = require("filesystem")
+local args, options = shell.parse(...)
+
+if options.help then
+  io.write("Usage: mktmp [-dqv] [path]\n")
+  io.write("  -d  create a directory instead of a file\n")
+  io.write("  -q  quiet mode\n")
+  io.write("  -v  verbose mode\n")
+  return
+end
+
+local tmpdir = args[1] or os.getenv("TMPDIR") or "/tmp"
+local isDir = options.d
+local quiet = options.q
+local verbose = options.v
+
+-- Generate random name
+local function randomName()
+  local chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+  local name = "tmp."
+  for i = 1, 8 do
+    local idx = math.random(1, #chars)
+    name = name .. chars:sub(idx, idx)
+  end
+  return name
+end
+
+-- Ensure tmp directory exists
+if not fs.exists(tmpdir) then
+  fs.makeDirectory(tmpdir)
+end
+
+-- Create unique temp file/dir
+local attempts = 0
+local path
+repeat
+  path = fs.concat(tmpdir, randomName())
+  attempts = attempts + 1
+until not fs.exists(path) or attempts > 100
+
+if fs.exists(path) then
+  io.stderr:write("mktmp: failed to create temp file\n")
+  return 1
+end
+
+if isDir then
+  fs.makeDirectory(path)
+else
+  local f = fs.open(path, "w")
+  if f then f:close() end
+end
+
+if verbose or (not quiet and io.stdout.tty) then
+  io.write(path .. "\n")
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/ps.lua - Process list (simplified)
+    // ================================================================
+    val PS_LUA = """
+local shell = require("shell")
+local args, options = shell.parse(...)
+
+if options.help then
+  io.write("Usage: ps\n")
+  io.write("List running processes (simplified).\n")
+  return
+end
+
+io.write("PID\tNAME\n")
+
+-- In simplified OpenCoudou, we don't have a full process system
+-- Show basic info about current execution context
+local pid = "1"
+local name = os.getenv("_") or "/bin/sh.lua"
+
+io.write(pid .. "\t" .. name .. "\n")
+
+-- If process library is available with list
+local ok, proc = pcall(require, "process")
+if ok and proc and proc.list then
+  for k, v in pairs(proc.list) do
+    local pname = v.path or v.name or "unknown"
+    io.write(tostring(k):sub(1, 8) .. "\t" .. pname .. "\n")
+  end
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/rmdir.lua - Remove empty directory
+    // ================================================================
+    val RMDIR_LUA = """
+local shell = require("shell")
+local fs = require("filesystem")
+local args, options = shell.parse(...)
+
+if options.help then
+  io.write("Usage: rmdir [-pqv] <directory>...\n")
+  io.write("  -p, --parents  remove directory and its empty ancestors\n")
+  io.write("  -q  ignore failures due to non-empty directories\n")
+  io.write("  -v, --verbose  output a diagnostic for each directory\n")
+  return
+end
+
+if #args == 0 then
+  io.stderr:write("rmdir: missing operand\n")
+  return 1
+end
+
+local parents = options.p or options.parents
+local quiet = options.q
+local verbose = options.v or options.verbose
+
+local function isEmpty(path)
+  for _ in fs.list(path) do
+    return false
+  end
+  return true
+end
+
+local function removeDir(path)
+  if not fs.exists(path) then
+    if not quiet then
+      io.stderr:write("rmdir: " .. path .. ": No such file or directory\n")
+    end
+    return false
+  end
+  if not fs.isDirectory(path) then
+    io.stderr:write("rmdir: " .. path .. ": Not a directory\n")
+    return false
+  end
+  if not isEmpty(path) then
+    if not quiet then
+      io.stderr:write("rmdir: " .. path .. ": Directory not empty\n")
+    end
+    return false
+  end
+  
+  if verbose then
+    io.write("rmdir: removing directory, " .. path .. "\n")
+  end
+  return fs.remove(path)
+end
+
+local exitCode = 0
+for _, arg in ipairs(args) do
+  local path = shell.resolve(arg) or arg
+  if not removeDir(path) then
+    exitCode = 1
+  elseif parents then
+    -- Remove parent directories
+    local parent = fs.path(path):gsub("/$", "")
+    while parent and #parent > 1 do
+      if not isEmpty(parent) then break end
+      if not removeDir(parent) then break end
+      parent = fs.path(parent):gsub("/$", "")
+    end
+  end
+end
+return exitCode
+""".trimIndent()
+
+    // ================================================================
+    // /bin/tree.lua - Directory tree
+    // ================================================================
+    val TREE_LUA = """
+local shell = require("shell")
+local fs = require("filesystem")
+local args, options = shell.parse(...)
+
+if options.help then
+  io.write("Usage: tree [-ahlp] [--level=N] [path]\n")
+  io.write("  -a  show hidden files\n")
+  io.write("  -l  use long listing format (show sizes)\n")
+  io.write("  -h  human-readable sizes (with -l)\n")
+  io.write("  -p  append '/' to directories\n")
+  io.write("  --level=N  descend only N levels deep\n")
+  return
+end
+
+local showHidden = options.a
+local longFormat = options.l
+local humanSizes = options.h
+local showSlash = options.p
+local maxLevel = tonumber(options.level) or math.huge
+
+local path = args[1] or "."
+path = shell.resolve(path) or path
+
+if not fs.exists(path) then
+  io.stderr:write("tree: " .. path .. ": No such file or directory\n")
+  return 1
+end
+
+local function humanSize(bytes)
+  if bytes < 1024 then return bytes .. "" end
+  if bytes < 1024 * 1024 then return string.format("%.1fK", bytes / 1024) end
+  return string.format("%.1fM", bytes / (1024 * 1024))
+end
+
+local dirCount, fileCount = 0, 0
+
+local function printTree(dir, prefix, level)
+  if level > maxLevel then return end
+  
+  local entries = {}
+  for file in fs.list(dir) do
+    if showHidden or file:sub(1, 1) ~= "." then
+      entries[#entries + 1] = file
+    end
+  end
+  table.sort(entries)
+  
+  for i, file in ipairs(entries) do
+    local isLast = (i == #entries)
+    local branch = isLast and "└── " or "├── "
+    local full = fs.concat(dir, file)
+    local isDir = fs.isDirectory(full)
+    local name = file
+    
+    if isDir then
+      dirCount = dirCount + 1
+      if showSlash then name = name:gsub("/$", "") .. "/" end
+    else
+      fileCount = fileCount + 1
+    end
+    
+    local line = prefix .. branch .. name
+    if longFormat and not isDir then
+      local sz = fs.size(full) or 0
+      local szStr = humanSizes and humanSize(sz) or tostring(sz)
+      line = prefix .. branch .. "[" .. szStr .. "]  " .. name
+    end
+    io.write(line .. "\n")
+    
+    if isDir then
+      local newPrefix = prefix .. (isLast and "    " or "│   ")
+      printTree(full, newPrefix, level + 1)
+    end
+  end
+end
+
+io.write(path .. "\n")
+if fs.isDirectory(path) then
+  printTree(path, "", 1)
+end
+io.write("\n" .. dirCount .. " directories, " .. fileCount .. " files\n")
+""".trimIndent()
+
+    // ================================================================
+    // /bin/unset.lua - Unset environment variable
+    // ================================================================
+    val UNSET_LUA = """
+local args = {...}
+
+if #args == 0 then
+  io.write("Usage: unset <varname> [<varname2>...]\n")
+  return 1
+end
+
+for _, k in ipairs(args) do
+  os.setenv(k, nil)
+end
+""".trimIndent()
+
+    // ================================================================
+    // /bin/useradd.lua - Add user (stub - not supported)
+    // ================================================================
+    val USERADD_LUA = """
+local args = {...}
+
+if #args == 0 then
+  io.write("Usage: useradd <username>\n")
+  return 1
+end
+
+-- User management is not supported in simplified OpenCoudou
+-- This is a stub for compatibility
+io.stderr:write("useradd: user management not supported\n")
+io.stderr:write("OpenCoudou runs in single-user mode\n")
+return 1
+""".trimIndent()
+
+    // ================================================================
+    // /bin/userdel.lua - Delete user (stub - not supported)
+    // ================================================================
+    val USERDEL_LUA = """
+local args = {...}
+
+if #args == 0 then
+  io.write("Usage: userdel <username>\n")
+  return 1
+end
+
+-- User management is not supported in simplified OpenCoudou
+-- This is a stub for compatibility
+io.stderr:write("userdel: user management not supported\n")
+io.stderr:write("OpenCoudou runs in single-user mode\n")
+return 1
+""".trimIndent()
+
+    // ================================================================
+    // /bin/yes.lua - Repeatedly output a string
+    // ================================================================
+    val YES_LUA = """
+local shell = require("shell")
+local args, options = shell.parse(...)
+
+if options.help or options.h then
+  io.write("Usage: yes [string]...\n")
+  io.write("Repeatedly output a line with STRING, or 'y'.\n")
+  return
+end
+
+if options.version or options.V then
+  io.write("yes (OpenCoudou) 1.0\n")
+  return
+end
+
+local msg = #args > 0 and table.concat(args, " ") or "y"
+msg = msg .. "\n"
+
+while io.write(msg) do
+  if io.stdout.tty then
+    os.sleep(0)
   end
 end
 """.trimIndent()
