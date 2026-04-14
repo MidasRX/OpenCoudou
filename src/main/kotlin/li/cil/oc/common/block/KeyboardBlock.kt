@@ -50,8 +50,8 @@ class KeyboardBlock(properties: Properties) : Block(properties), EntityBlock {
         // So WALL_NORTH means attached to block to the SOUTH, keyboard at z=0 edge
         private val SHAPE_WALL_NORTH = box(1.0, 4.0, 0.0, 15.0, 12.0, 1.0)   // Attached to south, at z=0
         private val SHAPE_WALL_SOUTH = box(1.0, 4.0, 15.0, 15.0, 12.0, 16.0) // Attached to north, at z=15
-        private val SHAPE_WALL_EAST  = box(15.0, 4.0, 1.0, 16.0, 12.0, 15.0) // Attached to west, at x=15
-        private val SHAPE_WALL_WEST  = box(0.0, 4.0, 1.0, 1.0, 12.0, 15.0)   // Attached to east, at x=0
+        private val SHAPE_WALL_EAST  = box(0.0, 4.0, 1.0, 1.0, 12.0, 15.0)   // Attached to west, at x=0
+        private val SHAPE_WALL_WEST  = box(15.0, 4.0, 1.0, 16.0, 12.0, 15.0) // Attached to east, at x=15
         
         // Ceiling attachment (under a block)
         private val SHAPE_CEILING_NORTH = box(1.0, 15.0, 4.0, 15.0, 16.0, 12.0)

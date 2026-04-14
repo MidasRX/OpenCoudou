@@ -10,19 +10,16 @@ import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
 import net.minecraft.core.Direction
-import org.joml.Matrix4f
 
 /**
  * Simple screen renderer that displays TextBuffer contents in the world.
- * Renders background color and text characters.
+ * Renders text on the front face of the screen block.
  */
 class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : BlockEntityRenderer<ScreenBlockEntity> {
     
     companion object {
-        const val CHAR_WIDTH = 6f
-        const val CHAR_HEIGHT = 9f
-        const val Z_OFFSET = 0.001f
-        const val MARGIN = 0.0625f  // 1 pixel margin
+        const val Z_OFFSET = 0.005f      // Small offset to prevent z-fighting
+        const val MARGIN = 2.0f / 16.0f  // 2-pixel bezel from block edge (matches texture)
     }
     
     private val font: Font = context.font
@@ -44,103 +41,79 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
             Direction.NORTH
         }
         
+        // Scale: fit all characters inside the margin area, uniform scale
+        val available = 1.0f - MARGIN * 2
+        val fontScale = minOf(
+            available / (buffer.width  * 6f),
+            available / (buffer.height * 9f)
+        )
+
         poseStack.pushPose()
-        
-        // Transform to face the correct direction
-        // Position at face of block with small offset to prevent z-fighting
+
+        // For each facing we position the origin at the viewer's top-left corner of the
+        // display face, then rotate so that:
+        //   local +X  = viewer's rightward direction on the face
+        //   local +Y  = downward (font's +Y is down in glyph space, matches world -Y)
+        // The XP(180) flip turns world +Y into local -Y (= font downward).
         when (facing) {
+            // Face at z=0; viewer is at z<0 looking +z; text at z=-Z_OFFSET (in front of face)
+            // col 0 = west (x=MARGIN), col increases east
             Direction.NORTH -> {
-                poseStack.translate(1.0 - MARGIN, 1.0 - MARGIN, Z_OFFSET.toDouble())
-                poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(180f))
+                poseStack.translate(MARGIN.toDouble(), (1.0 - MARGIN).toDouble(), -Z_OFFSET.toDouble())
+                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
+            // Face at z=1; viewer is at z>1 looking -z; text at z=1+Z_OFFSET (in front of face)
+            // col 0 = east (x=1-MARGIN), col increases west
             Direction.SOUTH -> {
-                poseStack.translate(MARGIN.toDouble(), 1.0 - MARGIN, 1.0 - Z_OFFSET)
+                poseStack.translate((1.0 - MARGIN).toDouble(), (1.0 - MARGIN).toDouble(), (1.0 + Z_OFFSET).toDouble())
                 poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f))
-                poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(180f))
+                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
-            Direction.WEST -> {
-                poseStack.translate(Z_OFFSET.toDouble(), 1.0 - MARGIN, 1.0 - MARGIN)
-                poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f))
-                poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(180f))
-            }
+            // Face at x=1; viewer is at x>1 looking -x; text at x=1+Z_OFFSET (in front of face)
+            // col 0 = south (z=1-MARGIN), col increases north
             Direction.EAST -> {
-                poseStack.translate(1.0 - Z_OFFSET, 1.0 - MARGIN, MARGIN.toDouble())
+                poseStack.translate((1.0 + Z_OFFSET).toDouble(), (1.0 - MARGIN).toDouble(), (1.0 - MARGIN).toDouble())
+                poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f))
+                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
+            }
+            // Face at x=0; viewer is at x<0 looking +x; text at x=-Z_OFFSET (in front of face)
+            // col 0 = north (z=MARGIN), col increases south
+            Direction.WEST -> {
+                poseStack.translate(-Z_OFFSET.toDouble(), (1.0 - MARGIN).toDouble(), MARGIN.toDouble())
                 poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-90f))
-                poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(180f))
+                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
             else -> {
-                poseStack.translate(1.0 - MARGIN, 1.0 - MARGIN, Z_OFFSET.toDouble())
-                poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(180f))
+                poseStack.translate(MARGIN.toDouble(), (1.0 - MARGIN).toDouble(), -Z_OFFSET.toDouble())
+                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
         }
-        
-        // Screen area (inside margins)
-        val screenWidth = 1f - MARGIN * 2
-        val screenHeight = 1f - MARGIN * 2
-        
-        // Calculate scale to fit all text
-        val textPixelWidth = buffer.width * CHAR_WIDTH
-        val textPixelHeight = buffer.height * CHAR_HEIGHT
-        val scaleX = screenWidth / textPixelWidth
-        val scaleY = screenHeight / textPixelHeight
-        val scale = minOf(scaleX, scaleY)
-        
-        // First render background cells
-        val consumer = bufferSource.getBuffer(RenderType.translucent())
-        val matrix = poseStack.last().pose()
-        
-        poseStack.scale(scale, scale, 1f)
-        
-        for (y in 0 until buffer.height) {
-            for (x in 0 until buffer.width) {
-                val idx = y * buffer.width + x
-                val bg = buffer.bgData[idx]
-                
-                // Only render non-black backgrounds (optimization)
-                if (bg != 0) {
-                    val px = x * CHAR_WIDTH
-                    val py = y * CHAR_HEIGHT
-                    
-                    val r = ((bg shr 16) and 0xFF) / 255f
-                    val g = ((bg shr 8) and 0xFF) / 255f
-                    val b = (bg and 0xFF) / 255f
-                    
-                    // Draw background quad
-                    val scaledMatrix = poseStack.last().pose()
-                    consumer.addVertex(scaledMatrix, px, py, 0f).setColor(r, g, b, 1f).setLight(LightTexture.FULL_BRIGHT).setNormal(0f, 0f, 1f)
-                    consumer.addVertex(scaledMatrix, px, py + CHAR_HEIGHT, 0f).setColor(r, g, b, 1f).setLight(LightTexture.FULL_BRIGHT).setNormal(0f, 0f, 1f)
-                    consumer.addVertex(scaledMatrix, px + CHAR_WIDTH, py + CHAR_HEIGHT, 0f).setColor(r, g, b, 1f).setLight(LightTexture.FULL_BRIGHT).setNormal(0f, 0f, 1f)
-                    consumer.addVertex(scaledMatrix, px + CHAR_WIDTH, py, 0f).setColor(r, g, b, 1f).setLight(LightTexture.FULL_BRIGHT).setNormal(0f, 0f, 1f)
-                }
-            }
-        }
-        
-        // Now render text characters
-        for (y in 0 until buffer.height) {
-            for (x in 0 until buffer.width) {
-                val idx = y * buffer.width + x
+
+        poseStack.scale(fontScale, fontScale, fontScale)
+
+        // Render each character at its (column * 6, row * 9) position in local space
+        for (row in 0 until buffer.height) {
+            for (col in 0 until buffer.width) {
+                val idx = row * buffer.width + col
                 val char = buffer.charData[idx]
-                if (char > 32) {  // Skip space and control characters
-                    val fg = buffer.fgData[idx]
-                    val px = x * CHAR_WIDTH
-                    val py = y * CHAR_HEIGHT
-                    
-                    val charStr = String(Character.toChars(char))
-                    font.drawInBatch(
-                        charStr, 
-                        px + 1f, py + 0.5f,  // Small offset for better centering
-                        fg or (0xFF shl 24),  // Ensure full alpha
-                        false,  // No shadow
-                        poseStack.last().pose(),
-                        bufferSource,
-                        Font.DisplayMode.NORMAL,
-                        0,  // No background
-                        LightTexture.FULL_BRIGHT
-                    )
-                }
+                if (char <= 32) continue
+
+                val fg = buffer.fgData[idx]
+                val charStr = String(Character.toChars(char))
+                font.drawInBatch(
+                    charStr,
+                    col * 6f, row * 9f,
+                    fg or (0xFF shl 24),
+                    false,
+                    poseStack.last().pose(),
+                    bufferSource,
+                    Font.DisplayMode.NORMAL,
+                    0,
+                    LightTexture.FULL_BRIGHT
+                )
             }
         }
-        
+
         poseStack.popPose()
     }
     

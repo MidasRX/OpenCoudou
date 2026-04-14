@@ -210,7 +210,21 @@ object ModPackets {
     
     private fun handleComputerState(packet: ComputerStatePacket, context: IPayloadContext) {
         context.enqueueWork {
-            // Update computer state on client
+            val level = Minecraft.getInstance().level ?: return@enqueueWork
+            val be = level.getBlockEntity(packet.pos)
+            if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
+                be.updateClientState(packet.isRunning)
+            }
+            // Trigger or stop the looping computer sound
+            if (packet.isRunning && !li.cil.oc.client.Sound.isPlaying(packet.pos)) {
+                li.cil.oc.client.Sound.startLoop(
+                    packet.pos,
+                    li.cil.oc.common.init.ModSoundEvents.COMPUTER_RUNNING.get(),
+                    0.5f
+                )
+            } else if (!packet.isRunning) {
+                li.cil.oc.client.Sound.stopLoop(packet.pos)
+            }
         }
     }
     

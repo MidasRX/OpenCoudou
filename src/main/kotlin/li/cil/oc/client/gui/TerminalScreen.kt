@@ -59,28 +59,22 @@ class TerminalScreen(private val screenPos: BlockPos) : Screen(Component.literal
 
     private fun computeLayout() {
         val buf = buffer ?: return
-        // Available space inside the bezel
         val availW = width - (MARGIN + BEZEL) * 2
         val availH = height - (MARGIN + BEZEL) * 2
 
-        // Calculate cell size to fit all characters
-        val maxCellW = availW.toFloat() / buf.width
-        val maxCellH = availH.toFloat() / buf.height
+        // Cap terminal at 65% of the REAL screen pixels so it never fills the whole screen.
+        // `width`/`height` are in GUI-scaled units, so we must factor in guiScale.
+        val mc = minecraft ?: return
+        val guiScale = mc.window.guiScale.toFloat()
+        val maxFontScaleW = (mc.window.screenWidth  * 0.45f) / (buf.width  * 6f * guiScale)
+        val maxFontScaleH = (mc.window.screenHeight * 0.45f) / (buf.height * 9f * guiScale)
 
-        // Use the minimum to keep cells square-ish (slightly taller than wide like a real terminal)
-        val baseCell = minOf(maxCellW, maxCellH * 0.55f)
-        cellW = baseCell
-        cellH = baseCell * 1.8f
+        val scaleX = availW.toFloat() / (buf.width * 6f)
+        val scaleY = availH.toFloat() / (buf.height * 9f)
+        val fontScale = minOf(scaleX, scaleY, maxFontScaleW, maxFontScaleH)
 
-        // If cellH-based layout overflows, re-scale
-        if (cellH * buf.height > availH) {
-            cellH = availH.toFloat() / buf.height
-            cellW = cellH / 1.8f
-        }
-        if (cellW * buf.width > availW) {
-            cellW = availW.toFloat() / buf.width
-            cellH = cellW * 1.8f
-        }
+        cellW = 6f * fontScale
+        cellH = 9f * fontScale
 
         termW = (cellW * buf.width).toInt()
         termH = (cellH * buf.height).toInt()
@@ -138,8 +132,8 @@ class TerminalScreen(private val screenPos: BlockPos) : Screen(Component.literal
                     val scale = cellH / 9f // font is 9px high
                     val poseStack = graphics.pose()
                     poseStack.pushPose()
-                    poseStack.translate(px.toDouble() + 1.0, py.toDouble() + (cellH - 9f * scale) / 2.0 + 1.0, 0.0)
-                    poseStack.scale(scale * 0.9f, scale, 1f)
+                    poseStack.translate(px.toDouble(), py.toDouble(), 0.0)
+                    poseStack.scale(scale, scale, 1f)
                     graphics.drawString(font, charStr, 0, 0, fg or (0xFF shl 24), false)
                     poseStack.popPose()
                 }

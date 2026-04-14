@@ -167,8 +167,10 @@ class SimpleMachine(override val host: MachineHost) : Machine {
         // Use actual memory from installed components
         totalMemory = if (installedComponents.totalMemory > 0) installedComponents.totalMemory else 256 * 1024
         
-        // Create LuaJ architecture
-        val arch = SimpleLuaArchitecture(this)
+        // Reuse an already-loaded architecture (world load / reboot) so that saved
+        // filesystem and EEPROM state is preserved.  Only create a fresh one when
+        // there is nothing to reuse (first-ever boot or after a clean stop).
+        val arch = architecture ?: SimpleLuaArchitecture(this)
         architecture = arch
         
         state = MachineState.STARTING
@@ -365,7 +367,7 @@ class SimpleMachine(override val host: MachineHost) : Machine {
     }
     
     fun loadData(tag: CompoundTag) {
-        state = MachineState.entries.getOrNull(tag.getInt("state")) ?: MachineState.STOPPED
+        val savedState = MachineState.entries.getOrNull(tag.getInt("state")) ?: MachineState.STOPPED
         hasCrashed = tag.getBoolean("crashed")
         if (tag.contains("nodeAddress")) nodeAddress = tag.getString("nodeAddress")
         _node = SimpleNode(nodeAddress)
@@ -376,6 +378,15 @@ class SimpleMachine(override val host: MachineHost) : Machine {
                 architecture = SimpleLuaArchitecture(this)
             }
             architecture?.load(tag.getCompound("architecture"))
+        }
+        // Lua VM state cannot be serialized - if the machine was running when the world
+        // was saved, schedule a clean reboot instead of pretending it is still running
+        // (which would call runThreaded on an uninitialized architecture and do nothing).
+        if (savedState.isRunning || savedState == MachineState.STARTING) {
+            state = MachineState.STOPPED
+            needsReboot = true
+        } else {
+            state = savedState
         }
     }
     

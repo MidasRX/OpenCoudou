@@ -13,6 +13,7 @@ import net.neoforged.api.distmarker.OnlyIn
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.neoforge.client.event.ClientTickEvent
+import net.neoforged.neoforge.common.NeoForge
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -20,11 +21,18 @@ import java.util.concurrent.ConcurrentHashMap
  * Mimics the original OpenComputers sound system.
  */
 @OnlyIn(Dist.CLIENT)
-@EventBusSubscriber(modid = OpenComputers.MOD_ID, value = [Dist.CLIENT])
 object Sound {
     
     // Active looping sounds by position
     private val loopingSounds = ConcurrentHashMap<BlockPos, LoopingSound>()
+    
+    /**
+     * Initialize the sound system - register tick handler
+     */
+    fun init() {
+        NeoForge.EVENT_BUS.addListener(::onClientTick)
+        OpenComputers.LOGGER.debug("Sound system initialized")
+    }
     
     /**
      * Start a looping sound at the given position.
@@ -33,9 +41,12 @@ object Sound {
         if (loopingSounds.containsKey(pos)) return
         
         val mc = Minecraft.getInstance()
+        if (mc.level == null) return  // Don't play sounds if no world
+        
         val instance = LoopingSound(sound, pos, volume)
         loopingSounds[pos] = instance
         mc.soundManager.play(instance)
+        OpenComputers.LOGGER.debug("Started sound at {}", pos)
     }
     
     /**
@@ -45,6 +56,7 @@ object Sound {
         val sound = loopingSounds.remove(pos)
         if (sound != null) {
             sound.markStopped()
+            OpenComputers.LOGGER.debug("Stopped sound at {}", pos)
         }
     }
     
@@ -52,13 +64,6 @@ object Sound {
      * Check if a sound is playing at position.
      */
     fun isPlaying(pos: BlockPos): Boolean = loopingSounds.containsKey(pos)
-    
-    /**
-     * Update volume of all playing sounds (called when volume settings change).
-     */
-    fun updateVolume() {
-        // Sounds auto-update volume from game settings
-    }
     
     /**
      * Stop all sounds (called on world unload).
@@ -69,9 +74,7 @@ object Sound {
         }
     }
     
-    @SubscribeEvent
-    @JvmStatic
-    fun onClientTick(event: ClientTickEvent.Post) {
+    private fun onClientTick(event: ClientTickEvent.Post) {
         // Clean up stopped sounds
         val toRemove = loopingSounds.entries.filter { it.value.isStopped }.map { it.key }
         toRemove.forEach { loopingSounds.remove(it) }

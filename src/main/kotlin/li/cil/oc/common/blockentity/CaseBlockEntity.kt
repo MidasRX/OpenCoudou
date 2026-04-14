@@ -69,8 +69,14 @@ class CaseBlockEntity(
     
     override fun onMachineStateChanged(state: MachineState) {
         setChanged()
-        // Sync to clients
-        level?.sendBlockUpdated(blockPos, blockState, blockState, 3)
+        // Sync power state to all nearby clients via ComputerStatePacket
+        val lvl = level ?: return
+        if (!lvl.isClientSide) {
+            li.cil.oc.network.ModPackets.sendToAllTracking(
+                lvl, blockPos,
+                li.cil.oc.network.ComputerStatePacket(blockPos, state.isRunning, 0.0, 0.0, 0)
+            )
+        }
     }
     
     override fun onComponentConnected(component: Component) {
@@ -268,14 +274,23 @@ class CaseBlockEntity(
     }
     
     override fun handleUpdateTag(tag: CompoundTag, registries: HolderLookup.Provider) {
-        // Called on client when update tag is received
         loadAdditional(tag, registries)
+    }
+
+    /** Called client-side from ComputerStatePacket handler to update power state. */
+    fun updateClientState(powered: Boolean) {
+        _clientPowered = powered
     }
     
     companion object {
         @JvmStatic
         fun tick(level: Level, pos: BlockPos, state: BlockState, blockEntity: CaseBlockEntity) {
             blockEntity._machine?.let { machine ->
+                // Before a world-load reboot, populate installedComponents from inventory
+                // so start() has the correct memory/CPU info (same as togglePower does).
+                if (machine.needsReboot) {
+                    machine.installedComponents = blockEntity.scanInventory()
+                }
                 if (machine.state.isRunning || machine.needsReboot) {
                     machine.update()
                 }

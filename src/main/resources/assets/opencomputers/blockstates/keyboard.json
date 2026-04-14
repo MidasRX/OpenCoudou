@@ -7,7 +7,7 @@
         "face=wall,facing=north": { "model": "opencomputers:block/keyboard", "x": 90 },
         "face=wall,facing=south": { "model": "opencomputers:block/keyboard", "x": 90, "y": 180 },
         "face=wall,facing=east": { "model": "opencomputers:block/keyboard", "x": 90, "y": 90 },
-        "face=wall,facing=west": { "model": "opencomputers:block/keyboard", "x": 90, "y": 2770 },
+        "face=wall,facing=west": { "model": "opencomputers:block/keyboard", "x": 90, "y": 270 },
         "face=ceiling,facing=north": { "model": "opencomputers:block/keyboard", "x": 180 },
         "face=ceiling,facing=south": { "model": "opencomputers:block/keyboard", "x": 180, "y": 180 },
         "face=ceiling,facing=east": { "model": "opencomputers:block/keyboard", "x": 180, "y": 90 },
