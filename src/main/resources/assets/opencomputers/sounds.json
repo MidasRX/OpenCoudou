@@ -2,104 +2,42 @@
   "computer_running": {
     "category": "block",
     "sounds": [
-      {"name": "opencomputers:computer_running", "stream": true}
+      {"name": "computer_running", "stream": true}
     ]
   },
   "floppy_access": {
     "category": "block",
     "sounds": [
-      "opencomputers:floppy_access1",
-      "opencomputers:floppy_access2",
-      "opencomputers:floppy_access3",
-      "opencomputers:floppy_access4",
-      "opencomputers:floppy_access5",
-      "opencomputers:floppy_access6"
+      "floppy_access1",
+      "floppy_access2",
+      "floppy_access3",
+      "floppy_access4",
+      "floppy_access5",
+      "floppy_access6"
     ]
   },
   "floppy_eject": {
     "category": "block",
-    "sounds": ["opencomputers:floppy_eject"]
+    "sounds": [
+      "floppy_eject"
+    ]
   },
   "floppy_insert": {
     "category": "block",
-    "sounds": ["opencomputers:floppy_insert"]
+    "sounds": [
+      "floppy_insert"
+    ]
   },
   "hdd_access": {
     "category": "block",
     "sounds": [
-      "opencomputers:hdd_access1",
-      "opencomputers:hdd_access2",
-      "opencomputers:hdd_access3",
-      "opencomputers:hdd_access4",
-      "opencomputers:hdd_access5",
-      "opencomputers:hdd_access6",
-      "opencomputers:hdd_access7"
+      "hdd_access1",
+      "hdd_access2",
+      "hdd_access3",
+      "hdd_access4",
+      "hdd_access5",
+      "hdd_access6",
+      "hdd_access7"
     ]
-  },
-  "beep": {
-    "category": "block",
-    "sounds": ["opencomputers:beep"]
-  },
-  "robot_start": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_start"]
-  },
-  "robot_stop": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_stop"]
-  },
-  "robot_move": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_move"]
-  },
-  "robot_turn": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_turn"]
-  },
-  "robot_swing": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_swing"]
-  },
-  "robot_use": {
-    "category": "neutral",
-    "sounds": ["opencomputers:robot_use"]
-  },
-  "drone_hover": {
-    "category": "neutral",
-    "sounds": [
-      {"name": "opencomputers:drone_hover", "stream": true}
-    ]
-  },
-  "drone_move": {
-    "category": "neutral",
-    "sounds": ["opencomputers:drone_move"]
-  },
-  "printer_print": {
-    "category": "block",
-    "sounds": ["opencomputers:printer_print"]
-  },
-  "printer_complete": {
-    "category": "block",
-    "sounds": ["opencomputers:printer_complete"]
-  },
-  "assembler_start": {
-    "category": "block",
-    "sounds": ["opencomputers:assembler_start"]
-  },
-  "assembler_complete": {
-    "category": "block",
-    "sounds": ["opencomputers:assembler_complete"]
-  },
-  "click": {
-    "category": "block",
-    "sounds": ["opencomputers:click"]
-  },
-  "power_on": {
-    "category": "block",
-    "sounds": ["opencomputers:power_on"]
-  },
-  "power_off": {
-    "category": "block",
-    "sounds": ["opencomputers:power_off"]
   }
 }

@@ -1,7 +1,6 @@
 package li.cil.oc.common.init
 
 import li.cil.oc.OpenComputers
-import li.cil.oc.Settings
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundEvent
@@ -18,7 +17,7 @@ object ModSoundEvents {
     private val SOUNDS: DeferredRegister<SoundEvent> = 
         DeferredRegister.create(Registries.SOUND_EVENT, OpenComputers.MOD_ID)
     
-    // Computer running sound (the main ambient sound)
+    // Computer running sound (the main ambient loop)
     val COMPUTER_RUNNING: DeferredHolder<SoundEvent, SoundEvent> = registerSound("computer_running")
     
     // Floppy disk sounds
@@ -28,34 +27,6 @@ object ModSoundEvents {
     
     // HDD access sound
     val HDD_ACCESS: DeferredHolder<SoundEvent, SoundEvent> = registerSound("hdd_access")
-    
-    // Beep sounds
-    val BEEP: DeferredHolder<SoundEvent, SoundEvent> = registerSound("beep")
-    
-    // Robot sounds
-    val ROBOT_START: DeferredHolder<SoundEvent, SoundEvent> = registerSound("robot_start")
-    val ROBOT_STOP: DeferredHolder<SoundEvent, SoundEvent> = registerSound("robot_stop")
-    val ROBOT_MOVE: DeferredHolder<SoundEvent, SoundEvent> = registerSound("robot_move")
-    val ROBOT_TURN: DeferredHolder<SoundEvent, SoundEvent> = registerSound("robot_turn")
-    val ROBOT_SWING: DeferredHolder<SoundEvent, SoundEvent> = registerSound("robot_swing")
-    val ROBOT_USE: DeferredHolder<SoundEvent, SoundEvent> = registerSound("robot_use")
-    
-    // Drone sounds
-    val DRONE_HOVER: DeferredHolder<SoundEvent, SoundEvent> = registerSound("drone_hover")
-    val DRONE_MOVE: DeferredHolder<SoundEvent, SoundEvent> = registerSound("drone_move")
-    
-    // Printer sounds
-    val PRINTER_PRINT: DeferredHolder<SoundEvent, SoundEvent> = registerSound("printer_print")
-    val PRINTER_COMPLETE: DeferredHolder<SoundEvent, SoundEvent> = registerSound("printer_complete")
-    
-    // Assembler sounds
-    val ASSEMBLER_START: DeferredHolder<SoundEvent, SoundEvent> = registerSound("assembler_start")
-    val ASSEMBLER_COMPLETE: DeferredHolder<SoundEvent, SoundEvent> = registerSound("assembler_complete")
-    
-    // Generic sounds
-    val CLICK: DeferredHolder<SoundEvent, SoundEvent> = registerSound("click")
-    val POWER_ON: DeferredHolder<SoundEvent, SoundEvent> = registerSound("power_on")
-    val POWER_OFF: DeferredHolder<SoundEvent, SoundEvent> = registerSound("power_off")
     
     // ========================================
     // Helper Methods

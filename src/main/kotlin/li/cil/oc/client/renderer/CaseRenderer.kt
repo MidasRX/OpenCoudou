@@ -2,9 +2,7 @@ package li.cil.oc.client.renderer
 
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
-import li.cil.oc.client.Sound
 import li.cil.oc.common.blockentity.CaseBlockEntity
-import li.cil.oc.common.init.ModSoundEvents
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
@@ -16,7 +14,6 @@ import org.joml.Matrix4f
 /**
  * Renderer for computer case block entities.
  * Shows power status LED indicator on the front of the case.
- * Also manages the looping computer running sound.
  */
 class CaseRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRenderer<CaseBlockEntity> {
     
@@ -45,13 +42,6 @@ class CaseRenderer(ctx: BlockEntityRendererProvider.Context) : BlockEntityRender
         val pos = blockEntity.blockPos
         
         val isPowered = blockEntity.isPowered
-        
-        // Handle sound - start when powered, stop when not
-        if (isPowered && !Sound.isPlaying(pos)) {
-            Sound.startLoop(pos, ModSoundEvents.COMPUTER_RUNNING.get(), 0.5f)
-        } else if (!isPowered && Sound.isPlaying(pos)) {
-            Sound.stopLoop(pos)
-        }
         
         poseStack.pushPose()
         poseStack.translate(0.5, 0.0, 0.5)

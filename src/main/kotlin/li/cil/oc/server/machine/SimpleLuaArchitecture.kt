@@ -852,7 +852,22 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
         comp.set("beep", object : VarArgFunction() {
             override fun invoke(args: Varargs): Varargs {
-                // Play beep sound – stub
+                // Port of original Audio.scala beep using note block sound fallback
+                val frequency = if (args.narg() >= 1 && !args.arg1().isnil()) args.arg1().optint(440) else 440
+                val duration = if (args.narg() >= 2 && !args.arg(2).isnil()) args.arg(2).optint(200) else 200
+                val freq = frequency.coerceIn(20, 2000)
+                
+                val level = machine.host.world()
+                val pos = machine.host.hostPosition()
+                if (level != null) {
+                    val pitch = (freq.toFloat() / 440f).coerceIn(0.5f, 2.0f)
+                    level.playSound(
+                        null, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5,
+                        net.minecraft.sounds.SoundEvents.NOTE_BLOCK_HARP.value(),
+                        net.minecraft.sounds.SoundSource.BLOCKS,
+                        1.0f, pitch
+                    )
+                }
                 return LuaValue.NONE
             }
         })
@@ -1700,7 +1715,31 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
     private fun handleComputerComponentInvoke(method: String, args: List<Any?>): Varargs {
         return when (method) {
-            "beep" -> LuaValue.NONE
+            "beep" -> {
+                // Port of original Audio.scala beep — frequency and duration
+                // Original uses OpenAL square wave synthesis, fallback to note.harp
+                // We use the fallback approach: play note block sound at computed pitch
+                val frequency = (args.getOrNull(0) as? Number)?.toInt() ?: 440
+                val duration = (args.getOrNull(1) as? Number)?.toInt() ?: 200
+                val freq = frequency.coerceIn(20, 2000)
+                
+                val level = machine.host.world()
+                val pos = machine.host.hostPosition()
+                if (level != null) {
+                    // Convert frequency to pitch multiplier (A4 = 440Hz = pitch 1.0)
+                    // MC pitch range is 0.5 to 2.0 (F#3 to F#5)
+                    val pitch = (freq.toFloat() / 440f).coerceIn(0.5f, 2.0f)
+                    level.playSound(
+                        null, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5,
+                        net.minecraft.sounds.SoundEvents.NOTE_BLOCK_HARP.value(),
+                        net.minecraft.sounds.SoundSource.BLOCKS,
+                        1.0f, pitch
+                    )
+                    // If duration > 200ms, schedule additional beeps
+                    // For simplicity, just play one beep (original also limits to single beeps per call)
+                }
+                LuaValue.NONE
+            }
             "start" -> LuaValue.TRUE
             "stop" -> LuaValue.TRUE
             "isRunning" -> LuaValue.TRUE
@@ -2232,6 +2271,22 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
     // ===========================
     // Filesystem Component API
     // ===========================
+    
+    /** Determine which access sound to play for a filesystem address (like original). */
+    private fun filesystemAccessSound(address: String): String? = when (address) {
+        hardDriveAddress -> "hdd_access"
+        lootDiskAddress -> "floppy_access"
+        else -> null // tmpfs = no sound
+    }
+    
+    /** Play disk access sound with 500ms cooldown (like original common/Sound.scala). */
+    private fun playDiskAccessSound(address: String) {
+        val soundName = filesystemAccessSound(address) ?: return
+        val level = machine.host.world() ?: return
+        val pos = machine.host.hostPosition()
+        li.cil.oc.common.Sound.play(level, pos, soundName)
+    }
+    
     private fun handleFilesystemInvoke(address: String, method: String, args: List<Any?>): Varargs {
         val vfs = filesystems[address]
             ?: return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such filesystem")))
@@ -2295,6 +2350,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                     val count = rawCount.coerceAtMost(Int.MAX_VALUE.toDouble()).toInt().coerceAtLeast(0)
                     val data = vfs.read(handle, count)
                     if (data != null && data.isNotEmpty()) {
+                        playDiskAccessSound(address)
                         LuaString.valueOf(data)
                     } else {
                         LuaValue.NIL
@@ -2305,6 +2361,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
                         ?: return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("bad file descriptor")))
                     val data = args.getOrNull(1)?.toString()
                         ?: return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("bad argument")))
+                    playDiskAccessSound(address)
                     LuaValue.valueOf(vfs.write(handle, data.toByteArray(Charsets.ISO_8859_1)))
                 }
                 "seek" -> {

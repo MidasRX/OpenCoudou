@@ -220,12 +220,13 @@ object ModPackets {
             if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
                 be.updateClientState(packet.isRunning)
             }
-            // Trigger or stop the looping computer sound
+            // Trigger or stop the looping computer sound (like original's tile entity state change)
             if (packet.isRunning && !li.cil.oc.client.Sound.isPlaying(packet.pos)) {
                 li.cil.oc.client.Sound.startLoop(
                     packet.pos,
                     li.cil.oc.common.init.ModSoundEvents.COMPUTER_RUNNING.get(),
-                    0.5f
+                    0.5f,
+                    500 // 500ms delay before starting, like original
                 )
             } else if (!packet.isRunning) {
                 li.cil.oc.client.Sound.stopLoop(packet.pos)
@@ -241,7 +242,24 @@ object ModPackets {
     
     private fun handleSoundEffect(packet: SoundEffectPacket, context: IPayloadContext) {
         context.enqueueWork {
-            // Play sound effect
+            val level = Minecraft.getInstance().level ?: return@enqueueWork
+            val soundLocation = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                li.cil.oc.OpenComputers.MOD_ID, packet.soundId
+            )
+            val soundHolder = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT
+                .get(net.minecraft.resources.ResourceKey.create(
+                    net.minecraft.core.registries.Registries.SOUND_EVENT, soundLocation
+                ))
+            if (soundHolder.isPresent) {
+                level.playLocalSound(
+                    packet.pos.x + 0.5, packet.pos.y + 0.5, packet.pos.z + 0.5,
+                    soundHolder.get().value(),
+                    net.minecraft.sounds.SoundSource.BLOCKS,
+                    packet.volume,
+                    packet.pitch,
+                    false
+                )
+            }
         }
     }
     

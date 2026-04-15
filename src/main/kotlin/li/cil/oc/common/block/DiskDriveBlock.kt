@@ -69,6 +69,7 @@ class DiskDriveBlock(properties: Properties) : Block(properties), EntityBlock {
         // If drive has a disk, eject it first
         if (!currentDisk.isEmpty) {
             be.setDisk(net.minecraft.world.item.ItemStack.EMPTY)
+            li.cil.oc.common.Sound.playDiskEject(level, pos)
             if (!player.addItem(currentDisk)) {
                 Containers.dropItemStack(level, pos.x + 0.5, pos.y + 1.0, pos.z + 0.5, currentDisk)
             }
@@ -80,6 +81,7 @@ class DiskDriveBlock(properties: Properties) : Block(properties), EntityBlock {
             val inserted = heldItem.copyWithCount(1)
             heldItem.shrink(1)
             be.setDisk(inserted)
+            li.cil.oc.common.Sound.playDiskInsert(level, pos)
             return InteractionResult.SUCCESS
         }
         
