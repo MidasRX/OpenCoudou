@@ -79,14 +79,6 @@ repositories {
     maven("https://maven.parchmentmc.org")
 }
 
-// Separate configuration to resolve Kotlin JARs for the dev run classpath.
-// NeoForge moddev runs the mod from raw class dirs (not a JAR), so jarJar
-// bundling never applies. We resolve the JARs and add them via additionalRuntimeClasspathFile.
-val kotlinRuntime: Configuration by configurations.creating {
-    isCanBeResolved = true
-    isCanBeConsumed = false
-}
-
 dependencies {
     // LuaJ for embedded Lua runtime - include in mod JAR
     jarJar("org.luaj:luaj-jse:[3.0.1,4.0)") {
@@ -95,51 +87,34 @@ dependencies {
     implementation("org.luaj:luaj-jse:3.0.1")
     runtimeOnly("org.luaj:luaj-jse:3.0.1")
 
-    // Kotlin stdlib - bundled in the mod JAR for production
+    // Kotlin stdlib - bundled in the mod JAR for production.
+    // Also added to additionalRuntimeClasspath so NeoForge dev runs can find it
+    // (dev runs load from raw class dirs, not the JAR, so jarJar doesn't apply).
     jarJar("org.jetbrains.kotlin:kotlin-stdlib:[2.0.0,3.0)") {
         isTransitive = false
     }
     implementation(kotlin("stdlib"))
+    "additionalRuntimeClasspath"("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
 
     // Kotlin coroutines
     jarJar("org.jetbrains.kotlinx:kotlinx-coroutines-core:[1.8.0,2.0)") {
         isTransitive = false
     }
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    "additionalRuntimeClasspath"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
     // Kotlin reflect
     jarJar("org.jetbrains.kotlin:kotlin-reflect:[2.0.0,3.0)") {
         isTransitive = false
     }
     implementation(kotlin("reflect"))
+    "additionalRuntimeClasspath"("org.jetbrains.kotlin:kotlin-reflect:2.1.0")
+
+    // LuaJ also needs to be on the dev run classpath (same reason as Kotlin)
+    "additionalRuntimeClasspath"("org.luaj:luaj-jse:3.0.1")
 
     // JSON handling (Minecraft already has Gson, no need to bundle)
     implementation("com.google.code.gson:gson:2.10.1")
-
-    // Kotlin JARs resolved for dev run injection
-    kotlinRuntime(kotlin("stdlib"))
-    kotlinRuntime("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
-    kotlinRuntime(kotlin("reflect"))
-}
-
-// Write a classpath file listing the Kotlin JARs, then tell every NeoForge run
-// to include it. This is the supported way to add extra JARs to moddev runs.
-val writeKotlinClasspath by tasks.registering {
-    val outFile = layout.buildDirectory.file("kotlin-runtime-classpath.txt")
-    outputs.file(outFile)
-    inputs.files(kotlinRuntime)
-    doLast {
-        outFile.get().asFile.writeText(
-            kotlinRuntime.resolvedConfiguration.resolvedArtifacts
-                .joinToString("\n") { it.file.absolutePath }
-        )
-    }
-}
-
-neoForge.runs.configureEach {
-    additionalRuntimeClasspathFile(writeKotlinClasspath.map {
-        layout.buildDirectory.file("kotlin-runtime-classpath.txt").get().asFile
-    })
 }
 
 tasks.withType<ProcessResources>().configureEach {
