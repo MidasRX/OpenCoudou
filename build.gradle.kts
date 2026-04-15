@@ -85,25 +85,30 @@ dependencies {
         isTransitive = false
     }
     implementation("org.luaj:luaj-jse:3.0.1")
-    
-    // Kotlin stdlib - MUST be bundled since NeoForge doesn't include it
+
+    // Kotlin stdlib - MUST be bundled since NeoForge doesn't include it.
+    // Also added as runtimeOnly so it's on the classpath during dev runs
+    // (jarJar only applies to the built JAR, not the dev run classpath).
     jarJar("org.jetbrains.kotlin:kotlin-stdlib:[2.0.0,3.0)") {
         isTransitive = false
     }
     implementation(kotlin("stdlib"))
-    
+    runtimeOnly("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
+
     // Kotlin coroutines for async Lua execution
     jarJar("org.jetbrains.kotlinx:kotlinx-coroutines-core:[1.8.0,2.0)") {
-        isTransitive = false  
+        isTransitive = false
     }
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
-    
+    runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+
     // Kotlin reflect
     jarJar("org.jetbrains.kotlin:kotlin-reflect:[2.0.0,3.0)") {
         isTransitive = false
     }
     implementation(kotlin("reflect"))
-    
+    runtimeOnly("org.jetbrains.kotlin:kotlin-reflect:2.1.0")
+
     // JSON handling (Minecraft already has Gson, no need to bundle)
     implementation("com.google.code.gson:gson:2.10.1")
 }
