@@ -85,6 +85,7 @@ dependencies {
         isTransitive = false
     }
     implementation("org.luaj:luaj-jse:3.0.1")
+    runtimeOnly("org.luaj:luaj-jse:3.0.1")
 
     // Kotlin stdlib - MUST be bundled since NeoForge doesn't include it.
     // Also added as runtimeOnly so it's on the classpath during dev runs
