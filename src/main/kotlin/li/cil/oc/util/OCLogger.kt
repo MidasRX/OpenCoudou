@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter
  *
  * - Creates a new timestamped log file per game session (e.g. opencomputers-2026-04-16_00-03-14.log)
  * - Default level is INFO — DEBUG messages are suppressed unless explicitly enabled
- * - GPU invoke/result spam is handled at the call site (removed from SimpleLuaArchitecture)
+ * - GPU invoke/result debug logs were removed from SimpleLuaArchitecture
  */
 object OCLogger {
     private val logger = LoggerFactory.getLogger("OpenComputers")
