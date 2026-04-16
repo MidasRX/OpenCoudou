@@ -1623,7 +1623,6 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
 
     // Handle gpu invocations via component.invoke(gpuAddress, method, ...)
     private fun handleGpuInvoke(method: String, args: List<Any?>): Varargs {
-        OCLogger.debug("GPU invoke: $method with ${args.size} args")
         val gpu = globals?.get("gpu") ?: run {
             OCLogger.error("GPU table not found in globals!")
             return LuaValue.NIL
@@ -1634,11 +1633,7 @@ class SimpleLuaArchitecture(override val machine: Machine) : Architecture {
             return LuaValue.varargsOf(arrayOf(LuaValue.NIL, LuaValue.valueOf("no such method: $method")))
         }
         val luaArgs = args.map { convertToLua(it) }.toTypedArray()
-        val result = fn.invoke(LuaValue.varargsOf(luaArgs))
-        if (method == "set" || method == "fill") {
-            OCLogger.debug("GPU $method result: ${result.arg1()}")
-        }
-        return result
+        return fn.invoke(LuaValue.varargsOf(luaArgs))
     }
 
     private var screenIsOn = true
