@@ -142,7 +142,7 @@ class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
             val hasKb = multiBlockHasKeyboard(level, pos, state)
             val isConnected = screenBE?.connectedComputer != null
             
-            OCLogger.info("Screen interaction at $pos - hasKeyboard: $hasKb, connected: $isConnected")
+            OCLogger.debug("Screen interaction at $pos - hasKeyboard: $hasKb, connected: $isConnected")
             
             // Show warning messages but still allow opening screen
             if (!hasKb) {

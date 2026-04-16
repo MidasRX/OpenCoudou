@@ -1,6 +1,8 @@
 # Gradle
+.kotlin/sessions
 .gradle/
 build/
+.eclipse/
 
 # IDE
 .idea/

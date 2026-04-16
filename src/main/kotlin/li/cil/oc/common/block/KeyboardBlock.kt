@@ -46,12 +46,13 @@ class KeyboardBlock(properties: Properties) : Block(properties), EntityBlock {
         private val SHAPE_FLOOR_WEST  = box(4.0, 0.0, 1.0, 12.0, 1.0, 15.0)
         
         // Wall attachment - keyboard sticks out from wall (1px thick, on the wall surface)
-        // Facing = direction keyboard faces (away from wall)
-        // So WALL_NORTH means attached to block to the SOUTH, keyboard at z=0 edge
-        private val SHAPE_WALL_NORTH = box(1.0, 4.0, 0.0, 15.0, 12.0, 1.0)   // Attached to south, at z=0
-        private val SHAPE_WALL_SOUTH = box(1.0, 4.0, 15.0, 15.0, 12.0, 16.0) // Attached to north, at z=15
-        private val SHAPE_WALL_EAST  = box(0.0, 4.0, 1.0, 1.0, 12.0, 15.0)   // Attached to west, at x=0
-        private val SHAPE_WALL_WEST  = box(15.0, 4.0, 1.0, 16.0, 12.0, 15.0) // Attached to east, at x=15
+        // Facing = direction keyboard faces (away from wall = away from screen)
+        // The screen is always BEHIND the keyboard (facing.opposite direction)
+        // So the model must be flush against the BACK face of the keyboard's block space
+        private val SHAPE_WALL_NORTH = box(1.0, 4.0, 15.0, 15.0, 12.0, 16.0) // facing=north, screen to south → z=15..16
+        private val SHAPE_WALL_SOUTH = box(1.0, 4.0, 0.0, 15.0, 12.0, 1.0)   // facing=south, screen to north → z=0..1
+        private val SHAPE_WALL_EAST  = box(0.0, 4.0, 1.0, 1.0, 12.0, 15.0)   // facing=east,  screen to west  → x=0..1
+        private val SHAPE_WALL_WEST  = box(15.0, 4.0, 1.0, 16.0, 12.0, 15.0) // facing=west,  screen to east  → x=15..16
         
         // Ceiling attachment (under a block)
         private val SHAPE_CEILING_NORTH = box(1.0, 15.0, 4.0, 15.0, 16.0, 12.0)
@@ -103,8 +104,8 @@ class KeyboardBlock(properties: Properties) : Block(properties), EntityBlock {
         val supportPos = pos.relative(supportDir)
         val supportState = level.getBlockState(supportPos)
         
-        // Check if support block is solid on the attachment side
-        return supportState.isFaceSturdy(level, supportPos, supportDir.opposite)
+        // Accept any non-air block as support (isFaceSturdy is too strict for mod blocks)
+        return !supportState.isAir
     }
 
     override fun updateShape(
@@ -127,8 +128,11 @@ class KeyboardBlock(properties: Properties) : Block(properties), EntityBlock {
             AttachFace.WALL -> facing.opposite  // Wall is OPPOSITE to where keyboard faces
         }
         
-        if (direction == supportDir && !state.canSurvive(level, pos)) {
-            return Blocks.AIR.defaultBlockState()
+        if (direction == supportDir) {
+            val supportState = level.getBlockState(pos.relative(supportDir))
+            if (supportState.isAir) {
+                return Blocks.AIR.defaultBlockState()
+            }
         }
         
         return super.updateShape(state, level, scheduledTick, pos, direction, neighborPos, neighborState, random)
