@@ -23,7 +23,7 @@ abstract class TieredItem(
         val TIER_NAMES = arrayOf("Tier 1", "Tier 2", "Tier 3", "Creative")
     }
     
-    fun getTierName(): String = TIER_NAMES.getOrElse(tier - 1) { "Unknown" }
+    open fun getTierName(): String = TIER_NAMES.getOrElse(tier) { "Unknown" }
     
     override fun appendHoverText(
         stack: ItemStack,
@@ -54,10 +54,10 @@ abstract class TieredItem(
     }
     
     private fun getTierColor(): Int = when (tier) {
-        1 -> 0xB4B4B4 // Gray
-        2 -> 0xFFFF55 // Yellow
-        3 -> 0x55FFFF // Cyan
-        4 -> 0xFF55FF // Magenta (Creative)
+        0 -> 0xB4B4B4 // Gray   - Tier 1
+        1 -> 0xFFFF55 // Yellow - Tier 2
+        2 -> 0x55FFFF // Cyan   - Tier 3
+        3 -> 0xFF55FF // Magenta - Creative
         else -> 0xFFFFFF
     }
 }
@@ -68,18 +68,18 @@ abstract class TieredItem(
 class CPUItem(properties: Properties, tier: Int) : TieredItem(properties, tier) {
     
     companion object {
-        // Operations per tick by tier
+        // Operations per tick by tier (0-indexed)
         val TIER_SPEED = mapOf(
-            1 to 1.0,    // 100%
-            2 to 1.5,    // 150%
-            3 to 2.0     // 200%
+            0 to 1.0,    // 100%
+            1 to 1.5,    // 150%
+            2 to 2.0     // 200%
         )
         
-        // Max components by tier
+        // Max components by tier (0-indexed)
         val TIER_COMPONENTS = mapOf(
-            1 to 8,
-            2 to 12,
-            3 to 16
+            0 to 8,
+            1 to 12,
+            2 to 16
         )
     }
     
@@ -104,16 +104,20 @@ class CPUItem(properties: Properties, tier: Int) : TieredItem(properties, tier) 
 class MemoryItem(properties: Properties, tier: Int) : TieredItem(properties, tier) {
     
     companion object {
-        // Memory sizes in KB
+        // Memory sizes in KB (0-indexed tiers)
         val TIER_SIZE = mapOf(
-            1 to 192,    // 192 KB
-            2 to 256,    // 256 KB
-            3 to 384,    // 384 KB
-            4 to 512,    // 512 KB
-            5 to 768,    // 768 KB
-            6 to 1024    // 1 MB
+            0 to 192,    // 192 KB  (Tier 1)
+            1 to 256,    // 256 KB  (Tier 1.5)
+            2 to 384,    // 384 KB  (Tier 2)
+            3 to 512,    // 512 KB  (Tier 2.5)
+            4 to 768,    // 768 KB  (Tier 3)
+            5 to 1024    // 1 MB    (Tier 3.5)
         )
+        
+        val MEMORY_TIER_NAMES = arrayOf("Tier 1", "Tier 1.5", "Tier 2", "Tier 2.5", "Tier 3", "Tier 3.5")
     }
+    
+    override fun getTierName(): String = MEMORY_TIER_NAMES.getOrElse(tier) { "Unknown" }
     
     // Map item tier to memory tier (some memory items are Tier 1.5, etc.)
     fun getMemorySize(): Int = TIER_SIZE[tier] ?: 192
@@ -135,11 +139,11 @@ class MemoryItem(properties: Properties, tier: Int) : TieredItem(properties, tie
 class HDDItem(properties: Properties, tier: Int) : TieredItem(properties, tier) {
     
     companion object {
-        // Storage sizes in KB
+        // Storage sizes in KB (0-indexed tiers)
         val TIER_SIZE = mapOf(
-            1 to 1024,   // 1 MB
-            2 to 2048,   // 2 MB
-            3 to 4096    // 4 MB
+            0 to 1024,   // 1 MB
+            1 to 2048,   // 2 MB
+            2 to 4096    // 4 MB
         )
     }
     
@@ -253,25 +257,25 @@ class EEPROMItem(properties: Properties) : Item(properties.stacksTo(1)) {
 class GPUItem(properties: Properties, tier: Int) : TieredItem(properties, tier) {
     
     companion object {
-        // Max resolution by tier
+        // Max resolution by tier (0-indexed)
         val TIER_RESOLUTION = mapOf(
-            1 to Pair(50, 16),
-            2 to Pair(80, 25),
-            3 to Pair(160, 50)
+            0 to Pair(50, 16),
+            1 to Pair(80, 25),
+            2 to Pair(160, 50)
         )
         
-        // Color depth by tier
+        // Color depth by tier (0-indexed)
         val TIER_COLORS = mapOf(
-            1 to 1,      // Monochrome
-            2 to 16,     // 16 colors
-            3 to 256     // 256 colors
+            0 to 1,      // Monochrome
+            1 to 16,     // 16 colors
+            2 to 256     // 256 colors
         )
         
-        // Operations per tick
+        // Operations per tick (0-indexed)
         val TIER_SPEED = mapOf(
-            1 to 1,
-            2 to 4,
-            3 to 8
+            0 to 1,
+            1 to 4,
+            2 to 8
         )
     }
     

@@ -18,7 +18,7 @@ import net.minecraft.core.Direction
 class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : BlockEntityRenderer<ScreenBlockEntity> {
     
     companion object {
-        const val Z_OFFSET = 0.02f       // Offset to put text clearly in front of the block face
+        const val Z_OFFSET = 0.005f      // Just enough to clear the block face without z-fighting
         const val MARGIN = 2.0f / 16.0f  // 2-pixel bezel from block edge (matches texture)
         private var debugLogTimer = 0
     }
@@ -64,35 +64,31 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
         //   local +Y  = downward (font's +Y is down in glyph space, matches world -Y)
         // The XP(180) flip turns world +Y into local -Y (= font downward).
         when (facing) {
-            // Face at z=0; viewer is at z<0 looking +z; text at z=-Z_OFFSET (in front of face)
-            // col 0 = west (x=MARGIN), col increases east
+            // facing=NORTH: display on north face (z=0), viewer looks south at it from z<0
             Direction.NORTH -> {
-                poseStack.translate(MARGIN.toDouble(), (1.0 - MARGIN).toDouble(), -Z_OFFSET.toDouble())
-                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
-            }
-            // Face at z=1; viewer is at z>1 looking -z; text at z=1+Z_OFFSET (in front of face)
-            // col 0 = east (x=1-MARGIN), col increases west
-            Direction.SOUTH -> {
-                poseStack.translate((1.0 - MARGIN).toDouble(), (1.0 - MARGIN).toDouble(), (1.0 + Z_OFFSET).toDouble())
+                poseStack.translate((1.0 - MARGIN).toDouble(), (1.0 - MARGIN).toDouble(), -Z_OFFSET.toDouble())
                 poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f))
                 poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
-            // Face at x=1; viewer is at x>1 looking -x; text at x=1+Z_OFFSET (in front of face)
-            // col 0 = south (z=1-MARGIN), col increases north
-            Direction.EAST -> {
-                poseStack.translate((1.0 + Z_OFFSET).toDouble(), (1.0 - MARGIN).toDouble(), (1.0 - MARGIN).toDouble())
-                poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f))
+            // facing=SOUTH: display on south face (z=1), viewer looks north at it from z>1
+            Direction.SOUTH -> {
+                poseStack.translate(MARGIN.toDouble(), (1.0 - MARGIN).toDouble(), (1.0 + Z_OFFSET).toDouble())
                 poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
-            // Face at x=0; viewer is at x<0 looking +x; text at x=-Z_OFFSET (in front of face)
-            // col 0 = north (z=MARGIN), col increases south
-            Direction.WEST -> {
-                poseStack.translate(-Z_OFFSET.toDouble(), (1.0 - MARGIN).toDouble(), MARGIN.toDouble())
+            // facing=EAST: display on east face (x=1), viewer looks west at it from x>1
+            Direction.EAST -> {
+                poseStack.translate((1.0 + Z_OFFSET).toDouble(), (1.0 - MARGIN).toDouble(), MARGIN.toDouble())
                 poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-90f))
                 poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
+            // facing=WEST: display on west face (x=0), viewer looks east at it from x<0
+            Direction.WEST -> {
+                poseStack.translate(-Z_OFFSET.toDouble(), (1.0 - MARGIN).toDouble(), (1.0 - MARGIN).toDouble())
+                poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f))
+                poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
+            }
             else -> {
-                poseStack.translate(MARGIN.toDouble(), (1.0 - MARGIN).toDouble(), -Z_OFFSET.toDouble())
+                poseStack.translate(MARGIN.toDouble(), (1.0 - MARGIN).toDouble(), (1.0 + Z_OFFSET).toDouble())
                 poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
         }
@@ -115,7 +111,7 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
                     false,
                     poseStack.last().pose(),
                     bufferSource,
-                    Font.DisplayMode.SEE_THROUGH,
+                    Font.DisplayMode.NORMAL,
                     0,
                     LightTexture.FULL_BRIGHT
                 )
@@ -123,11 +119,6 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
         }
 
         poseStack.popPose()
-
-        // Force immediate flush so the SEE_THROUGH text draws after the solid block face
-        // has already written its depth+color. Without this the deferred batch ordering
-        // can cause the face to overdraw the text.
-        (bufferSource as? MultiBufferSource.BufferSource)?.endBatch()
     }
     
     override fun shouldRenderOffScreen(blockEntity: ScreenBlockEntity): Boolean = true
