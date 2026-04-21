@@ -122,6 +122,8 @@ class ScreenBlock(properties: Properties) : Block(properties), EntityBlock {
     }
 
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState {
+        // facing = direction the display faces toward the player
+        // player looks north → screen faces south (toward player) → use .opposite
         val facing = context.horizontalDirection.opposite
         val base = defaultBlockState().setValue(FACING, facing)
         return computeConnections(base, context.level, context.clickedPos)
