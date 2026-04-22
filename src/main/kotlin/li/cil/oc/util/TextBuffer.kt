@@ -34,7 +34,7 @@ class TextBuffer(var width: Int, var height: Int) {
     // Current cursor position
     var cursorX = 0
     var cursorY = 0
-    var cursorBlink = true
+    var cursorBlink = false
     
     // Current drawing colors
     var foreground = 0xFFFFFF

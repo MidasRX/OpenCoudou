@@ -20,7 +20,6 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
     companion object {
         const val Z_OFFSET = 0.005f      // Just enough to clear the block face without z-fighting
         const val MARGIN = 2.0f / 16.0f  // 2-pixel bezel from block edge (matches texture)
-        private var debugLogTimer = 0
     }
     
     private val font: Font = context.font
@@ -36,13 +35,6 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
         val buffer = blockEntity.buffer
         if (buffer.width <= 0 || buffer.height <= 0) return
 
-        // Debug: log buffer state periodically
-        debugLogTimer++
-        if (debugLogTimer % 200 == 0) {
-            val nonSpace = buffer.charData.count { it > 32 }
-            OpenComputers.LOGGER.info("RENDERER: buffer ${buffer.width}x${buffer.height}, nonSpaceChars=$nonSpace, charData[0]=${buffer.charData[0]}")
-        }
-        
         val facing = try {
             blockEntity.blockState.getValue(ScreenBlock.FACING)
         } catch (_: Exception) {
@@ -111,7 +103,7 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
                     false,
                     poseStack.last().pose(),
                     bufferSource,
-                    Font.DisplayMode.NORMAL,
+                    Font.DisplayMode.SEE_THROUGH,
                     0,
                     LightTexture.FULL_BRIGHT
                 )

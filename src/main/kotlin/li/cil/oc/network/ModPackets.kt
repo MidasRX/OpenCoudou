@@ -109,35 +109,38 @@ object ModPackets {
         context.enqueueWork {
             val player = context.player()
             val level = player.level() as? net.minecraft.server.level.ServerLevel ?: return@enqueueWork
-            
-            // Forward keyboard input to the screen's connected computer
+
             val blockEntity = level.getBlockEntity(packet.screenPos)
             if (blockEntity is li.cil.oc.common.blockentity.ScreenBlockEntity) {
-                val connAddr = blockEntity.connectedComputer
-                val kbAddr = blockEntity.keyboardAddress ?: ""
-                if (connAddr != null) {
-                    // Find the CaseBlockEntity that owns this computer
-                    val searchRadius = 16
-                    for (x in -searchRadius..searchRadius) {
-                        for (y in -searchRadius..searchRadius) {
-                            for (z in -searchRadius..searchRadius) {
-                                val checkPos = packet.screenPos.offset(x, y, z)
-                                val be = level.getBlockEntity(checkPos)
-                                if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
-                                    val machine = be.machine
-                                    if (machine != null && machine.node().address == connAddr) {
-                                        if (packet.code == -1) {
-                                            // Clipboard paste: code=-1, char=clipboardText encoded
-                                            // The clipboard text follows as a separate field
-                                            // We stored the text length in char, actual text comes from clipboardText
-                                            machine.signal("clipboard", kbAddr, packet.clipboardText, player.name.string)
-                                        } else {
-                                            // Original OC format: key_down(keyboardAddress, char, code, playerName)
-                                            val signalName = if (packet.isPressed) "key_down" else "key_up"
-                                            machine.signal(signalName, kbAddr, packet.char, packet.code, player.name.string)
-                                        }
-                                        return@enqueueWork
+                val connAddr = blockEntity.connectedComputer ?: return@enqueueWork
+
+                // Require a physical keyboard block adjacent to the screen (or its multi-block)
+                // Check all 6 directions for a KeyboardBlock
+                val hasKeyboard = net.minecraft.core.Direction.values().any { dir ->
+                    level.getBlockState(packet.screenPos.relative(dir)).block is li.cil.oc.common.block.KeyboardBlock
+                }
+                if (!hasKeyboard) return@enqueueWork
+
+                val kbAddr = blockEntity.keyboardAddress?.takeIf { it.isNotEmpty() }
+                    ?: ("kb-" + blockEntity.address)
+
+                // Find the CaseBlockEntity that owns this computer
+                val searchRadius = 16
+                for (x in -searchRadius..searchRadius) {
+                    for (y in -searchRadius..searchRadius) {
+                        for (z in -searchRadius..searchRadius) {
+                            val checkPos = packet.screenPos.offset(x, y, z)
+                            val be = level.getBlockEntity(checkPos)
+                            if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
+                                val machine = be.machine
+                                if (machine != null && machine.node().address == connAddr) {
+                                    if (packet.code == -1) {
+                                        machine.signal("clipboard", kbAddr, packet.clipboardText, player.name.string)
+                                    } else {
+                                        val signalName = if (packet.isPressed) "key_down" else "key_up"
+                                        machine.signal(signalName, kbAddr, packet.char, packet.code, player.name.string)
                                     }
+                                    return@enqueueWork
                                 }
                             }
                         }
@@ -202,13 +205,8 @@ object ModPackets {
         context.enqueueWork {
             val level = Minecraft.getInstance().level ?: return@enqueueWork
             val blockEntity = level.getBlockEntity(packet.pos)
-            OpenComputers.LOGGER.info("CLIENT handleScreenUpdate at ${packet.pos}, width=${packet.width}, height=${packet.height}, dataBytes=${packet.data.size}")
             if (blockEntity is li.cil.oc.common.blockentity.ScreenBlockEntity) {
                 li.cil.oc.common.blockentity.ScreenBlockEntity.applyScreenUpdate(blockEntity, packet)
-                val nonSpace = blockEntity.buffer.charData.count { it > 32 }
-                OpenComputers.LOGGER.info("CLIENT applied screen update: nonSpaceChars=$nonSpace")
-            } else {
-                OpenComputers.LOGGER.warn("CLIENT handleScreenUpdate: no ScreenBlockEntity at ${packet.pos}, found: $blockEntity")
             }
         }
     }

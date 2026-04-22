@@ -112,8 +112,6 @@ class ScreenBlockEntity(
     fun serverTick(level: Level, pos: BlockPos, state: BlockState) {
         if (!needsSync) return
         needsSync = false
-        val nonSpace = buffer.charData.count { it > 32 }
-        OpenComputers.LOGGER.info("SCREEN TICK: sending packet for $pos, nonSpaceChars=$nonSpace")
         val packet = createFullSyncPacket()
         ModPackets.sendToAllTracking(level, pos, packet)
     }
