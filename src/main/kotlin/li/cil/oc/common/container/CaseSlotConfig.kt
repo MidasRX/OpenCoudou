@@ -15,55 +15,54 @@ object CaseSlotConfig {
     const val EEPROM = "eeprom"
     const val FLOPPY = "floppy"
 
-    /** Tier 1: 7 slots */
+    /** Tier 1: 7 slots — 1 card, 1 CPU, 2 memory, 1 HDD, 1 EEPROM + power button */
     private val TIER1 = listOf(
-        SlotDef(CARD,   1,  98, 16),
-        SlotDef(CARD,   1,  98, 34),
-        SlotDef(CPU,    1, 120, 16),
-        SlotDef(MEMORY, 1, 120, 34),
-        SlotDef(MEMORY, 1, 142, 16),
-        SlotDef(HDD,    1, 142, 34),
-        SlotDef(EEPROM, 3,  48, 34),
+        SlotDef(CPU,    1,  98, 18),
+        SlotDef(MEMORY, 1, 116, 18),
+        SlotDef(MEMORY, 1, 134, 18),
+        SlotDef(CARD,   1,  98, 36),
+        SlotDef(HDD,    1, 116, 36),
+        SlotDef(EEPROM, 3, 134, 36),
     )
 
-    /** Tier 2: 8 slots */
+    /** Tier 2: 9 slots */
     private val TIER2 = listOf(
-        SlotDef(CARD,   2,  98, 16),
-        SlotDef(CARD,   1,  98, 34),
-        SlotDef(CPU,    2, 120, 16),
-        SlotDef(MEMORY, 2, 120, 34),
-        SlotDef(MEMORY, 2, 120, 52),
-        SlotDef(HDD,    2, 142, 16),
-        SlotDef(HDD,    1, 142, 34),
-        SlotDef(EEPROM, 3,  48, 34),
+        SlotDef(CPU,    2,  98, 18),
+        SlotDef(MEMORY, 2, 116, 18),
+        SlotDef(MEMORY, 2, 134, 18),
+        SlotDef(CARD,   2,  98, 36),
+        SlotDef(CARD,   1, 116, 36),
+        SlotDef(HDD,    2, 134, 36),
+        SlotDef(HDD,    1,  98, 54),
+        SlotDef(EEPROM, 3, 116, 54),
     )
 
     /** Tier 3: 10 slots */
     private val TIER3 = listOf(
-        SlotDef(CARD,   3,  98, 16),
-        SlotDef(CARD,   2,  98, 34),
-        SlotDef(CARD,   2,  98, 52),
-        SlotDef(CPU,    3, 120, 16),
-        SlotDef(MEMORY, 3, 120, 34),
-        SlotDef(MEMORY, 3, 120, 52),
-        SlotDef(HDD,    3, 142, 16),
-        SlotDef(HDD,    2, 142, 34),
-        SlotDef(FLOPPY, 1, 142, 52),
-        SlotDef(EEPROM, 3,  48, 34),
+        SlotDef(CPU,    3,  98, 18),
+        SlotDef(MEMORY, 3, 116, 18),
+        SlotDef(MEMORY, 3, 134, 18),
+        SlotDef(CARD,   3,  98, 36),
+        SlotDef(CARD,   2, 116, 36),
+        SlotDef(CARD,   2, 134, 36),
+        SlotDef(HDD,    3,  98, 54),
+        SlotDef(HDD,    2, 116, 54),
+        SlotDef(FLOPPY, 1, 134, 54),
+        SlotDef(EEPROM, 3, 152, 18),
     )
 
     /** Creative: 10 slots (all max tier) */
     private val CREATIVE = listOf(
-        SlotDef(CARD,   3,  98, 16),
-        SlotDef(CARD,   3,  98, 34),
-        SlotDef(CARD,   3,  98, 52),
-        SlotDef(CPU,    3, 120, 16),
-        SlotDef(MEMORY, 3, 120, 34),
-        SlotDef(MEMORY, 3, 120, 52),
-        SlotDef(HDD,    3, 142, 16),
-        SlotDef(HDD,    3, 142, 34),
-        SlotDef(FLOPPY, 1, 142, 52),
-        SlotDef(EEPROM, 3,  48, 34),
+        SlotDef(CPU,    3,  98, 18),
+        SlotDef(MEMORY, 3, 116, 18),
+        SlotDef(MEMORY, 3, 134, 18),
+        SlotDef(CARD,   3,  98, 36),
+        SlotDef(CARD,   3, 116, 36),
+        SlotDef(CARD,   3, 134, 36),
+        SlotDef(HDD,    3,  98, 54),
+        SlotDef(HDD,    3, 116, 54),
+        SlotDef(FLOPPY, 1, 134, 54),
+        SlotDef(EEPROM, 3, 152, 18),
     )
 
     fun getSlots(tier: Int): List<SlotDef> = when (tier) {

@@ -10,6 +10,20 @@ import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.entity.player.Inventory
 
+/**
+ * Computer case GUI — uses the vanilla 3-row container background (generic_27.png)
+ * which is exactly 176x166, matching our slot layout.
+ *
+ * generic_27.png layout (176x166, stored in a 256x256 atlas):
+ *   - Top border:        y=0..16   (17px)
+ *   - 3 container rows:  y=17..70  (3 × 18px = 54px)
+ *   - Gap:               y=71..74  (4px)
+ *   - Player inv label:  y=75..82  (8px)  ← we skip this, draw our own
+ *   - Player inv rows:   y=83..136 (3 × 18px = 54px)
+ *   - Gap:               y=137..140 (4px)
+ *   - Hotbar:            y=141..158 (18px)
+ *   - Bottom border:     y=159..165 (7px)
+ */
 class CaseScreen(
     menu: CaseMenu,
     playerInventory: Inventory,
@@ -17,43 +31,28 @@ class CaseScreen(
 ) : AbstractContainerScreen<CaseMenu>(menu, playerInventory, title) {
 
     companion object {
-        private val BACKGROUND = ResourceLocation.fromNamespaceAndPath(
-            OpenComputers.MOD_ID, "textures/gui/computer.png"
-        )
-        private val SLOT_BG = ResourceLocation.fromNamespaceAndPath(
-            OpenComputers.MOD_ID, "textures/gui/slot.png"
-        )
-        private val BUTTON_POWER = ResourceLocation.fromNamespaceAndPath(
-            OpenComputers.MOD_ID, "textures/gui/button_power.png"
-        )
-        private val BUTTON_RUN = ResourceLocation.fromNamespaceAndPath(
-            OpenComputers.MOD_ID, "textures/gui/button_run.png"
-        )
+        // 3-row container = exactly 176x166, perfect for our layout
+        private val BACKGROUND = ResourceLocation.withDefaultNamespace("textures/gui/container/generic_27.png")
+        private val BUTTON_POWER = ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/gui/button_power.png")
+        private val BUTTON_RUN   = ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/gui/button_run.png")
 
-        // Power button position relative to GUI left/top
         private const val POWER_BTN_X = 7
         private const val POWER_BTN_Y = 33
         private const val POWER_BTN_W = 18
         private const val POWER_BTN_H = 18
 
-        private val SLOT_ICONS = mapOf(
-            CaseSlotConfig.CARD to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/card.png"),
-            CaseSlotConfig.CPU to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/cpu.png"),
-            CaseSlotConfig.MEMORY to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/memory.png"),
-            CaseSlotConfig.HDD to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/hdd.png"),
-            CaseSlotConfig.EEPROM to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/eeprom.png"),
-            CaseSlotConfig.FLOPPY to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/floppy.png"),
-        )
-
-        private val TIER_ICONS = mapOf(
-            1 to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/tier0.png"),
-            2 to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/tier1.png"),
-            3 to ResourceLocation.fromNamespaceAndPath(OpenComputers.MOD_ID, "textures/items/icons/tier2.png"),
+        private val SLOT_TYPE_NAMES = mapOf(
+            CaseSlotConfig.CPU    to "CPU Slot",
+            CaseSlotConfig.MEMORY to "Memory Slot",
+            CaseSlotConfig.HDD    to "HDD Slot",
+            CaseSlotConfig.CARD   to "Card Slot",
+            CaseSlotConfig.EEPROM to "EEPROM Slot",
+            CaseSlotConfig.FLOPPY to "Floppy Slot"
         )
     }
 
     init {
-        imageWidth = 176
+        imageWidth  = 176
         imageHeight = 166
         inventoryLabelY = imageHeight - 94
     }
@@ -61,38 +60,27 @@ class CaseScreen(
     private var isPowered = false
 
     override fun renderBg(guiGraphics: GuiGraphics, partialTick: Float, mouseX: Int, mouseY: Int) {
-        guiGraphics.blit(RenderType::guiTextured, BACKGROUND, leftPos, topPos, 0f, 0f, imageWidth, imageHeight, 256, 256)
+        // Draw the full 176x166 background in one blit
+        guiGraphics.blit(
+            RenderType::guiTextured, BACKGROUND,
+            leftPos, topPos,
+            0f, 0f,
+            imageWidth, imageHeight,
+            256, 256
+        )
 
-        // Power button — texture is 36x36: top 18x18 = normal, bottom 18x18 = hovered
+        // Power button
         val btnTex = if (isPowered) BUTTON_RUN else BUTTON_POWER
-        val hovered = mouseX >= leftPos + POWER_BTN_X && mouseX < leftPos + POWER_BTN_X + POWER_BTN_W
-                   && mouseY >= topPos + POWER_BTN_Y && mouseY < topPos + POWER_BTN_Y + POWER_BTN_H
+        val hovered = mouseX in (leftPos + POWER_BTN_X) until (leftPos + POWER_BTN_X + POWER_BTN_W) &&
+                      mouseY in (topPos  + POWER_BTN_Y) until (topPos  + POWER_BTN_Y + POWER_BTN_H)
         val vOffset = if (hovered) 18f else 0f
-        guiGraphics.blit(RenderType::guiTextured, btnTex,
+        guiGraphics.blit(
+            RenderType::guiTextured, btnTex,
             leftPos + POWER_BTN_X, topPos + POWER_BTN_Y,
-            0f, vOffset, POWER_BTN_W, POWER_BTN_H, 36, 36)
-
-        // Draw slot backgrounds and ghost icons for component slots
-        for ((i, def) in menu.slotDefs.withIndex()) {
-            val sx = leftPos + def.x - 1
-            val sy = topPos + def.y - 1
-            // Slot background (18x18)
-            guiGraphics.blit(RenderType::guiTextured, SLOT_BG, sx, sy, 0f, 0f, 18, 18, 18, 18)
-
-            // Ghost icon when slot is empty
-            val slot = menu.slots[i]
-            if (!slot.hasItem()) {
-                val icon = SLOT_ICONS[def.type]
-                if (icon != null) {
-                    guiGraphics.blit(RenderType::guiTextured, icon, sx + 1, sy + 1, 0f, 0f, 16, 16, 16, 16)
-                }
-                // Tier indicator overlay
-                val tierIcon = TIER_ICONS[def.maxTier]
-                if (tierIcon != null) {
-                    guiGraphics.blit(RenderType::guiTextured, tierIcon, sx + 1, sy + 1, 0f, 0f, 16, 16, 16, 16)
-                }
-            }
-        }
+            0f, vOffset,
+            POWER_BTN_W, POWER_BTN_H,
+            36, 36
+        )
     }
 
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
@@ -100,10 +88,36 @@ class CaseScreen(
         renderTooltip(guiGraphics, mouseX, mouseY)
     }
 
+    override fun renderTooltip(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
+        // Show slot type tooltip for empty component slots
+        val hoveredDef = menu.slotDefs.indices.firstOrNull { i ->
+            val def = menu.slotDefs[i]
+            !menu.slots[i].hasItem() &&
+            mouseX in (leftPos + def.x) until (leftPos + def.x + 16) &&
+            mouseY in (topPos  + def.y) until (topPos  + def.y + 16)
+        }?.let { menu.slotDefs[it] }
+
+        if (hoveredDef != null) {
+            val name = SLOT_TYPE_NAMES[hoveredDef.type] ?: hoveredDef.type
+            val tierStr = when (hoveredDef.maxTier) {
+                1 -> " (Tier 1)"
+                2 -> " (up to Tier 2)"
+                3 -> " (up to Tier 3)"
+                else -> ""
+            }
+            guiGraphics.renderTooltip(font, Component.literal(name + tierStr), mouseX, mouseY)
+            return
+        }
+
+        super.renderTooltip(guiGraphics, mouseX, mouseY)
+    }
+
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
         val bx = leftPos + POWER_BTN_X
-        val by = topPos + POWER_BTN_Y
-        if (button == 0 && mouseX >= bx && mouseX < bx + POWER_BTN_W && mouseY >= by && mouseY < by + POWER_BTN_H) {
+        val by = topPos  + POWER_BTN_Y
+        if (button == 0 &&
+            mouseX >= bx && mouseX < bx + POWER_BTN_W &&
+            mouseY >= by && mouseY < by + POWER_BTN_H) {
             isPowered = !isPowered
             minecraft?.gameMode?.handleInventoryButtonClick(menu.containerId, 0)
             return true
