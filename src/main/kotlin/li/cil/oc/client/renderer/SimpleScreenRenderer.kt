@@ -76,15 +76,17 @@ class SimpleScreenRenderer(context: BlockEntityRendererProvider.Context) : Block
                 poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
             // facing=EAST: display on east face (x=1), viewer looks west at it from x>1
+            // viewer right = north = -Z, so local+X → world-Z
             Direction.EAST -> {
-                poseStack.translate((1.0 + Z_OFFSET).toDouble(), (1.0 - MARGIN).toDouble(), MARGIN.toDouble())
-                poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-90f))
+                poseStack.translate((1.0 + Z_OFFSET).toDouble(), (1.0 - MARGIN).toDouble(), (1.0 - MARGIN).toDouble())
+                poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f))
                 poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
             // facing=WEST: display on west face (x=0), viewer looks east at it from x<0
+            // viewer right = south = +Z, so local+X → world+Z
             Direction.WEST -> {
-                poseStack.translate(-Z_OFFSET.toDouble(), (1.0 - MARGIN).toDouble(), (1.0 - MARGIN).toDouble())
-                poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f))
+                poseStack.translate(-Z_OFFSET.toDouble(), (1.0 - MARGIN).toDouble(), MARGIN.toDouble())
+                poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-90f))
                 poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180f))
             }
             else -> {

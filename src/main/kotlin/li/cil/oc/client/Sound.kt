@@ -131,7 +131,10 @@ object Sound {
         val baseVolume: Float
     ) : SoundCommand(whenMs) {
         override fun execute() {
-            if (sources.containsKey(pos)) return
+            if (sources.containsKey(pos)) {
+                OpenComputers.LOGGER.info("Sound: skipping start at $pos (already playing)")
+                return
+            }
             val mc = Minecraft.getInstance()
             if (mc.level == null) return
 
@@ -140,6 +143,7 @@ object Sound {
             val instance = LoopingSound(sound, pos, baseVolume, volume)
             sources[pos] = instance
             mc.soundManager.play(instance)
+            OpenComputers.LOGGER.info("Sound: started loop at $pos (vol=${baseVolume * volume})")
         }
     }
 

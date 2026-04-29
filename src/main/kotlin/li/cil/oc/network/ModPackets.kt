@@ -215,6 +215,7 @@ object ModPackets {
     
     private fun handleComputerState(packet: ComputerStatePacket, context: IPayloadContext) {
         context.enqueueWork {
+            OpenComputers.LOGGER.info("CLIENT handleComputerState: pos=${packet.pos}, isRunning=${packet.isRunning}")
             val level = Minecraft.getInstance().level ?: return@enqueueWork
             val be = level.getBlockEntity(packet.pos)
             if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
@@ -222,6 +223,7 @@ object ModPackets {
             }
             // Trigger or stop the looping computer sound (like original's tile entity state change)
             if (packet.isRunning && !li.cil.oc.client.Sound.isPlaying(packet.pos)) {
+                OpenComputers.LOGGER.info("CLIENT starting loop sound at ${packet.pos}")
                 li.cil.oc.client.Sound.startLoop(
                     packet.pos,
                     li.cil.oc.common.init.ModSoundEvents.COMPUTER_RUNNING.get(),
@@ -229,6 +231,7 @@ object ModPackets {
                     500 // 500ms delay before starting, like original
                 )
             } else if (!packet.isRunning) {
+                OpenComputers.LOGGER.info("CLIENT stopping loop sound at ${packet.pos}")
                 li.cil.oc.client.Sound.stopLoop(packet.pos)
             }
         }

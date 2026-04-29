@@ -109,13 +109,39 @@ class ScreenBlockEntity(
         loadAdditional(tag, registries)
     }
     
+    // Periodic verification: every ~5s confirm the connected case still exists.
+    // If not, clear stale connection and blank the screen.
+    private var verifyTickCounter = 0
+
     fun serverTick(level: Level, pos: BlockPos, state: BlockState) {
+        verifyTickCounter++
+        if (connectedComputer != null && verifyTickCounter >= 100) {
+            verifyTickCounter = 0
+            if (!isConnectedCaseAlive(level, pos)) {
+                connectedComputer = null
+                buffer.clear()
+                needsSync = true
+                setChanged()
+            }
+        }
+
         if (!needsSync) return
         needsSync = false
-        val nonSpace = buffer.charData.count { it > 32 }
-        OpenComputers.LOGGER.info("SCREEN TICK: sending packet for $pos, nonSpaceChars=$nonSpace")
         val packet = createFullSyncPacket()
         ModPackets.sendToAllTracking(level, pos, packet)
+    }
+
+    /** Scan a small area for a CaseBlockEntity whose machine matches our connectedComputer. */
+    private fun isConnectedCaseAlive(level: Level, pos: BlockPos): Boolean {
+        val expected = connectedComputer ?: return false
+        for (dx in -8..8) for (dy in -4..4) for (dz in -8..8) {
+            val be = level.getBlockEntity(pos.offset(dx, dy, dz)) ?: continue
+            if (be is li.cil.oc.common.blockentity.CaseBlockEntity) {
+                val addr = try { be.node()?.address } catch (_: Exception) { null }
+                if (addr == expected) return true
+            }
+        }
+        return false
     }
 
     /** Encode the entire buffer into a ScreenUpdatePacket. */

@@ -93,6 +93,16 @@ class CaseBlockEntity(
         }
         
         val m = _machine!!
+        val lvl = level
+        // Click sound on power-button press
+        if (lvl != null && !lvl.isClientSide) {
+            lvl.playSound(
+                null, blockPos,
+                net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.value(),
+                net.minecraft.sounds.SoundSource.BLOCKS,
+                0.3f, 1.0f
+            )
+        }
         return if (m.state == MachineState.STOPPED || m.state == MachineState.CRASHED) {
             // Scan inventory for installed components
             val components = scanInventory()
@@ -121,6 +131,7 @@ class CaseBlockEntity(
             }
         } else {
             m.stop()
+            disconnectAllScreens()
             bootError = null
             null
         }
@@ -223,6 +234,29 @@ class CaseBlockEntity(
     
     fun shutdown() {
         _machine?.stop()
+        disconnectAllScreens()
+    }
+
+    /**
+     * Disconnect every nearby screen that was bound to this case.
+     * Clears the buffer so the screen no longer shows stale text after the
+     * computer is broken or removed.
+     */
+    private fun disconnectAllScreens() {
+        val lvl = level ?: return
+        if (lvl.isClientSide) return
+        val machineAddr = try { _machine?.node()?.address } catch (_: Exception) { null }
+        for (dx in -8..8) for (dy in -4..4) for (dz in -8..8) {
+            val be = lvl.getBlockEntity(blockPos.offset(dx, dy, dz)) as? ScreenBlockEntity ?: continue
+            // Disconnect either screens bound to this exact machine, or any screen
+            // claiming a connection that no longer exists when machineAddr is null
+            if (machineAddr == null || be.connectedComputer == machineAddr) {
+                be.connectedComputer = null
+                be.buffer.clear()
+                be.markForSync()
+                be.setChanged()
+            }
+        }
     }
     
     fun dropContents(level: Level, pos: BlockPos) {

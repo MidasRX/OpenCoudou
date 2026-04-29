@@ -136,9 +136,6 @@ tasks.withType<ProcessResources>().configureEach {
 
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from({ configurations["jarJar"].filter { it.name.endsWith(".jar") }.map { zipTree(it) } }) {
-        exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
-    }
 }
 
 tasks.withType<JavaCompile>().configureEach {
