@@ -5,6 +5,13 @@ pluginManagement {
         maven { url "https://repo.spongepowered.org/repository/maven-public/" }
     }
 }
+
+// Allows Gradle to auto-provision the JDK 17 toolchain Forge 1.20.1 requires
+// when it isn't installed on the build machine.
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
 rootProject.name = "oc2r-${minecraft_version}-${minecraft_sdk}"
 
 def substituteLocal(final directoryName, final libraryName) {

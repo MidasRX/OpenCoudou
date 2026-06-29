@@ -135,8 +135,8 @@ public final class ComputerRenderer implements BlockEntityRenderer<ComputerBlock
     ///////////////////////////////////////////////////////////////////
 
     private void renderTerminal(final ComputerBlockEntity computer, final PoseStack stack, final MultiBufferSource bufferSource, final Vec3 cameraPosition) {
-        // Render terminal content if close enough.
-        if (Vec3.atCenterOf(computer.getBlockPos()).closerThan(cameraPosition, 6f)) {
+        // Render live terminal content if close enough (beyond this we fall back to a static texture).
+        if (Vec3.atCenterOf(computer.getBlockPos()).closerThan(cameraPosition, 24f)) {
             stack.pushPose();
             stack.translate(2, 2, -0.9f);
 

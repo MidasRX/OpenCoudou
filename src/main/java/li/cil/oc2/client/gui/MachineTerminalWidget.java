@@ -26,15 +26,18 @@ import java.nio.charset.StandardCharsets;
 
 @OnlyIn(Dist.CLIENT)
 public final class MachineTerminalWidget {
-    private static final int TERMINAL_WIDTH = Terminal.WIDTH * Terminal.CHAR_WIDTH / 2;
-    private static final int TERMINAL_HEIGHT = Terminal.HEIGHT * Terminal.CHAR_HEIGHT / 2;
-
     private static final int MARGIN_SIZE = 8;
     private static final int TERMINAL_X = MARGIN_SIZE;
     private static final int TERMINAL_Y = MARGIN_SIZE;
 
-    public static final int WIDTH = Sprites.TERMINAL_SCREEN.width;
-    public static final int HEIGHT = Sprites.TERMINAL_SCREEN.height;
+    // Black panel that fills the screen; the terminal is rendered inside it preserving aspect ratio
+    // (centered, never stretched) so it's as large as the viewport allows without distortion.
+    private int panelWidth = Sprites.TERMINAL_SCREEN.width;
+    private int panelHeight = Sprites.TERMINAL_SCREEN.height;
+    private int renderWidth = panelWidth - MARGIN_SIZE * 2;
+    private int renderHeight = panelHeight - MARGIN_SIZE * 2;
+    private int renderX = MARGIN_SIZE;
+    private int renderY = MARGIN_SIZE;
 
     ///////////////////////////////////////////////////////////////////
 
@@ -57,18 +60,15 @@ public final class MachineTerminalWidget {
     public void renderBackground(final GuiGraphics graphics, final int mouseX, final int mouseY) {
         isMouseOverTerminal = isMouseOverTerminal(mouseX, mouseY);
 
-        Sprites.TERMINAL_SCREEN.draw(graphics, leftPos, topPos);
-
-        if (shouldCaptureInput()) {
-            Sprites.TERMINAL_FOCUSED.draw(graphics, leftPos, topPos);
-        }
+        // Solid black terminal panel filling the screen (no distracting border).
+        graphics.fill(leftPos, topPos, leftPos + panelWidth, topPos + panelHeight, 0xFF000000);
     }
 
     public void render(final GuiGraphics graphics, @Nullable final Component error) {
         if (container.getVirtualMachine().isRunning()) {
             final PoseStack terminalStack = new PoseStack();
-            terminalStack.translate(leftPos + TERMINAL_X, topPos + TERMINAL_Y, 0);
-            terminalStack.scale(TERMINAL_WIDTH / (float) terminal.getWidth(), TERMINAL_HEIGHT / (float) terminal.getHeight(), 1f);
+            terminalStack.translate(leftPos + renderX, topPos + renderY, 0);
+            terminalStack.scale(renderWidth / (float) terminal.getWidth(), renderHeight / (float) terminal.getHeight(), 1f);
 
             if (rendererView == null) {
                 rendererView = terminal.getRenderer();
@@ -81,14 +81,14 @@ public final class MachineTerminalWidget {
             final Font font = getClient().font;
             if (error != null) {
                 final int textWidth = font.width(error);
-                final int textOffsetX = (TERMINAL_WIDTH - textWidth) / 2;
-                final int textOffsetY = (TERMINAL_HEIGHT - font.lineHeight) / 2;
+                final int textOffsetX = (renderWidth - textWidth) / 2;
+                final int textOffsetY = (renderHeight - font.lineHeight) / 2;
                 drawShadow(
                     font,
                     graphics,
                     error,
-                    leftPos + TERMINAL_X + textOffsetX,
-                    topPos + TERMINAL_Y + textOffsetY
+                    leftPos + renderX + textOffsetX,
+                    topPos + renderY + textOffsetY
                 );
             }
         }
@@ -233,10 +233,10 @@ public final class MachineTerminalWidget {
     }
 
     private Vector2i getMousePosition(double x, double y) {
-        int tx = TERMINAL_WIDTH / Terminal.WIDTH;
-        int ty = TERMINAL_HEIGHT / Terminal.HEIGHT;
-        int sx = (int)(((x - leftPos) - MachineTerminalWidget.TERMINAL_X) / tx) + 1;
-        int sy = (int)(((y - topPos) - MachineTerminalWidget.TERMINAL_Y) / ty) + 1;
+        final double tx = renderWidth / (double) Terminal.WIDTH;
+        final double ty = renderHeight / (double) Terminal.HEIGHT;
+        int sx = (int)(((x - leftPos) - renderX) / tx) + 1;
+        int sy = (int)(((y - topPos) - renderY) / ty) + 1;
 
         return new Vector2i(sx, sy);
     }
@@ -282,8 +282,20 @@ public final class MachineTerminalWidget {
     }
 
     public void init() {
-        this.leftPos = (parent.width - WIDTH) / 2;
-        this.topPos = (parent.height - HEIGHT) / 2;
+        this.panelWidth = parent.getPanelWidth();
+        this.panelHeight = parent.getPanelHeight();
+        this.leftPos = parent.getPanelLeft();
+        this.topPos = parent.getPanelTop();
+
+        final int availWidth = panelWidth - MARGIN_SIZE * 2;
+        final int availHeight = panelHeight - MARGIN_SIZE * 2;
+        final float nativeWidth = terminal.getWidth();   // WIDTH * CHAR_WIDTH
+        final float nativeHeight = terminal.getHeight();  // HEIGHT * CHAR_HEIGHT
+        final float scale = Math.min(availWidth / nativeWidth, availHeight / nativeHeight);
+        this.renderWidth = Math.round(nativeWidth * scale);
+        this.renderHeight = Math.round(nativeHeight * scale);
+        this.renderX = (panelWidth - renderWidth) / 2;
+        this.renderY = (panelHeight - renderHeight) / 2;
     }
 
     public void onClose() {
@@ -306,7 +318,6 @@ public final class MachineTerminalWidget {
 
     private boolean isMouseOverTerminal(final int mouseX, final int mouseY) {
         return parent.isMouseOver(mouseX, mouseY,
-            MachineTerminalWidget.TERMINAL_X, MachineTerminalWidget.TERMINAL_Y,
-            MachineTerminalWidget.TERMINAL_WIDTH, MachineTerminalWidget.TERMINAL_HEIGHT);
+            renderX, renderY, renderWidth, renderHeight);
     }
 }

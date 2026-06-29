@@ -55,7 +55,6 @@ public final class ItemGroup {
             output.accept(Items.CPU_TIER_4.get());
             output.accept(Items.CPU_TIER_INF.get());
             output.accept(Items.FLASH_MEMORY.get());
-            output.accept(Items.FLASH_MEMORY_CUSTOM.get());
             output.accept(Items.FLOPPY.get());
             output.accept(Items.FLOPPY_MODERN.get());
             output.accept(Items.REDSTONE_INTERFACE_CARD.get());

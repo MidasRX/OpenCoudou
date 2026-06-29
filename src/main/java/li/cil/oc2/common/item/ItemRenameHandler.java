@@ -18,7 +18,6 @@ public final class ItemRenameHandler {
     private static final Map<String, Supplier<Item>> RENAMES = Util.make(() -> {
         final Map<String, Supplier<Item>> map = new HashMap<>();
 
-        map.put("flash_memory_buildroot", Items.FLASH_MEMORY_CUSTOM::get);
 
         return map;
     });

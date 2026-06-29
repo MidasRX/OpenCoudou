@@ -43,6 +43,8 @@
   "item.oc2r.cpu_tier_3.desc": "Processes computer instructions.",
   "item.oc2r.cpu_tier_4": "CPU Tier 4",
   "item.oc2r.cpu_tier_4.desc": "Processes computer instructions.",
+  "item.oc2r.cpu_tier_inf": "CPU (Creative)",
+  "item.oc2r.cpu_tier_inf.desc": "Processes computer instructions at maximum speed.",
   "item.oc2r.network_cable": "Network Cable",
   "item.oc2r.network_cable.desc": "Connects Network Connectors.",
   "item.oc2r.memory": "Memory",

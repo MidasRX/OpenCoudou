@@ -66,7 +66,7 @@ public class CH2 extends CSISequenceHandler { // Combined Handler 2 (SM & DECSET
                     terminal.setCursorPos(0, 0);
                     terminal.currentPrivateModeState.ALT_BUFFER = true;
                     int dirtyLinesMask = 0;
-                    for (int j = 0; j <= 23; j++) {
+                    for (int j = 0; j < Terminal.HEIGHT; j++) {
                         dirtyLinesMask |= 1 << j;
                     }
                     final int finalDirtyLinesMask = dirtyLinesMask;
@@ -142,7 +142,7 @@ public class CH2 extends CSISequenceHandler { // Combined Handler 2 (SM & DECSET
                     terminal.setCursorPos(0, 0);
                     terminal.currentPrivateModeState.SWITCH_ALT_BUFFER = true;
                     int dirtyLinesMask = 0;
-                    for (int j = 0; j <= 23; j++) {
+                    for (int j = 0; j < Terminal.HEIGHT; j++) {
                         dirtyLinesMask |= 1 << j;
                     }
                     final int finalDirtyLinesMask = dirtyLinesMask;
@@ -170,7 +170,7 @@ public class CH2 extends CSISequenceHandler { // Combined Handler 2 (SM & DECSET
                     terminal.setCursorPos(0, 0);
                     terminal.currentPrivateModeState.SAVE_CLEAR_AND_SWITCH = true;
                     int dirtyLinesMask = 0;
-                    for (int j = 0; j <= 23; j++) {
+                    for (int j = 0; j < Terminal.HEIGHT; j++) {
                         dirtyLinesMask |= 1 << j;
                     }
                     final int finalDirtyLinesMask = dirtyLinesMask;

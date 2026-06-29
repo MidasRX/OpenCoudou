@@ -24,6 +24,7 @@ import li.cil.oc2.common.network.message.ComputerBootErrorMessage;
 import li.cil.oc2.common.network.message.ComputerBusStateMessage;
 import li.cil.oc2.common.network.message.ComputerRunStateMessage;
 import li.cil.oc2.common.network.message.ComputerTerminalOutputMessage;
+import li.cil.oc2.common.machine.LuaComputerVirtualMachine;
 import li.cil.oc2.common.serialization.NBTSerialization;
 import li.cil.oc2.common.util.*;
 import li.cil.oc2.common.vm.*;
@@ -78,7 +79,7 @@ public final class ComputerBlockEntity extends ModBlockEntity implements Termina
     private final ComputerBusElement busElement = new ComputerBusElement();
     private final ComputerItemStackHandlers deviceItems = new ComputerItemStackHandlers();
     private final FixedEnergyStorage energy = new FixedEnergyStorage(Config.computerEnergyStorage);
-    private final ComputerVirtualMachine virtualMachine = new ComputerVirtualMachine(new BlockDeviceBusController(busElement, Config.computerEnergyPerTick, this), deviceItems::getDeviceAddressBase);
+    private final LuaComputerVirtualMachine virtualMachine = new LuaComputerVirtualMachine(new BlockDeviceBusController(busElement, Config.computerEnergyPerTick, this), new ComputerVMListener());
     private final Set<Player> terminalUsers = Collections.newSetFromMap(new WeakHashMap<>());
     private boolean captureInputState;
 
@@ -290,8 +291,6 @@ public final class ComputerBlockEntity extends ModBlockEntity implements Termina
         super.loadServer();
 
         assert level != null;
-
-        virtualMachine.state.builtinDevices.rtcMinecraft.setLevel(level);
     }
 
     @Override
@@ -417,93 +416,69 @@ public final class ComputerBlockEntity extends ModBlockEntity implements Termina
         }
     }
 
-    private final class ComputerVMRunner extends AbstractTerminalVMRunner {
-        public ComputerVMRunner(final AbstractVirtualMachine virtualMachine, final Terminal terminal) {
-            super(virtualMachine, terminal);
+    private final class ComputerVMListener implements LuaComputerVirtualMachine.Listener {
+        @Override
+        public double energy() {
+            return energy.getEnergyStored();
         }
 
         @Override
-        protected void sendTerminalUpdateToClient(final ByteBuffer output) {
-            sendToClientsTrackingComputer(new ComputerTerminalOutputMessage(ComputerBlockEntity.this, output));
-        }
-    }
-
-    private final class ComputerVirtualMachine extends AbstractVirtualMachine {
-        private ComputerVirtualMachine(final CommonDeviceBusController busController, final BaseAddressProvider baseAddressProvider) {
-            super(busController);
-            state.vmAdapter.setBaseAddressProvider(baseAddressProvider);
+        public double maxEnergy() {
+            return energy.getMaxEnergyStored();
         }
 
         @Override
-        public void setRunStateClient(final VMRunState value) {
-            super.setRunStateClient(value);
-
-            if (value == VMRunState.RUNNING) {
-                if (!LoopingSoundManager.isPlaying(ComputerBlockEntity.this) && level != null) {
-                    LoopingSoundManager.play(ComputerBlockEntity.this, SoundEvents.COMPUTER_RUNNING.get(), level.getRandom().nextInt(MAX_RUNNING_SOUND_DELAY));
+        public long installedMemory() {
+            long total = 0;
+            final var handler = deviceItems.getItemHandler(DeviceTypes.MEMORY);
+            if (handler.isPresent()) {
+                final var items = handler.get();
+                for (int slot = 0; slot < items.getSlots(); slot++) {
+                    final ItemStack stack = items.getStackInSlot(slot);
+                    if (stack.getItem() instanceof final li.cil.oc2.common.item.AbstractStorageItem memory) {
+                        total += (long) memory.getCapacity(stack) * stack.getCount();
+                    }
                 }
-            } else {
-                LoopingSoundManager.stop(ComputerBlockEntity.this);
             }
+            return total;
         }
 
         @Override
-        public void tick() {
-            assert level != null;
-
-            if (isRunning()) {
-                ChunkUtils.setLazyUnsaved(level, getBlockPos());
-                busController.setDeviceContainersChanged();
-            }
-
-            super.tick();
-        }
-
-        @Override
-        protected boolean consumeEnergy(final int amount, final boolean simulate) {
-            if (!Config.computersUseEnergy()) {
-                return true;
-            }
-
-            if (amount > energy.getEnergyStored()) {
-                return false;
-            }
-
-            energy.extractEnergy(amount, simulate);
-            return true;
-        }
-
-        @Override
-        protected void stopRunnerAndReset() {
-            super.stopRunnerAndReset();
-
-            TerminalUtils.resetTerminal(terminal, output -> sendToClientsTrackingComputer(new ComputerTerminalOutputMessage(ComputerBlockEntity.this, output)));
-        }
-
-        @Override
-        protected AbstractTerminalVMRunner createRunner() {
-            return new ComputerVMRunner(this, terminal);
-        }
-
-        @Override
-        protected void handleBusStateChanged(final CommonDeviceBusController.BusState value) {
+        public void onBusStateChanged(final CommonDeviceBusController.BusState value) {
             sendToClientsTrackingComputer(new ComputerBusStateMessage(ComputerBlockEntity.this, value));
 
             if (value == CommonDeviceBusController.BusState.READY && level != null) {
-                // Bus just became ready, meaning new devices may be available, meaning new
-                // capabilities may be available, so we need to tell our neighbors.
+                // Bus just became ready, meaning new devices/capabilities may be available.
                 level.updateNeighborsAt(getBlockPos(), getBlockState().getBlock());
             }
         }
 
         @Override
-        protected void handleRunStateChanged(final VMRunState value) {
+        public void onRunStateChanged(final VMRunState value) {
             sendToClientsTrackingComputer(new ComputerRunStateMessage(ComputerBlockEntity.this, value));
+
+            if (value == VMRunState.STOPPED) {
+                TerminalUtils.resetTerminal(terminal, output ->
+                    sendToClientsTrackingComputer(new ComputerTerminalOutputMessage(ComputerBlockEntity.this, output)));
+            }
         }
 
         @Override
-        protected void handleBootErrorChanged(@Nullable final Component value) {
+        public void onBootErrorChanged(@Nullable final Component value) {
             sendToClientsTrackingComputer(new ComputerBootErrorMessage(ComputerBlockEntity.this, value));
+        }
+
+        @Override
+        public void terminalOutput(final byte[] bytes) {
+            // Apply to the authoritative server-side terminal (also serialized for new viewers)...
+            terminal.putOutput(ByteBuffer.wrap(bytes));
+            // ...and stream the same bytes to clients currently viewing this computer.
+            sendToClientsTrackingComputer(new ComputerTerminalOutputMessage(ComputerBlockEntity.this, ByteBuffer.wrap(bytes)));
+        }
+
+        @Override
+        public int readInput() {
+            return terminal.readInput();
         }
     }
 }

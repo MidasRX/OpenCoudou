@@ -53,7 +53,7 @@ public class CH3 extends CSISequenceHandler { // Combined Handler 3 (RM & DECRST
                 case 47 -> {
                     terminal.currentPrivateModeState.ALT_BUFFER = false;
                     int dirtyLinesMask = 0;
-                    for (int j = 0; j <= 23; j++) {
+                    for (int j = 0; j < Terminal.HEIGHT; j++) {
                         dirtyLinesMask |= 1 << j;
                     }
                     final int finalDirtyLinesMask = dirtyLinesMask;
@@ -92,7 +92,7 @@ public class CH3 extends CSISequenceHandler { // Combined Handler 3 (RM & DECRST
                 case 1047 -> {
                     terminal.currentPrivateModeState.SWITCH_ALT_BUFFER = false;
                     int dirtyLinesMask = 0;
-                    for (int j = 0; j <= 23; j++) {
+                    for (int j = 0; j < Terminal.HEIGHT; j++) {
                         dirtyLinesMask |= 1 << j;
                     }
                     final int finalDirtyLinesMask = dirtyLinesMask;
@@ -118,7 +118,7 @@ public class CH3 extends CSISequenceHandler { // Combined Handler 3 (RM & DECRST
                         terminal.y = terminal.savedY;
                     }
                     int dirtyLinesMask = 0;
-                    for (int j = 0; j <= 23; j++) {
+                    for (int j = 0; j < Terminal.HEIGHT; j++) {
                         dirtyLinesMask |= 1 << j;
                     }
                     final int finalDirtyLinesMask = dirtyLinesMask;

@@ -137,6 +137,12 @@ dependencies {
     // implementation "curse.maven:sedna-511276:3885542"
     minecraftLibrary "org.apache.commons:commons-collections4:${apache_commons_version}"
 
+    // Lua engine for the native (non-emulated) computer architecture. Pure Java, no native libs.
+    minecraftLibrary "org.luaj:luaj-jse:${luaj_version}"
+    jarJar(group: 'org.luaj', name: 'luaj-jse', version: "[${luaj_version},)") {
+        jarJar.pin(it, luaj_version)
+    }
+
     implementation fg.deobf("curse.maven:architectury-api-${architectury_project_id}:${architectury_file_id}")
     implementation fg.deobf("curse.maven:markdownmanual-${markdownmanual_project_id}:${markdownmanual_file_id}")
 

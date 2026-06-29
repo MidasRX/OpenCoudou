@@ -23,9 +23,9 @@ public final class GuiUtils {
     private static final Map<DeviceType, Component> WARNING_BY_DEVICE_TYPE = Util.make(() -> {
         final HashMap<DeviceType, Component> map = new HashMap<>();
 
-        map.put(DeviceTypes.FLASH_MEMORY, text("tooltip.{mod}.flash_memory_missing"));
+        // The Lua machine boots from a built-in EEPROM/BIOS and ships OpenOS on a built-in filesystem,
+        // so flash memory and a hard drive are OPTIONAL. Only a CPU (and some RAM) is needed.
         map.put(DeviceTypes.MEMORY, text("tooltip.{mod}.memory_missing"));
-        map.put(DeviceTypes.HARD_DRIVE, text("tooltip.{mod}.hard_drive_missing"));
         map.put(DeviceTypes.CPU, text("tooltip.{mod}.cpu_missing"));
 
         return map;

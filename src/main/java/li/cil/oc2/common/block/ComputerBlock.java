@@ -217,7 +217,7 @@ public final class ComputerBlock extends HorizontalDirectionalBlock implements E
 
         final CompoundTag itemsTag = NBTUtils.getOrCreateChildTag(computer.getOrCreateTag(), BLOCK_ENTITY_TAG_NAME_IN_ITEM, ITEMS_TAG_NAME);
         itemsTag.put(DeviceTypes.FLASH_MEMORY.getName().toString(), makeInventoryTag(
-            new ItemStack(Items.FLASH_MEMORY_CUSTOM.get())
+            new ItemStack(Items.FLASH_MEMORY.get())
         ));
 
         return computer;

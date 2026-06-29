@@ -19,8 +19,8 @@ public class RIS {
         terminal.style = Terminal.DEFAULT_STYLE;
         terminal.currentModeState = new ModeState();
         terminal.currentPrivateModeState = new PrivateModeState();
-        terminal.lastRowToDisplay = 24;
-        terminal.lastRowToDisplayMax = 24;
+        terminal.lastRowToDisplay = Terminal.HEIGHT;
+        terminal.lastRowToDisplayMax = Terminal.HEIGHT;
         terminal.drawingModeG0 = Terminal.DrawingMode.ASCII;
         terminal.drawingModeG1 = Terminal.DrawingMode.ASCII;
         terminal.useG0 = true;

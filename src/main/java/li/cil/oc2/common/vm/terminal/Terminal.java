@@ -33,7 +33,7 @@ public class Terminal {
     public boolean Use1006 = false;
 
     // Constants
-    public static final int WIDTH = 80, HEIGHT = 24;
+    public static final int WIDTH = 160, HEIGHT = 50;
     public static final int CHAR_WIDTH = 8;
     public static final int CHAR_HEIGHT = 16;
 
@@ -80,7 +80,7 @@ public class Terminal {
     public int scrollFirst = 0, scrollLast = HEIGHT - 1;
     public int x, y;
     public int savedX, savedY, altSavedX, altSavedY;
-    public int lastRowToDisplay = 24, lastRowToDisplayMax = 24;
+    public int lastRowToDisplay = HEIGHT, lastRowToDisplayMax = HEIGHT;
 
     // Alt Buffer
     public final int[] altBuffer = new int[WIDTH * HEIGHT];
@@ -243,7 +243,7 @@ public class Terminal {
         }
 
         int dirtyLinesMask = 0;
-        for (int i = 0; i <= 23; i++) {
+        for (int i = 0; i < HEIGHT; i++) {
             dirtyLinesMask |= 1 << i;
         }
         final int finalDirtyLinesMask = dirtyLinesMask;
@@ -252,9 +252,9 @@ public class Terminal {
 
     public void decrementLastLineToDisplay() {
         if (scrollFirst != 0 || scrollLast != HEIGHT - 1) return;
-        lastRowToDisplay = Math.max(lastRowToDisplay - 1, 24);
+        lastRowToDisplay = Math.max(lastRowToDisplay - 1, HEIGHT);
         int dirtyLinesMask = 0;
-        for (int i = 0; i <= 23; i++) {
+        for (int i = 0; i < HEIGHT; i++) {
             dirtyLinesMask |= 1 << i;
         }
         final int finalDirtyLinesMask = dirtyLinesMask;
@@ -392,7 +392,7 @@ public class Terminal {
         } else {
             if (!currentPrivateModeState.isAltBufferEnabled()) lastRowToDisplay = lastRowToDisplayMax;
             int dirtyLinesMask = 0;
-            for (int i = 0; i <= 23; i++) {
+            for (int i = 0; i < HEIGHT; i++) {
                 dirtyLinesMask |= 1 << i;
             }
             final int finalDirtyLinesMask = dirtyLinesMask;
@@ -936,15 +936,13 @@ public class Terminal {
 
         @SuppressWarnings("resource")
         public void validateLineCache() {
-            if (dirty.get() == 0) {
+            if (dirty.getAndSet(0) == 0) {
                 return;
             }
 
-            final int mask = dirty.getAndSet(0);
+            // Redraw every visible row on any change. The per-row dirty bitmask is an int and would
+            // overflow past 32 rows (our terminal is taller), so we don't rely on individual bits.
             for (int row = 0; row < lines.length; row++) {
-                if ((mask & (1 << row)) == 0) {
-                    continue;
-                }
                 BufferBuilder builder = Tesselator.getInstance().getBuilder();
 
                 final Matrix4f matrix = new Matrix4f().translate(0, row * CHAR_HEIGHT, 0);

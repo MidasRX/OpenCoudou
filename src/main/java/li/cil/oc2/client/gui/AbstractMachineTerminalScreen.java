@@ -122,6 +122,11 @@ public abstract class AbstractMachineTerminalScreen<T extends AbstractMachineTer
 
     @Override
     public void init() {
+        // Fill most of the screen so the (up to 160x50) terminal is rendered as large as possible.
+        // Leave a left/right margin for the sidebar buttons, and a little top/bottom.
+        imageWidth = Math.max(Sprites.TERMINAL_SCREEN.width, width - 2 * (Sprites.SIDEBAR_3.width + 12));
+        imageHeight = Math.max(Sprites.TERMINAL_SCREEN.height, height - 24);
+
         super.init();
         terminalWidget.init();
 
@@ -266,5 +271,21 @@ public abstract class AbstractMachineTerminalScreen<T extends AbstractMachineTer
 
     private boolean shouldRenderEnergyBar() {
         return menu.getEnergyCapacity() > 0;
+    }
+
+    public int getPanelWidth() {
+        return imageWidth;
+    }
+
+    public int getPanelHeight() {
+        return imageHeight;
+    }
+
+    public int getPanelLeft() {
+        return leftPos;
+    }
+
+    public int getPanelTop() {
+        return topPos;
     }
 }

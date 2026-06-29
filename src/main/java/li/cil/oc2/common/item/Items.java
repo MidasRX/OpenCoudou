@@ -6,7 +6,6 @@ import li.cil.oc2.api.API;
 import li.cil.oc2.common.Constants;
 import li.cil.oc2.common.config.Config;
 import li.cil.oc2.common.block.Blocks;
-import li.cil.oc2.common.bus.device.data.FirmwareRegistry;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -51,13 +50,13 @@ public final class Items {
     public static final RegistryObject<NetworkCableItem> NETWORK_CABLE = register("network_cable", NetworkCableItem::new);
 
     public static final RegistryObject<MemoryItem> MEMORY_SMALL = register("memory_small", () ->
-        new MemoryItem(2 * Constants.MEGABYTE));
+        new MemoryItem(64 * Constants.MEGABYTE));
     public static final RegistryObject<MemoryItem> MEMORY_MEDIUM = register("memory_medium", () ->
-        new MemoryItem(4 * Constants.MEGABYTE));
+        new MemoryItem(128 * Constants.MEGABYTE));
     public static final RegistryObject<MemoryItem> MEMORY_LARGE = register("memory_large", () ->
-        new MemoryItem(8 * Constants.MEGABYTE));
+        new MemoryItem(256 * Constants.MEGABYTE));
     public static final RegistryObject<MemoryItem> MEMORY_EXTRA_LARGE = register("memory_extra_large", () ->
-        new MemoryItem(16 * Constants.MEGABYTE));
+        new MemoryItem(512 * Constants.MEGABYTE));
 
     public static final RegistryObject<HardDriveItem> HARD_DRIVE_SMALL = register("hard_drive_small", () ->
         new HardDriveItem(Config.diskSizeFactor, DyeColor.LIGHT_GRAY));
@@ -80,13 +79,11 @@ public final class Items {
         new CPUItem(1_000_000_000));
     public static final RegistryObject<FlashMemoryItem> FLASH_MEMORY = register("flash_memory", () ->
         new FlashMemoryItem(12 * Constants.MEGABYTE));
-    public static final RegistryObject<FlashMemoryWithExternalDataItem> FLASH_MEMORY_CUSTOM = register("flash_memory_custom", () ->
-        new FlashMemoryWithExternalDataItem(FirmwareRegistry.MINUX.getId()));
 
     public static final RegistryObject<FloppyItem> FLOPPY = register("floppy", () ->
-        new FloppyItem(512 * Constants.KILOBYTE));
+        new FloppyItem(4 * Constants.MEGABYTE));
     public static final RegistryObject<FloppyItem> FLOPPY_MODERN = register("floppy_modern", () ->
-        new FloppyItem(1440 * Constants.KILOBYTE));
+        new FloppyItem(8 * Constants.MEGABYTE));
 
     public static final RegistryObject<Item> REDSTONE_INTERFACE_CARD = register("redstone_interface_card");
     public static final RegistryObject<Item> NETWORK_INTERFACE_CARD = register("network_interface_card", NetworkInterfaceCardItem::new);

@@ -15,8 +15,8 @@ import java.util.UUID;
 @SuppressWarnings("FieldMayBeFinal")
 public final class Config {
     //TODO: Implement configuration of CPU MHzs
-    public static long maxAllocatedMemory = 512 * Constants.MEGABYTE;
-    public static int diskSizeFactor = 2 * Constants.MEGABYTE;
+    public static long maxAllocatedMemory = 4096L * Constants.MEGABYTE;
+    public static int diskSizeFactor = 64 * Constants.MEGABYTE;
 
     public static double busCableEnergyPerTick = 0.1;
     public static double busInterfaceEnergyPerTick = 0.5;
@@ -60,7 +60,7 @@ public final class Config {
     public static int remotePort = 4789;
     public static String bindHost = "::1";
     public static int bindPort = 4789;
-    public static boolean internetCardEnabled = false;
+    public static boolean internetCardEnabled = true;
     public static int defaultSessionLifetimeMs = 60 * 1000;
     public static int defaultSessionsNumberPerCardLimit = 10;
     public static int defaultSessionsNumberLimit = 100;

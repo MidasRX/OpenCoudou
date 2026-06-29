@@ -12,9 +12,6 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 
 @OnlyIn(Dist.CLIENT)
 public final class RobotTerminalScreen extends AbstractMachineTerminalScreen<RobotTerminalContainer> {
-    private static final int SLOTS_X = (MachineTerminalWidget.WIDTH - Sprites.HOTBAR.width) / 2;
-    private static final int SLOTS_Y = MachineTerminalWidget.HEIGHT - 1;
-
     ///////////////////////////////////////////////////////////////////
 
     @SuppressWarnings("all") private EditBox focusIndicatorEditBox;
@@ -29,8 +26,10 @@ public final class RobotTerminalScreen extends AbstractMachineTerminalScreen<Rob
 
     @Override
     protected void renderBg(final GuiGraphics graphics, final float partialTicks, final int mouseX, final int mouseY) {
-        Sprites.HOTBAR.draw(graphics, leftPos + SLOTS_X, topPos + SLOTS_Y);
-        RobotContainerScreen.renderSelection(graphics, menu.getRobot().getSelectedSlot(), leftPos + SLOTS_X + 4, topPos + SLOTS_Y + 4, 12);
+        final int slotsX = (getPanelWidth() - Sprites.HOTBAR.width) / 2;
+        final int slotsY = getPanelHeight() - 1;
+        Sprites.HOTBAR.draw(graphics, leftPos + slotsX, topPos + slotsY);
+        RobotContainerScreen.renderSelection(graphics, menu.getRobot().getSelectedSlot(), leftPos + slotsX + 4, topPos + slotsY + 4, 12);
 
         super.renderBg(graphics, partialTicks, mouseX, mouseY);
     }
